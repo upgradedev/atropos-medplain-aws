@@ -57,3 +57,30 @@ def test_model_outage_never_publishes_unchecked_text(client, monkeypatch):
     assert response.status_code == 503
     assert "secret" not in response.text
     assert "No patient explanation was published" in response.text
+
+
+def test_valid_receipt_for_wrong_session_cannot_publish(client, monkeypatch):
+    import medplain.engine
+    original = medplain.engine.run_packet
+
+    def wrong_session(packet, session_id, **kwargs):
+        result = original(packet, "another-session", **kwargs)
+        result["session_id"] = session_id
+        return result
+
+    monkeypatch.setattr(medplain.engine, "run_packet", wrong_session)
+    response = client.post("/api/explain", json={"packet_id": "home-after-pneumonia"})
+    assert response.status_code == 503
+
+
+def test_busy_workers_and_invalid_runtime_have_visible_reasons(client, monkeypatch):
+    import medplain.api
+    monkeypatch.setenv("MEDPLAIN_MODEL_MODE", "unsupported")
+    assert client.post("/api/explain", json={"packet_id": "home-after-pneumonia"}).status_code == 503
+    monkeypatch.setenv("MEDPLAIN_MODEL_MODE", "fixture")
+    from threading import BoundedSemaphore
+    busy = BoundedSemaphore(1)
+    busy.acquire()
+    monkeypatch.setattr(medplain.api, "ACTIVE", busy)
+    response = client.post("/api/explain", json={"packet_id": "home-after-pneumonia"})
+    assert response.status_code == 429 and "busy" in response.text

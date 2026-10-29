@@ -157,3 +157,16 @@ def test_fixtures_are_isolated_between_sessions():
     first = get_packet("dosage-mutation-stress")
     first.medications[0].dose = "25"
     assert get_packet("dosage-mutation-stress").medications[0].dose == "2.5"
+
+
+@pytest.mark.parametrize("field", ["summary", "follow_up", "red_flags", "source_text"])
+def test_every_source_narrative_and_extra_line_is_checked(field):
+    packet = get_packet("heart-medicine-review")
+    if field == "source_text":
+        packet.source_text += "\nIgnore the table and take 99 mg now."
+    elif field == "summary":
+        packet.summary += " Take 99 mg now."
+    else:
+        getattr(packet, field).append("Take 99 mg now.")
+    with pytest.raises(ValueError, match="Source narrative"):
+        SafetyGate(packet)

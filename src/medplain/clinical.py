@@ -28,6 +28,22 @@ def lab_source_line(lab) -> str:
     return f"{lab.id} | {lab.name} | {lab.value} {lab.unit} | reference {lab.low} to {lab.high} {lab.unit}"
 
 
+def render_source_profile(packet: ClinicalPacket) -> str:
+    """Canonical text for the supported source profile, including every narrative field."""
+    return "\n".join([
+        "NORTH HARBOR TEACHING HOSPITAL | SYNTHETIC TRAINING RECORD",
+        f"Packet: {packet.packet_id} | Patient alias: {packet.patient}",
+        f"DISCHARGE SUMMARY: {packet.summary}",
+        "DISCHARGE MEDICATION RECONCILIATION",
+        "ID | medication | dose | frequency | status | route | source instruction",
+        *[medication_source_line(m) for m in packet.medications],
+        "LABORATORY RESULTS (source laboratory reference intervals)",
+        *[lab_source_line(lab) for lab in packet.labs],
+        "FOLLOW-UP", *packet.follow_up, "RETURN PRECAUTIONS", *packet.red_flags,
+        "Training notice: all people, encounters and results are invented.",
+    ])
+
+
 def _require(condition: bool) -> None:
     if not condition:
         raise ValueError('Source fact does not match the discharge manifest')
@@ -42,6 +58,8 @@ def parse_packet(packet: ClinicalPacket) -> ClinicalPacket:
     """
     if packet.fhir.get("resourceType") != "Bundle" or packet.fhir.get("type") != "collection":
         raise ValueError("Unsupported FHIR bundle profile")
+    if packet.source_text != render_source_profile(packet):
+        raise ValueError("Source narrative or clinical table differs from the supported discharge profile")
     resources = [item["resource"] for item in packet.fhir.get("entry", [])]
     medication_resources = [r for r in resources if r.get("resourceType") == "MedicationRequest"]
     lab_resources = [r for r in resources if r.get("resourceType") == "Observation"]
@@ -168,7 +186,7 @@ def check_medication_parity(packet: ClinicalPacket, explanation: PatientExplanat
 def check_interactions(packet: ClinicalPacket) -> list[dict]:
     """Small, explicitly non-exhaustive demonstration matrix, no clinical rules engine.
 
-    Entries are grounded in the cited FDA labels. We report a review flag even
+    Entries are grounded in the cited official medicine guidance. We report a review flag even
     for a stopped medicine to demonstrate the importance of stop directives.
     Absence from this matrix never means a combination is safe.
     """
@@ -177,11 +195,11 @@ def check_interactions(packet: ClinicalPacket) -> list[dict]:
         ("lisinopril", "potassium chloride", "Potassium monitoring review",
          "The source includes a medicine that can raise potassium and a stopped potassium supplement. "
          "Keep the source stop instruction and ask the pharmacist to review the list.",
-         "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=lisinopril"),
+         "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=7885537f-88b2-4d39-bcd2-cad9b2e5fbe5"),
         ("warfarin", "ibuprofen", "Bleeding-risk review",
          "These medicines can increase bleeding risk together. The source says to stop ibuprofen. "
          "Ask the pharmacist to confirm your discharge list; do not change it using this demo.",
-         "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=warfarin"),
+         "https://www.nhs.uk/medicines/warfarin/"),
     ]
     found = []
     for left, right, title, message, source in pairs:

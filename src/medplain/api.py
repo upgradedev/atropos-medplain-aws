@@ -106,12 +106,15 @@ async def explain(body: ExplainRequest):
         raise HTTPException(503, "The agent runtime is not configured. No explanation was published.")
     if not ACTIVE.acquire(blocking=False):
         raise HTTPException(429, "Both demo workers are busy. Please try again shortly.")
+    session_id = uuid4().hex
     try:
         from medplain.engine import run_packet
 
         result = await run_in_threadpool(
-            run_packet, packet, uuid4().hex, model_mode=mode, stress=body.stress or packet.adversarial,
+            run_packet, packet, session_id, model_mode=mode, stress=body.stress or packet.adversarial,
         )
+        if result.get("status") not in {"verified", "refused"} or result.get("session_id") != session_id:
+            raise ValueError("Workflow result does not belong to this request")
         if result["status"] == "verified":
             candidate = PatientExplanation.model_validate(result["explanation"])
             verdict = SafetyGate(packet).validate(candidate)
@@ -120,6 +123,8 @@ async def explain(body: ExplainRequest):
             if (not verdict.passed or not verify_receipts(result["receipts"])
                     or result["receipts"][-1]["verdict"] != "verified"
                     or result["receipts"][-1]["artifact_hash"] != artifact_hash
+                    or result["receipts"][-1]["source_hash"] != canonical_hash(packet.model_dump())
+                    or result["receipts"][-1]["session_id"] != session_id
                     or result["explanation_text"] != render_explanation(candidate)):
                 raise ValueError("Publication receipt or clinical artifact mismatch")
         elif result.get("explanation") is not None or result.get("explanation_text") is not None:
