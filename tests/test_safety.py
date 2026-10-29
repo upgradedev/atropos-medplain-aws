@@ -170,3 +170,20 @@ def test_every_source_narrative_and_extra_line_is_checked(field):
         getattr(packet, field).append("Take 99 mg now.")
     with pytest.raises(ValueError, match="Source narrative"):
         SafetyGate(packet)
+
+
+@pytest.mark.parametrize("mutation", ["unit_code", "lab_code", "patient", "ambiguous_frequency"])
+def test_fhir_semantic_units_and_patient_identity_are_bound(mutation):
+    packet = get_packet("home-after-pneumonia")
+    resource = packet.fhir["entry"][0]["resource"]
+    if mutation == "unit_code":
+        resource["dosageInstruction"][0]["doseAndRate"][0]["doseQuantity"]["code"] = "mcg"
+    elif mutation == "lab_code":
+        packet.fhir["entry"][-1]["resource"]["valueQuantity"]["code"] = "mg/dL"
+    elif mutation == "patient":
+        resource["subject"]["display"] = "Another patient"
+    else:
+        coding = resource["dosageInstruction"][0]["timing"]["code"]["coding"]
+        coding.append({"code": "TID"})
+    with pytest.raises(ValueError):
+        parse_packet(packet)

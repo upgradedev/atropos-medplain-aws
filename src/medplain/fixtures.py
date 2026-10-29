@@ -1,12 +1,13 @@
 """Wholly invented discharge packets. No real patient data or clinical efficacy claim."""
 
-from medplain.clinical import lab_source_line, medication_source_line
+from medplain.clinical import UCUM_CODES, lab_source_line, medication_source_line
 from medplain.schemas import ClinicalPacket, Lab, Medication
 
 
 def _quantity(value: str, unit: str) -> dict:
     number = float(value) if "." in value else int(value)
-    return {"value": number, "unit": unit, "system": "http://unitsofmeasure.org", "code": unit}
+    return {"value": number, "unit": unit, "system": "http://unitsofmeasure.org",
+            "code": UCUM_CODES.get(unit, unit)}
 
 
 def _packet(packet_id, title, subtitle, patient, summary, medications, labs, follow_up, red_flags,
