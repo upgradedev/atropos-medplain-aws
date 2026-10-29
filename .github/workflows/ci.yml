@@ -39,7 +39,18 @@ jobs:
       - name: Scan tracked source for secrets and prohibited punctuation
         run: python scripts/check_source.py
       - name: Check console source formatting
+        id: console_format
         run: npx --yes prettier@3.5.3 --check 'web/**/*.{ts,tsx,css,js,cjs,json,html}'
+      - name: Prepare formatting repair after a failed check
+        if: ${{ failure() && steps.console_format.outcome == 'failure' }}
+        run: npx --yes prettier@3.5.3 --write 'web/**/*.{ts,tsx,css,js,cjs,json,html}'
+      - name: Publish formatting repair after a failed check
+        if: ${{ failure() && steps.console_format.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: console-format-repair-${{ github.sha }}
+          path: web/
+          retention-days: 2
       - name: Publish formatted console sources
         uses: actions/upload-artifact@v4
         with:
