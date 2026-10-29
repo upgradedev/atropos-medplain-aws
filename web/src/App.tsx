@@ -80,6 +80,7 @@ function Console() {
   const [userMenu, setUserMenu] = useState(false);
   const [search, setSearch] = useState(route.q);
   const [overview, setOverview] = useState<OverviewData | null>(null);
+  const [sessionCaseTotal, setSessionCaseTotal] = useState<number | null>(null);
   const [list, setList] = useState<CaseList | null>(null);
   const [cohort, setCohort] = useState<CaseSummary[]>([]);
   const [error, setError] = useState("");
@@ -198,6 +199,9 @@ function Console() {
     setList(null);
   }, [route.q, route.status]);
   useEffect(() => {
+    setSessionCaseTotal(null);
+  }, [bootstrap?.session.session_id]);
+  useEffect(() => {
     if (!bootstrap) return;
     const controller = new AbortController();
     setLoading(true);
@@ -211,24 +215,35 @@ function Console() {
       limit: String(filters.limit),
       ...(filters.cursor ? { cursor: filters.cursor } : {}),
     });
+    const overviewRequest = api<OverviewData>(
+      `/overview?workspace=${encodeURIComponent(route.workspace)}`,
+      undefined,
+      controller.signal,
+    );
+    const sessionOverviewRequest =
+      route.workspace === "all"
+        ? overviewRequest
+        : api<OverviewData>(
+            "/overview?workspace=all",
+            undefined,
+            controller.signal,
+          );
     void Promise.all([
-      api<OverviewData>(
-        `/overview?workspace=${encodeURIComponent(route.workspace)}`,
-        undefined,
-        controller.signal,
-      ),
+      overviewRequest,
       api<CaseList>(`/cases?${params}`, undefined, controller.signal),
       api<CaseList>(
         `/cases?workspace=${encodeURIComponent(route.workspace)}&limit=20&sort=created_at&direction=desc`,
         undefined,
         controller.signal,
       ),
+      sessionOverviewRequest,
     ])
-      .then(([stats, page, all]) => {
+      .then(([stats, page, all, sessionStats]) => {
         if (!controller.signal.aborted) {
           setOverview(stats);
           setList(page);
           setCohort(all.items);
+          setSessionCaseTotal(sessionStats.counts.total);
         }
       })
       .catch((reason) => {
@@ -371,6 +386,17 @@ function Console() {
     );
   const role = bootstrap.session.role;
   const canCreate = role === "operator" || role === "admin";
+  const loadExamplesReason = sessionBusy
+    ? "A session request is in progress."
+    : !canCreate
+      ? "Switch to operator or admin to add prepared examples."
+      : error
+        ? "Restore the API connection before loading examples."
+        : sessionCaseTotal === null
+          ? "Reading the full session before loading examples."
+          : !bootstrap.collection?.seed_version && sessionCaseTotal > 0
+            ? "Examples can only be added to an empty session. This session already has cases in another or the current desk. Use Open populated demo to create a separate prepared session."
+            : "";
   const queueCount =
     (overview?.counts.review_required || 0) + (overview?.counts.failed || 0);
   const nav = (
@@ -994,16 +1020,13 @@ function Console() {
                     className="button secondary"
                     data-testid="load-demo-examples"
                     onClick={() => void loadPreparedExamples()}
-                    disabled={sessionBusy || !canCreate}
+                    disabled={Boolean(loadExamplesReason)}
                   >
                     Load examples
                   </button>
-                  <p className="control-reason">
-                    {sessionBusy
-                      ? "A session request is in progress."
-                      : !canCreate
-                        ? "Switch to operator or admin to add prepared examples."
-                        : "Adds prepared examples once to this session without running Bedrock. Repeating this action does not duplicate them. Existing new runs remain; the session case limit still applies."}
+                  <p className="control-reason" data-testid="load-demo-examples-reason">
+                    {loadExamplesReason ||
+                      "Loads prepared examples into an empty session without running Bedrock. Once loaded, repeating this action does not duplicate them."}
                   </p>
                 </section>
                 <section className="card settings-card">
@@ -1103,7 +1126,7 @@ function Console() {
           }}
           failed={(text) => toast(text, true)}
           canCreate={canCreate}
-          count={overview?.counts.total || 0}
+            count={sessionCaseTotal || 0}
         />
       ) : null}
       {route.caseId ? (
