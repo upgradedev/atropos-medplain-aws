@@ -196,6 +196,7 @@ export default function Maps({
               <label className="compact-field">
                 Recorded case
                 <select
+                  aria-label="Recorded case"
                   value={caseId}
                   onChange={(event) => setCaseId(event.target.value)}
                 >
