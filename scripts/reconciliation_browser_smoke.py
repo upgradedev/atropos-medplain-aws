@@ -97,7 +97,7 @@ DEVICE_VOICE_SIMULATION = """(() => {
   const calls = []; window.__medplainVoiceTest = calls;
   const voice = {localService:true,lang:'el-GR',name:'CI simulated local Greek voice'};
   Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{
-    getVoices:()=>[voice],addEventListener:()=>{},removeEventListener:()=>{},
+    getVoices:()=>sessionStorage.getItem('medplain.test.voice.unavailable')==='1'?[]:[voice],addEventListener:()=>{},removeEventListener:()=>{},
     speak:utterance=>calls.push({action:'speak',text:utterance.text,lang:utterance.lang}),
     pause:()=>calls.push({action:'pause'}),resume:()=>calls.push({action:'resume'}),
     cancel:()=>calls.push({action:'cancel'})}});
@@ -282,7 +282,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
         assert [row["action"] for row in patient.evaluate("window.__medplainVoiceTest")] == ["speak", "pause", "resume", "cancel"]
         assert not patient.evaluate("document.documentElement.scrollWidth > innerWidth")
         patient.screenshot(path=str(output / "clarification-patient-accessible-mobile-375.png"), full_page=True)
-        patient_context.add_init_script("Object.defineProperty(window.speechSynthesis, 'getVoices', {value:()=>[]})")
+        patient.evaluate("sessionStorage.setItem('medplain.test.voice.unavailable', '1')")
         patient.goto(urljoin(base + "/", patient_path), wait_until="networkidle")
         expect(patient.get_by_role("button", name="Read aloud with device voice", exact=True)).to_be_disabled()
         expect(patient.locator(".reading-controls")).to_contain_text("No local Greek device voice is available")
