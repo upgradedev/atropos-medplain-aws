@@ -219,26 +219,42 @@ def trajectory_valid(result: dict) -> bool:
     if not isinstance(runtime, dict):
         return False
     nodes, tools = runtime.get("nodes_executed", []), runtime.get("tools_executed", [])
+    outcomes = runtime.get("invocation_outcomes")
     if (result.get("status") != "verified" or not isinstance(nodes, list) or not isinstance(tools, list)
-            or any(not isinstance(name, str) for name in nodes)):
+            or any(not isinstance(name, str) or name not in REQUIRED_TOOLS for name in nodes)
+            or not 3 <= len(nodes) <= 10 or len(tools) > 30
+            or runtime.get("orchestrator") != "strands.multiagent.Graph"
+            or runtime.get("graph_status") != "completed" or runtime.get("source_index_verified") is not True
+            or not isinstance(outcomes, list) or len(outcomes) != len(nodes)):
         return False
     corrections = result.get("correction_count")
     if type(corrections) is not int or corrections not in {0, 1}:
-        return False
-    collapsed = [name for index, name in enumerate(nodes) if index == 0 or nodes[index - 1] != name]
-    if collapsed != list(NODES) + list(NODES[1:]) * corrections:
         return False
     fresh = {index: set() for index in range(1, len(nodes) + 1)}
     for tool in tools:
         if not isinstance(tool, dict):
             return False
         index = tool.get("invocation_index")
-        if type(index) is not int or index not in fresh or tool.get("agent") != nodes[index - 1]:
+        if (type(index) is not int or index not in fresh or tool.get("agent") != nodes[index - 1]
+                or tool.get("tool") not in REQUIRED_TOOLS[nodes[index - 1]]
+                or type(tool.get("success")) is not bool):
             return False
         if tool.get("success") is True:
             fresh[index].add(tool.get("tool"))
-    if any(name not in REQUIRED_TOOLS or not set(REQUIRED_TOOLS[name]).issubset(fresh[index])
-           for index, name in enumerate(nodes, start=1)):
+    completed = []
+    for index, name in enumerate(nodes):
+        if outcomes[index] == "repair":
+            # A failed attempt need not have succeeded at its tools. Its
+            # immediate same-node replacement must complete with fresh tools.
+            if index + 1 >= len(nodes) or nodes[index + 1] != name or outcomes[index + 1] != "completed":
+                return False
+        elif outcomes[index] == "completed":
+            if not set(REQUIRED_TOOLS[name]).issubset(fresh[index + 1]):
+                return False
+            completed.append(name)
+        else:
+            return False
+    if completed != list(NODES) + list(NODES[1:]) * corrections:
         return False
     receipts = result.get("receipts")
     return (isinstance(receipts, list) and all(isinstance(row, dict) for row in receipts)

@@ -172,6 +172,27 @@ def test_fresh_tool_and_receipt_trajectory_negative_proofs(paired):
     assert not evaluation.trajectory_valid(result)
 
 
+def test_bounded_failed_invocation_requires_fresh_completed_replacement(paired):
+    from medplain.reconciliation import validate_reconciliation_result
+
+    row = paired["cases"][0]
+    result = copy.deepcopy(row["outcomes"]["strands"]["result"])
+    runtime = result["runtime"]
+    runtime["nodes_executed"].insert(0, evaluation.NODES[0])
+    runtime["invocation_outcomes"].insert(0, "repair")
+    for tool in runtime["tools_executed"]:
+        tool["invocation_index"] += 1
+    # This failed invocation intentionally has no successful tool. The
+    # independently validated replacement has every fresh required tool.
+    validate_reconciliation_result(row["expected"]["dossier"], result, result["session_id"])
+    assert evaluation.trajectory_valid(result)
+    runtime["invocation_outcomes"][0] = "completed"
+    assert not evaluation.trajectory_valid(result)
+    runtime["invocation_outcomes"][0] = "repair"
+    runtime["tools_executed"] = [tool for tool in runtime["tools_executed"] if tool["invocation_index"] != 2]
+    assert not evaluation.trajectory_valid(result)
+
+
 def test_gold_and_family_never_cross_model_boundary(monkeypatch):
     import medplain.reconciliation as core
 
@@ -235,7 +256,18 @@ def fake_http(monkeypatch, commit="a" * 40, wrong_worker=False, wrong_boot=False
             result.update(artifact=artifact, artifact_hash=artifact_digest(artifact),
                           explanation_text=render_artifact(artifact), model_mode="bedrock", session_id=case_id + ":1",
                           commit="b" * 40 if wrong_worker else commit, receipts=[])
-            result["runtime"]["selection"] = selection
+            # Explicit adapter simulation, not evidence of a model call. The
+            # separate complete paired experiment above exercises the SDK.
+            result["runtime"] = {
+                "orchestrator": "strands.multiagent.Graph", "graph_status": "completed",
+                "source_index_verified": True, "selection": selection,
+                "nodes_executed": list(evaluation.NODES), "invocation_outcomes": ["completed"] * 3,
+                "tools_executed": [
+                    {"agent": node, "tool": name, "success": True, "invocation_index": index}
+                    for index, node in enumerate(evaluation.NODES, start=1)
+                    for name in evaluation.REQUIRED_TOOLS[node]
+                ],
+            }
             append_receipt(result["receipts"], dossier, result["session_id"], artifact, [])
             state["cases"][case_id] = {"id": case_id, "generation": 1, "source": dossier,
                                        "source_profile": evaluation.PROFILE, "source_hash": evaluation.digest(dossier),
