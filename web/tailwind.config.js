@@ -1,0 +1,1 @@
+export default { content: ['./index.html', './src/**/*.{ts,tsx}'], theme: { extend: { colors: { canvas: 'var(--canvas)', panel: 'var(--panel)', raised: 'var(--raised)', line: 'var(--line)', ink: 'var(--ink)', muted: 'var(--muted)', accent: 'var(--accent)' } } }, plugins: [] };
