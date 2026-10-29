@@ -15,7 +15,7 @@ FREQUENCIES = {
     "TID": "three times a day",
     "QHS": "at bedtime",
 }
-UCUM_CODES = {"10^9/L": "10*9/L", "ratio": "1"}
+UCUM_CODES = {"mcg": "ug", "10^9/L": "10*9/L", "ratio": "1"}
 
 
 def medication_source_line(med) -> str:
@@ -87,10 +87,13 @@ def parse_packet(packet: ClinicalPacket) -> ClinicalPacket:
             _require(r["medicationCodeableConcept"]["text"] == med.name)
             _require(Decimal(str(quantity["value"])) == Decimal(med.dose))
             _require(quantity["unit"] == med.unit)
-            _require(quantity["code"] == med.unit)
+            _require(quantity["code"] == UCUM_CODES.get(med.unit, med.unit))
             _require(quantity["system"] == "http://unitsofmeasure.org")
+            _require("comparator" not in quantity)
             _require(len(instruction["timing"]["code"]["coding"]) == 1)
             _require(instruction["timing"]["code"]["coding"][0]["code"] == med.frequency)
+            _require(instruction["timing"]["code"]["coding"][0]["system"] ==
+                     "http://terminology.hl7.org/CodeSystem/v3-GTSAbbreviation")
             _require(instruction["route"]["text"] == med.route)
             _require(instruction["text"] == med.instruction)
             _require(r["status"] == med.status)
@@ -107,12 +110,15 @@ def parse_packet(packet: ClinicalPacket) -> ClinicalPacket:
             _require(r["valueQuantity"]["unit"] == lab.unit)
             _require(r["valueQuantity"]["code"] == UCUM_CODES.get(lab.unit, lab.unit))
             _require(r["valueQuantity"]["system"] == "http://unitsofmeasure.org")
+            _require("comparator" not in r["valueQuantity"])
             _require(len(r["referenceRange"]) == 1)
             reference = r["referenceRange"][0]
             _require(Decimal(str(reference["low"]["value"])) == Decimal(lab.low))
             _require(Decimal(str(reference["high"]["value"])) == Decimal(lab.high))
             _require(reference["low"]["unit"] == reference["high"]["unit"] == lab.unit)
             _require(reference["low"]["code"] == reference["high"]["code"] == UCUM_CODES.get(lab.unit, lab.unit))
+            _require(reference["low"]["system"] == reference["high"]["system"] == "http://unitsofmeasure.org")
+            _require("comparator" not in reference["low"] and "comparator" not in reference["high"])
             _require(source_lines.count(lab_source_line(lab)) == 1)
         except (KeyError, IndexError, AssertionError, TypeError) as exc:
             raise ValueError(f"Source lab mismatch: {lab.id}") from exc

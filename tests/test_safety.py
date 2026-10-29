@@ -172,7 +172,7 @@ def test_every_source_narrative_and_extra_line_is_checked(field):
         SafetyGate(packet)
 
 
-@pytest.mark.parametrize("mutation", ["unit_code", "lab_code", "patient", "ambiguous_frequency"])
+@pytest.mark.parametrize("mutation", ["unit_code", "lab_code", "patient", "ambiguous_frequency", "comparator"])
 def test_fhir_semantic_units_and_patient_identity_are_bound(mutation):
     packet = get_packet("home-after-pneumonia")
     resource = packet.fhir["entry"][0]["resource"]
@@ -182,6 +182,8 @@ def test_fhir_semantic_units_and_patient_identity_are_bound(mutation):
         packet.fhir["entry"][-1]["resource"]["valueQuantity"]["code"] = "mg/dL"
     elif mutation == "patient":
         resource["subject"]["display"] = "Another patient"
+    elif mutation == "comparator":
+        resource["dosageInstruction"][0]["doseAndRate"][0]["doseQuantity"]["comparator"] = "<"
     else:
         coding = resource["dosageInstruction"][0]["timing"]["code"]["coding"]
         coding.append({"code": "TID"})
