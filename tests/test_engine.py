@@ -9,11 +9,11 @@ from types import SimpleNamespace
 import pytest
 
 from medplain import engine
-from medplain.clinical import build_explanation
+from medplain.clinical import build_explanation, medication_source_line
 from medplain.engine import AGENT_NAMES, EXPLAINER, PARSER, VERIFIER, RequestContext, run_packet
 from medplain.fixture_model import FixtureModel
 from medplain.fixtures import get_packets
-from medplain.gate import ReceiptChain, verify_receipts
+from medplain.gate import ReceiptChain, canonical_hash, verify_receipts
 from medplain.hooks import MAX_CANDIDATES, MAX_MODEL_TURNS_PER_NODE, ClinicalSafetyGateHook
 from medplain.schemas import PatientExplanation
 
@@ -187,7 +187,11 @@ def test_nested_verification_schema_requires_complete_clinical_evidence():
 
     with pytest.raises(ValidationError):
         engine.MedicationVerification(
-            packet_id="packet", medication_discrepancies=[], interactions=[{"title": "Incomplete"}],
+            packet_id="packet", medication_evidence_sha256="not-a-hash", interaction_evidence_sha256="0" * 64,
+        )
+    with pytest.raises(ValidationError):
+        engine.InteractionLookupEvidence(
+            packet_id="packet", source_hash="0" * 64, interactions=[{"title": "Incomplete"}],
         )
     with pytest.raises(ValidationError):
         engine.ParsedClinicalRecord(packet_id="packet", source_verified=True, labs=[{"id": "lab"}])
@@ -245,8 +249,8 @@ def test_actual_stress_correction_requires_fresh_verifier_tools(monkeypatch):
             if role not in context.expected_results:
                 return {
                     "packet_id": context.packet.packet_id,
-                    "medication_discrepancies": [],
-                    "interactions": engine.check_interactions(context.packet),
+                    "medication_evidence_sha256": "0" * 64,
+                    "interaction_evidence_sha256": "0" * 64,
                 }
             return original_payload()
 
@@ -284,6 +288,80 @@ def test_missing_tool_repair_budget_is_separate_and_fails_closed():
     assert hook.structured_output_repairs == 0
     with pytest.raises(RuntimeError, match="deterministic tools"):
         hook.after_invocation(SimpleNamespace(result=SimpleNamespace(structured_output=None), resume=None))
+
+
+def test_verifier_returns_only_exact_references_to_typed_deterministic_evidence():
+    packet = next(packet for packet in get_packets() if packet.packet_id == "heart-medicine-review")
+    context = RequestContext(packet, "bound-evidence", False, ReceiptChain("bound-evidence", packet))
+    tools = engine._tools(context)
+    tools[PARSER][0]()
+    medication = tools[VERIFIER][0]()
+    interaction = tools[VERIFIER][1]()
+    assert medication["medication_discrepancies"] == []
+    assert interaction["interactions"], "Fixture deliberately has an interaction review flag"
+    expected = context.expected_results[VERIFIER]
+    assert set(expected) == {"packet_id", "medication_evidence_sha256", "interaction_evidence_sha256"}
+    assert expected["medication_evidence_sha256"] == canonical_hash({
+        key: value for key, value in medication.items() if key != "medication_evidence_sha256"
+    })
+    assert expected["interaction_evidence_sha256"] == canonical_hash({
+        key: value for key, value in interaction.items() if key != "interaction_evidence_sha256"
+    })
+    assert context.interactions == interaction["interactions"]
+
+
+def test_evidence_hash_binds_changed_candidate_and_changed_source():
+    packet = get_packets()[0]
+    context = RequestContext(packet, "candidate-bind", False, ReceiptChain("candidate-bind", packet))
+    tools = engine._tools(context)
+    tools[PARSER][0]()
+    baseline_medication = tools[VERIFIER][0]()
+    baseline_interaction = tools[VERIFIER][1]()
+    context.candidate = build_explanation(packet)
+    context.candidate.medications[0].dose = "9999"
+    changed_candidate = tools[VERIFIER][0]()
+    assert changed_candidate["medication_evidence_sha256"] != baseline_medication["medication_evidence_sha256"]
+    assert changed_candidate["source_hash"] == baseline_medication["source_hash"]
+    assert changed_candidate["medication_discrepancies"]
+
+    changed_source = packet.model_copy(deep=True)
+    old_line = medication_source_line(changed_source.medications[0])
+    changed_source.medications[0].dose = "11"
+    changed_source.source_text = changed_source.source_text.replace(
+        old_line, medication_source_line(changed_source.medications[0]), 1,
+    )
+    for entry in changed_source.fhir["entry"]:
+        resource = entry["resource"]
+        if resource["id"] == changed_source.medications[0].id:
+            resource["dosageInstruction"][0]["doseAndRate"][0]["doseQuantity"]["value"] = 11
+    changed_context = RequestContext(
+        changed_source, "source-bind", False, ReceiptChain("source-bind", changed_source),
+    )
+    changed_tools = engine._tools(changed_context)
+    changed_tools[PARSER][0]()
+    changed_medication = changed_tools[VERIFIER][0]()
+    changed_interaction = changed_tools[VERIFIER][1]()
+    assert changed_medication["medication_evidence_sha256"] != baseline_medication["medication_evidence_sha256"]
+    assert changed_interaction["interaction_evidence_sha256"] != baseline_interaction["interaction_evidence_sha256"]
+
+
+def test_wrong_evidence_hash_never_publishes_patient_content(monkeypatch):
+    original_model = engine._model
+
+    def wrong_hash(mode, context, role, tools, output_model):
+        model = original_model(mode, context, role, tools, output_model)
+        payload = model._payload
+        if role == VERIFIER:
+            model._payload = lambda: {**payload(), "medication_evidence_sha256": "0" * 64}
+        return model
+
+    monkeypatch.setattr(engine, "_model", wrong_hash)
+    result = run_packet(get_packets()[0], "wrong-evidence-hash")
+    assert result["status"] == "refused", result
+    assert result["explanation"] is None
+    assert result["receipts"] == []
+    assert result["runtime"]["structured_output_repairs"] == 1
+    assert any("medication_evidence_sha256" in event["message"] for event in result["trace"])
 
 
 def test_fixture_adapter_is_bounded_and_pydantic_validated():
