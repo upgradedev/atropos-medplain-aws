@@ -2,8 +2,11 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError, api, key, message } from "./api";
 import type { Bootstrap, CaseSummary, IntakeTemplate } from "./types";
 import { Dialog, Icon, State } from "./ui";
+import ReconciliationForm, {
+  type ReconciliationSeed,
+} from "./ReconciliationForm";
 
-type InputMode = "sample" | "import";
+type InputMode = "sample" | "import" | "reconcile";
 
 function submissionError(cause: unknown, importing: boolean): string {
   if (!importing || !(cause instanceof ApiError)) return message(cause);
@@ -25,6 +28,7 @@ export default function NewCase({
   failed,
   canCreate,
   count,
+  reconciliationSeed,
 }: {
   bootstrap: Bootstrap;
   stressDefault: boolean;
@@ -34,6 +38,7 @@ export default function NewCase({
   failed: (text: string) => void;
   canCreate: boolean;
   count: number;
+  reconciliationSeed?: ReconciliationSeed | null;
 }) {
   const initial = stressDefault
     ? bootstrap.packets.find((item) => item.stress_available) ||
@@ -46,7 +51,9 @@ export default function NewCase({
   const [stress, setStress] = useState(
     Boolean(initial?.stress_available) && stressDefault,
   );
-  const [mode, setMode] = useState<InputMode>("sample");
+  const [mode, setMode] = useState<InputMode>(
+    reconciliationSeed ? "reconcile" : "sample",
+  );
   const [template, setTemplate] = useState<IntakeTemplate | null>(null);
   const [templateError, setTemplateError] = useState("");
   const [templateRevision, setTemplateRevision] = useState(0);
@@ -146,6 +153,20 @@ export default function NewCase({
       setBusy(false);
     }
   };
+  if (mode === "reconcile")
+    return (
+      <ReconciliationForm
+        bootstrap={bootstrap}
+        workspace={workspace}
+        count={count}
+        canCreate={canCreate}
+        close={close}
+        done={done}
+        failed={failed}
+        seed={reconciliationSeed}
+        back={() => setMode("sample")}
+      />
+    );
   return (
     <Dialog title="New verification case" onClose={close}>
       <form className="new-case-body" onSubmit={(event) => void submit(event)}>
@@ -186,6 +207,20 @@ export default function NewCase({
               data-testid="import-note-mode"
             />
             Import synthetic note
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="intake-mode"
+              value="reconcile"
+              checked={false}
+              onChange={() => {
+                setMode("reconcile");
+                edited();
+              }}
+              data-testid="reconcile-packet-mode"
+            />
+            Reconcile multiple sources
           </label>
         </fieldset>
         {mode === "sample" ? (

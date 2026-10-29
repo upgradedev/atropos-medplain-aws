@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from medplain.clinical import check_interactions, parse_packet
+from medplain.clinical import parse_packet
 from medplain.fixtures import get_packet, get_packets
 from medplain.gate import canonical_hash
 from medplain.ops_store import Conflict, DailyLimit, daily_allowance
@@ -58,10 +58,15 @@ def event(kind: str, message: str) -> dict:
 
 
 def summary(case: dict) -> dict:
+    dossier = case.get("source_profile") == "medplain-reconciliation-v1"
+    artifact = (case.get("result") or {}).get("artifact") or {}
     return {**{key: case[key] for key in SUMMARY_KEYS},
             "origin": case.get("origin", "unknown"), "prepared": case.get("prepared"),
-            "source_kind": "imported_note" if case.get("intake") is not None else "sample",
-            "source_sha256": case["intake"]["source_sha256"] if case.get("intake") else None}
+            "source_kind": "reconciliation" if dossier else "imported_note" if case.get("intake") is not None else "sample",
+            "source_sha256": case["intake"]["source_sha256"] if case.get("intake") else None,
+            "source_profile": case.get("source_profile"), "parent_case_id": case.get("parent_case_id"),
+            "artifact_kind": "clarification_plan" if dossier else "patient_explanation",
+            "structural_issue_count": len(artifact.get("structural_issues", [])) if dossier else None}
 
 
 def detail(case: dict) -> dict:
@@ -212,6 +217,74 @@ class OpsService:
             raise OpsError(422, str(exc)) from None
         return self.create(pk, session, bundle.packet.packet_id, facility_id, False, idempotency_key,
                            _compiled_packet=bundle.packet, _intake=bundle.intake)
+
+    def reconcile_case(self, pk: str, session: dict, dossier: dict, synthetic_confirmed: bool,
+                       facility_id: str, idempotency_key: str, parent_case_id: str | None = None,
+                       stress: bool = False) -> tuple[dict, bool, str]:
+        """Queue a new immutable dossier or revision, without replacing old evidence."""
+        from medplain.reconciliation import PROFILE, validate_dossier
+
+        self.require(session, {"operator", "admin"})
+        if synthetic_confirmed is not True or type(stress) is not bool:
+            raise OpsError(422, "Explicitly confirm that all source documents are invented.")
+        if facility_id not in {f["id"] for f in FACILITIES}:
+            raise OpsError(422, "Choose one of the synthetic discharge desks.")
+        if parent_case_id is not None:
+            parent = self.get_case(pk, parent_case_id)
+            if parent.get("source_profile") != PROFILE:
+                raise OpsError(422, "Source revisions require an existing reconciliation dossier.")
+        try:
+            source = validate_dossier(dossier)
+        except (ValueError, TypeError):
+            raise OpsError(422, "Invalid synthetic dossier. Check document identifiers, kinds, dates and source limits.") from None
+        source_hash = canonical_hash(source)
+        fingerprint = canonical_hash({"source_profile": PROFILE, "source_hash": source_hash,
+                                      "facility_id": facility_id, "stress": stress,
+                                      "parent_case_id": parent_case_id})
+        idem_sk = "IDEM#CREATE#" + hashlib.sha256(idempotency_key.encode()).hexdigest()
+
+        def existing():
+            prior = self.store.get(pk, idem_sk)
+            if prior:
+                if prior["fingerprint"] != fingerprint:
+                    raise OpsError(409, "This idempotency key already identifies a different request.")
+                case = self.get_case(pk, prior["case_id"])
+                return case, False, f"{case['id']}:1"
+            return None
+
+        replay = existing()
+        if replay:
+            return replay
+        if session["case_count"] >= 20:
+            raise OpsError(429, "This session has reached its limit of 20 synthetic cases.")
+        now = utc_now()
+        case = {"id": uuid4().hex, "packet_id": "dossier-" + source_hash[:24],
+                "packet_title": "Clarification for " + source["patient_alias"],
+                "facility_id": facility_id, "status": "queued", "version": 1, "generation": 1,
+                "created_at": now, "updated_at": now, "duration_ms": None, "correction_count": 0,
+                "source_hash": source_hash, "artifact_hash": None, "patient_url": None, "error": None,
+                "source": source, "source_profile": PROFILE, "parent_case_id": parent_case_id,
+                "result": None, "intake": None, "events": [event(
+                    "queued", "Invented source dossier committed with its processing outbox entry; no treatment plan is inferred.")],
+                "review": None, "ttl": session["ttl"], "stress": stress, "lease_owner": None,
+                "lease_until": 0, "execution_id": None, "retry_requests": {},
+                "origin": "live_run", "prepared": None}
+        if parent_case_id is not None:
+            case["events"].append(event("source_revision", "New source revision linked to case " + parent_case_id
+                                        + "; the original case and verification evidence remain unchanged."))
+        idem = {"sk": idem_sk, "case_id": case["id"], "fingerprint": fingerprint, "ttl": session["ttl"]}
+        try:
+            self.store.create(pk, case, outbox_for(case), idem)
+        except (Conflict, DailyLimit) as exc:
+            replay = existing()
+            if replay:
+                return replay
+            if isinstance(exc, DailyLimit):
+                raise OpsError(429, "Daily synthetic job allowance reached; resets at 00:00 UTC.") from None
+            if len(self.store.cases(pk)) >= 20:
+                raise OpsError(429, "This session has reached its limit of 20 synthetic cases.") from None
+            raise OpsError(409, "The case changed concurrently. Refresh and retry.") from None
+        return case, True, f"{case['id']}:1"
 
     def create(self, pk: str, session: dict, packet_id: str, facility_id: str,
                stress: bool, idempotency_key: str, *, _compiled_packet: ClinicalPacket | None = None,
@@ -386,7 +459,7 @@ class OpsService:
         return case
 
     def complete(self, pk: str, claimed: dict, result: dict | None, duration_ms: int) -> bool:
-        from medplain.ops_validation import validate_result
+        from medplain.ops_validation import validate_case_evidence
 
         current = self.store.get(pk, "CASE#" + claimed["id"])
         if (not current or current["status"] != "processing" or current["generation"] != claimed["generation"]
@@ -396,12 +469,9 @@ class OpsService:
         error = "The agents could not complete verification. No patient explanation was released."
         if result is not None:
             try:
-                packet = ClinicalPacket.model_validate(current["source"])
-                if canonical_hash(packet.model_dump()) != current["source_hash"]:
-                    raise ValueError("Source snapshot changed")
-                artifact_hash = validate_result(packet, result, current["execution_id"], current.get("intake"))
-                if result.get("interactions") != check_interactions(packet):
-                    raise ValueError("Interaction evidence changed")
+                artifact_hash = validate_case_evidence({**current, "result": result})
+                if len(json.dumps({"source": current["source"], "result": result}, ensure_ascii=False).encode()) > 300000:
+                    raise ValueError("Evidence exceeds bounded synthetic storage size")
             except (ValueError, KeyError, TypeError):
                 result = None
                 artifact_hash = None
@@ -414,13 +484,19 @@ class OpsService:
             current.update(status="failed", error=error)
             current["events"].append(event("failed", error))
         else:
+            dossier = current.get("source_profile") == "medplain-reconciliation-v1"
             for receipt in result["receipts"]:
                 current["events"].append({"id": uuid4().hex, "type": "gate_" + receipt["verdict"],
                                           "at": receipt["timestamp"],
-                                          "message": ("The clinical fidelity gate withheld a changed candidate."
+                                          "message": ("The source-citation gate withheld a changed clarification card."
+                                                      if dossier and receipt["verdict"] == "refused" else
+                                                      "The source-citation gate verified clarification-card integrity; no treatment regimen was authorized."
+                                                      if dossier else
+                                                      "The clinical fidelity gate withheld a changed candidate."
                                                       if receipt["verdict"] == "refused" else
                                                       "The clinical fidelity gate verified the exact patient artifact.")})
-            needs_review = bool(current.get("intake") or check_interactions(packet) or current["correction_count"] > 0)
+            needs_review = bool(dossier or current.get("intake") or result.get("interactions")
+                                or current["correction_count"] > 0)
             current.update(status="review_required" if needs_review else "released", error=None)
             current["events"].append(event(current["status"],
                                            "Verified artifact awaits synthetic reviewer release."
@@ -435,7 +511,7 @@ class OpsService:
 
     def review(self, pk: str, session: dict, case_id: str, decision: str, expected_version: int,
                source_hash: str, artifact_hash: str, comment: str) -> dict:
-        from medplain.ops_validation import validate_result
+        from medplain.ops_validation import validate_case_evidence
 
         self.require(session, {"reviewer", "admin"})
         case = self.get_case(pk, case_id)
@@ -445,10 +521,7 @@ class OpsService:
         if decision not in {"release", "reject"}:
             raise OpsError(422, "Choose release or reject.")
         try:
-            packet = ClinicalPacket.model_validate(case["source"])
-            if (canonical_hash(packet.model_dump()) != source_hash
-                    or validate_result(packet, case["result"], case["execution_id"], case.get("intake")) != artifact_hash
-                    or case["result"].get("interactions") != check_interactions(packet)):
+            if validate_case_evidence(case) != artifact_hash:
                 raise ValueError()
         except (ValueError, KeyError, TypeError):
             raise OpsError(409, "The independent publication check failed. This artifact cannot be released.") from None
@@ -472,11 +545,15 @@ class OpsService:
         return {"id": share_id, "ttl": case["ttl"], "execution_id": case["execution_id"],
                 "case": {**{key: case[key] for key in ["id", "packet_title", "facility_id", "status", "generation",
                                                       "source_hash", "artifact_hash", "updated_at"]},
-                         "origin": case.get("origin", "unknown"), "prepared": case.get("prepared")},
-                "source": case["source"], "result": case["result"], "intake": case.get("intake")}
+                         "origin": case.get("origin", "unknown"), "prepared": case.get("prepared"),
+                         "source_profile": case.get("source_profile"),
+                         "artifact_kind": "clarification_plan" if case.get("source_profile") == "medplain-reconciliation-v1"
+                         else "patient_explanation"},
+                "source": case["source"], "result": case["result"], "intake": case.get("intake"),
+                "source_profile": case.get("source_profile")}
 
     def patient(self, share_id: str) -> dict:
-        from medplain.ops_validation import validate_result
+        from medplain.ops_validation import validate_case_evidence
 
         if not 32 <= len(share_id) <= 128:
             raise OpsError(404, "This released synthetic explanation is unavailable or expired.")
@@ -484,18 +561,21 @@ class OpsService:
         if not share:
             raise OpsError(404, "This released synthetic explanation is unavailable or expired.")
         try:
-            packet = ClinicalPacket.model_validate(share["source"])
             if (share["case"]["status"] != "released"
-                    or canonical_hash(packet.model_dump()) != share["case"]["source_hash"]
-                    or validate_result(packet, share["result"], share["execution_id"], share.get("intake")) != share["case"]["artifact_hash"]
-                    or share["result"].get("interactions") != check_interactions(packet)):
+                    or validate_case_evidence({**share, "source_hash": share["case"]["source_hash"]}) != share["case"]["artifact_hash"]):
                 raise ValueError()
         except (ValueError, KeyError, TypeError):
             raise OpsError(409, "The released artifact did not pass its independent integrity check.") from None
         # The receipt's session_id is a graph execution correlation ID, not the
         # anonymous API session. No API token, owner key or role is published.
-        result = {key: share["result"][key] for key in ["status", "explanation", "explanation_text", "trace",
-                                                       "receipts", "interactions", "correction_count", "model_mode"]}
+        dossier = share.get("source_profile") == "medplain-reconciliation-v1"
+        keys = (["status", "source_profile", "source_hash", "artifact_kind", "artifact", "artifact_hash",
+                 "patient_regimen", "explanation_text", "trace", "receipts", "correction_count", "model_mode"]
+                if dossier else ["status", "explanation", "explanation_text", "trace", "receipts",
+                                 "interactions", "correction_count", "model_mode"])
+        result = {key: share["result"][key] for key in keys}
         return {"case": share["case"], "source": share["source"], "result": result,
                 "receipts": result["receipts"],
-                "scope": "Synthetic demonstration of source fidelity, not clinical appropriateness."}
+                "source_profile": share.get("source_profile"),
+                "scope": ("Reviewed source-cited clarification card. No medication regimen is authorized."
+                          if dossier else "Synthetic demonstration of source fidelity, not clinical appropriateness.")}

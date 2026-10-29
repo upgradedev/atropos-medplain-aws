@@ -50,8 +50,13 @@ def verify_archive(archive_path: Path, console: Path) -> dict:
         if evaluation.is_file():
             if archive.read("medplain/data/evaluation_report.json") != evaluation.read_bytes():
                 raise ValueError("packaged evaluation report differs from the measured CI comparison")
+        reconciliation = Path("src/medplain/data/reconciliation_report.json")
+        if reconciliation.is_file():
+            if archive.read("medplain/data/reconciliation_report.json") != reconciliation.read_bytes():
+                raise ValueError("packaged reconciliation report differs from the measured CI comparison")
     return {"archive": archive_path.name, "verified_console_assets": len(manifest["files"]),
-            "verified_prepared_collection": prepared.is_file(), "verified_evaluation_report": evaluation.is_file()}
+            "verified_prepared_collection": prepared.is_file(), "verified_evaluation_report": evaluation.is_file(),
+            "verified_reconciliation_report": reconciliation.is_file()}
 
 
 if __name__ == "__main__":

@@ -35,18 +35,28 @@ def process_message(message: dict, store=None) -> bool:
     started = time.monotonic()
     result = None
     try:
-        from medplain.engine import run_packet
-
-        packet = ClinicalPacket.model_validate(claimed["source"])
-        if canonical_hash(packet.model_dump()) != claimed["source_hash"]:
-            raise ValueError("Source snapshot changed")
         mode = os.getenv("MEDPLAIN_MODEL_MODE", "fixture")
         if mode not in {"fixture", "bedrock"}:
             raise ValueError("No configured agent runtime")
-        kwargs = {"model_mode": mode, "stress": claimed["stress"]}
-        if claimed.get("intake") is not None:
-            kwargs["intake_source"] = claimed["intake"]
-        result = run_packet(packet, claimed["execution_id"], **kwargs)
+        if claimed.get("source_profile") == "medplain-reconciliation-v1":
+            from medplain.reconciliation import run_reconciliation, validate_dossier
+
+            dossier = validate_dossier(claimed["source"])
+            if canonical_hash(dossier) != claimed["source_hash"] or claimed.get("intake") is not None:
+                raise ValueError("Source dossier snapshot changed")
+            result = run_reconciliation(dossier, claimed["execution_id"], mode=mode, stress=claimed["stress"])
+        else:
+            if claimed.get("source_profile") is not None:
+                raise ValueError("No configured source profile")
+            from medplain.engine import run_packet
+
+            packet = ClinicalPacket.model_validate(claimed["source"])
+            if canonical_hash(packet.model_dump()) != claimed["source_hash"]:
+                raise ValueError("Source snapshot changed")
+            kwargs = {"model_mode": mode, "stress": claimed["stress"]}
+            if claimed.get("intake") is not None:
+                kwargs["intake_source"] = claimed["intake"]
+            result = run_packet(packet, claimed["execution_id"], **kwargs)
         result["commit"] = commit()
     except Exception:
         # Never log a provider trace, clinical input, model text or session key.

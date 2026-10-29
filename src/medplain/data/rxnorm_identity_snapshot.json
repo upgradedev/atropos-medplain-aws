@@ -1,0 +1,144 @@
+{
+  "version": "medplain-rxnorm-ingredient-snapshot-v1",
+  "status": "pinned_reference_snapshot",
+  "scope": "Ingredient-name candidates only, not branded-product equivalence, dosage verification or interaction clearance.",
+  "attribution": "Public NLM terminology data. NLM does not endorse MedPlain.",
+  "records": [
+    {
+      "lookup_name": "warfarin",
+      "url": "https://rxnav.nlm.nih.gov/REST/rxcui.json?name=warfarin&search=2",
+      "retrieved_at": "2026-10-29T21:24:47.886331+00:00",
+      "status": "available",
+      "rxnorm_ids": [
+        "11289"
+      ],
+      "response_sha256": "b4898af7cfcebcfb69ce54469b5c30bec0cd98676598cc4e53db773fe92f4f9e",
+      "raw_response": {
+        "idGroup": {
+          "rxnormId": [
+            "11289"
+          ]
+        }
+      }
+    },
+    {
+      "lookup_name": "ibuprofen",
+      "url": "https://rxnav.nlm.nih.gov/REST/rxcui.json?name=ibuprofen&search=2",
+      "retrieved_at": "2026-10-29T21:24:48.830339+00:00",
+      "status": "available",
+      "rxnorm_ids": [
+        "5640"
+      ],
+      "response_sha256": "8cd9603cdb4de13529d38cde10da6a9c72769eec45ef0392ee9a185bbfdf15a4",
+      "raw_response": {
+        "idGroup": {
+          "rxnormId": [
+            "5640"
+          ]
+        }
+      }
+    },
+    {
+      "lookup_name": "metoprolol",
+      "url": "https://rxnav.nlm.nih.gov/REST/rxcui.json?name=metoprolol&search=2",
+      "retrieved_at": "2026-10-29T21:24:50.412630+00:00",
+      "status": "available",
+      "rxnorm_ids": [
+        "6918"
+      ],
+      "response_sha256": "39632bf4faa5f37fb17a1aff97eb6f43bd078e903c817ba402a7803d5930cfd5",
+      "raw_response": {
+        "idGroup": {
+          "rxnormId": [
+            "6918"
+          ]
+        }
+      }
+    },
+    {
+      "lookup_name": "prednisone",
+      "url": "https://rxnav.nlm.nih.gov/REST/rxcui.json?name=prednisone&search=2",
+      "retrieved_at": "2026-10-29T21:24:51.114108+00:00",
+      "status": "available",
+      "rxnorm_ids": [
+        "8640"
+      ],
+      "response_sha256": "6dea91df7b7e2b3b5f5ca040510ff275101bbaa3f1c5d2ffec169b302f427889",
+      "raw_response": {
+        "idGroup": {
+          "rxnormId": [
+            "8640"
+          ]
+        }
+      }
+    },
+    {
+      "lookup_name": "apixaban",
+      "url": "https://rxnav.nlm.nih.gov/REST/rxcui.json?name=apixaban&search=2",
+      "retrieved_at": "2026-10-29T21:24:51.720343+00:00",
+      "status": "available",
+      "rxnorm_ids": [
+        "1364430"
+      ],
+      "response_sha256": "3a68311da3db3f60dba91a56931063750a970640bf50ea68d9d41771d8a2848a",
+      "raw_response": {
+        "idGroup": {
+          "rxnormId": [
+            "1364430"
+          ]
+        }
+      }
+    },
+    {
+      "lookup_name": "levothyroxine",
+      "url": "https://rxnav.nlm.nih.gov/REST/rxcui.json?name=levothyroxine&search=2",
+      "retrieved_at": "2026-10-29T21:24:52.405807+00:00",
+      "status": "available",
+      "rxnorm_ids": [
+        "10582"
+      ],
+      "response_sha256": "d3eabd0986a980096f5e186b8e56f517c69092a7a99b6b225e8a0d831f3a80d7",
+      "raw_response": {
+        "idGroup": {
+          "rxnormId": [
+            "10582"
+          ]
+        }
+      }
+    },
+    {
+      "lookup_name": "acetaminophen",
+      "url": "https://rxnav.nlm.nih.gov/REST/rxcui.json?name=acetaminophen&search=2",
+      "retrieved_at": "2026-10-29T21:24:53.139166+00:00",
+      "status": "available",
+      "rxnorm_ids": [
+        "161"
+      ],
+      "response_sha256": "4fcb2dfd57a601fca2fbd0b332384016341fe7f3f273144cff106e0db17baf11",
+      "raw_response": {
+        "idGroup": {
+          "rxnormId": [
+            "161"
+          ]
+        }
+      }
+    },
+    {
+      "lookup_name": "naproxen",
+      "url": "https://rxnav.nlm.nih.gov/REST/rxcui.json?name=naproxen&search=2",
+      "retrieved_at": "2026-10-29T21:24:54.213300+00:00",
+      "status": "available",
+      "rxnorm_ids": [
+        "7258"
+      ],
+      "response_sha256": "ebf93e812c35442b627dd65d4f70fe9e0a5b472d9c7cab55f7eb7cc5dc3a0df1",
+      "raw_response": {
+        "idGroup": {
+          "rxnormId": [
+            "7258"
+          ]
+        }
+      }
+    }
+  ]
+}

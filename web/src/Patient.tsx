@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { api, message } from "./api";
 import type { CaseDetail } from "./types";
+import { isReconciliationDossier } from "./types";
 import { ExplanationView } from "./CaseDrawer";
 import { Icon, State } from "./ui";
+import ClarificationView from "./ReconciliationView";
+import ReadingControls from "./ReadingControls";
 type PatientPayload = Pick<CaseDetail, "source" | "result"> & {
   case: Pick<
     CaseDetail,
@@ -14,6 +17,7 @@ type PatientPayload = Pick<CaseDetail, "source" | "result"> & {
     | "updated_at"
     | "origin"
     | "prepared"
+    | "source_profile"
   >;
 };
 export default function Patient({ share }: { share: string }) {
@@ -57,7 +61,13 @@ export default function Patient({ share }: { share: string }) {
         </State>
       ) : !data ? (
         <State kind="loading" title="Reading released explanation" />
-      ) : data.case.status !== "released" || !data.result?.explanation ? (
+      ) : data.case.status !== "released" ||
+        !data.result ||
+        data.result.status !== "verified" ||
+        (isReconciliationDossier(data.source)
+          ? !data.result.artifact ||
+            data.result.artifact_kind !== "clarification_plan"
+          : !data.result.explanation) ? (
         <State kind="empty" title="No released explanation is available" />
       ) : (
         <article className="card patient-document">
@@ -85,16 +95,27 @@ export default function Patient({ share }: { share: string }) {
           )}
           <h1>
             {data.case.packet_title ||
-              data.source?.title ||
+              (!isReconciliationDossier(data.source)
+                ? data.source.title
+                : "Your source-cited clarification card") ||
               "Your discharge explanation"}
           </h1>
           <p className="notice notice-success">
             <Icon name="shield" />
-            The released explanation matched the supported source facts. This
-            checks fidelity, not whether the original care plan is clinically
-            appropriate.
+            {data.result.artifact_kind === "clarification_plan"
+              ? "This released clarification card preserves source quotations and question citations. It is not a reconciled prescription. Medication decisions remain with your care team."
+              : "The released explanation matched the supported source facts. This checks fidelity, not whether the original care plan is clinically appropriate."}
           </p>
-          <ExplanationView explanation={data.result.explanation} />
+          <ReadingControls
+            text={data.result.explanation_text}
+            language={data.result.artifact?.language || "en"}
+          />
+          {data.result.artifact_kind === "clarification_plan" &&
+          data.result.artifact ? (
+            <ClarificationView artifact={data.result.artifact} />
+          ) : data.result.explanation ? (
+            <ExplanationView explanation={data.result.explanation} />
+          ) : null}
           <p className="muted">
             No real patient data is accepted. Ask your clinician or pharmacist
             about your own medicines or symptoms.

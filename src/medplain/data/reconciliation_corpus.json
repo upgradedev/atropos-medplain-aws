@@ -1,0 +1,3692 @@
+{
+  "schema_version": 1,
+  "version": "reconciliation-synthetic-v1",
+  "annotation_scope": "Engineering-authored literal source-atom annotations and clarification-focus judgments, independent of application outputs. Not clinician-validated cases or treatment recommendations. Gold never enters model input.",
+  "families": [
+    "dose_stop_conflict",
+    "intentional_change",
+    "taper_phase",
+    "hold_restart_logic",
+    "caregiver_identity_form",
+    "pending_followup_owner"
+  ],
+  "cases": [
+    {
+      "id": "dose-different",
+      "family": "dose_stop_conflict",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAA",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Lisinopril 5 mg by mouth QD.\nTake Warfarin 2.5 mg by mouth QHS.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Lisinopril 10 mg by mouth QD.\nTake Ibuprofen 200 mg by mouth BID.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Lisinopril",
+                "dose": "5",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "5"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Lisinopril",
+                "dose": "10",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "10"
+            ],
+            "uncertain": false
+          },
+          "home:L2": {
+            "medications": [
+              {
+                "name": "Warfarin",
+                "dose": "2.5",
+                "unit": "mg",
+                "frequency": "QHS",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "2.5"
+            ],
+            "uncertain": false
+          },
+          "discharge:L2": {
+            "medications": [
+              {
+                "name": "Ibuprofen",
+                "dose": "200",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "200"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "dose_schedule_conflict"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1"
+            ]
+          },
+          {
+            "codes": [
+              "selected_label_interaction_review"
+            ],
+            "required_statement_ids": [
+              "home:L2",
+              "discharge:L2"
+            ],
+            "allowed_statement_ids": [
+              "home:L2",
+              "discharge:L2"
+            ]
+          }
+        ],
+        "questions": [],
+        "selected_interactions": [
+          {
+            "pair": [
+              "warfarin",
+              "ibuprofen"
+            ],
+            "statement_ids": [
+              "home:L2",
+              "discharge:L2"
+            ],
+            "reference_ids": [
+              "dailymed-warfarin"
+            ]
+          }
+        ],
+        "interaction_control": "positive"
+      }
+    },
+    {
+      "id": "stop-new",
+      "family": "dose_stop_conflict",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAB",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Atenolol 25 mg by mouth BID.\nTake Apixaban 5 mg by mouth BID.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Stop Atenolol 25 mg by mouth BID.\nTake Naproxen 250 mg by mouth BID.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Atenolol",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "25"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Atenolol",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "stop"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "25"
+            ],
+            "uncertain": false
+          },
+          "home:L2": {
+            "medications": [
+              {
+                "name": "Apixaban",
+                "dose": "5",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "5"
+            ],
+            "uncertain": false
+          },
+          "discharge:L2": {
+            "medications": [
+              {
+                "name": "Naproxen",
+                "dose": "250",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "250"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "stop_status_conflict"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1"
+            ]
+          },
+          {
+            "codes": [
+              "selected_label_interaction_review"
+            ],
+            "required_statement_ids": [
+              "home:L2",
+              "discharge:L2"
+            ],
+            "allowed_statement_ids": [
+              "home:L2",
+              "discharge:L2"
+            ]
+          }
+        ],
+        "questions": [],
+        "selected_interactions": [
+          {
+            "pair": [
+              "apixaban",
+              "naproxen"
+            ],
+            "statement_ids": [
+              "home:L2",
+              "discharge:L2"
+            ],
+            "reference_ids": [
+              "dailymed-apixaban"
+            ]
+          }
+        ],
+        "interaction_control": "positive"
+      }
+    },
+    {
+      "id": "stop-older",
+      "family": "dose_stop_conflict",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAC",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Stop Ibuprofen 200 mg by mouth QD.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Ibuprofen 200 mg by mouth QD.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Ibuprofen",
+                "dose": "200",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "stop"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "200"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Ibuprofen",
+                "dose": "200",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "200"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "stop_status_conflict"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1"
+            ]
+          }
+        ],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "same-liquid",
+      "family": "dose_stop_conflict",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAD",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Lactulose 7.5 mL by mouth QHS.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Lactulose 7.5 mL by mouth QHS.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Lactulose",
+                "dose": "7.5",
+                "unit": "mL",
+                "frequency": "QHS",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "7.5"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Lactulose",
+                "dose": "7.5",
+                "unit": "mL",
+                "frequency": "QHS",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "7.5"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "separate-actions",
+      "family": "dose_stop_conflict",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAE",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Stop Aspirin 81 mg by mouth QD; take Metformin 500 mg by mouth BID.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Stop Aspirin 81 mg by mouth QD.\nTake Metformin 500 mg by mouth BID.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Aspirin",
+                "dose": "81",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "stop"
+              },
+              {
+                "name": "Metformin",
+                "dose": "500",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "81",
+              "500"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Aspirin",
+                "dose": "81",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "stop"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "81"
+            ],
+            "uncertain": false
+          },
+          "discharge:L2": {
+            "medications": [
+              {
+                "name": "Metformin",
+                "dose": "500",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "500"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "documented-dose",
+      "family": "intentional_change",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAF",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Metformin 500 mg by mouth BID.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Metformin 1000 mg by mouth BID.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "addendum",
+            "kind": "addendum",
+            "text": "Intentional change: Take Metformin 500 mg by mouth BID; take Metformin 1000 mg by mouth BID.",
+            "issued_at": "2026-10-29T10:00:00Z",
+            "effective_at": "2026-10-29T10:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Metformin",
+                "dose": "500",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "500"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Metformin",
+                "dose": "1000",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "1000"
+            ],
+            "uncertain": false
+          },
+          "addendum:L1": {
+            "medications": [
+              {
+                "name": "Metformin",
+                "dose": "500",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "take"
+              },
+              {
+                "name": "Metformin",
+                "dose": "1000",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "500",
+              "1000"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "documented_intentional_change"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "addendum:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "addendum:L1"
+            ]
+          }
+        ],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "documented-stop",
+      "family": "intentional_change",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAG",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Atenolol 25 mg by mouth QD.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Stop Atenolol 25 mg by mouth QD.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "addendum",
+            "kind": "addendum",
+            "text": "Intentional change: Take Atenolol 25 mg by mouth QD; stop Atenolol 25 mg by mouth QD.",
+            "issued_at": "2026-10-29T10:00:00Z",
+            "effective_at": "2026-10-29T10:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Atenolol",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "25"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Atenolol",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "stop"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "25"
+            ],
+            "uncertain": false
+          },
+          "addendum:L1": {
+            "medications": [
+              {
+                "name": "Atenolol",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              },
+              {
+                "name": "Atenolol",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "stop"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "25",
+              "25"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "documented_intentional_change"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "addendum:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "addendum:L1"
+            ]
+          }
+        ],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "unscoped-rationale",
+      "family": "intentional_change",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAH",
+        "language": "en",
+        "caregiver_concerns": "Which medicine does the statement about a deliberate change refer to?",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Carvedilol 6.25 mg by mouth BID.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Carvedilol 6.25 mg by mouth QD.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "addendum",
+            "kind": "addendum",
+            "text": "Intentional change: The team deliberately simplified one part of the plan.",
+            "issued_at": "2026-10-29T10:00:00Z",
+            "effective_at": "2026-10-29T10:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Carvedilol",
+                "dose": "6.25",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "6.25"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Carvedilol",
+                "dose": "6.25",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "6.25"
+            ],
+            "uncertain": false
+          },
+          "addendum:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          },
+          "caregiver-concerns:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "dose_schedule_conflict"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1"
+            ]
+          },
+          {
+            "codes": [
+              "uncertain_source_wording"
+            ],
+            "required_statement_ids": [
+              "addendum:L1"
+            ],
+            "allowed_statement_ids": [
+              "addendum:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_intentional_change"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "addendum:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "addendum:L1",
+              "caregiver-concerns:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "same-plan-new-time",
+      "family": "intentional_change",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAI",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Levothyroxine 50 mcg by mouth QD.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Levothyroxine 50 mcg by mouth QD.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "addendum",
+            "kind": "addendum",
+            "text": "Take Levothyroxine 50 mcg by mouth QD.",
+            "issued_at": "2026-10-28T11:00:00Z",
+            "effective_at": "2026-10-30T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Levothyroxine",
+                "dose": "50",
+                "unit": "mcg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "50"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Levothyroxine",
+                "dose": "50",
+                "unit": "mcg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "50"
+            ],
+            "uncertain": false
+          },
+          "addendum:L1": {
+            "medications": [
+              {
+                "name": "Levothyroxine",
+                "dose": "50",
+                "unit": "mcg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "50"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "documented-frequency",
+      "family": "intentional_change",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAJ",
+        "language": "el",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Folic acid 400 mcg by mouth BID.\nTake Apixaban 5 mg by mouth BID.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Folic acid 400 mcg by mouth QD.\nTake Ibuprofen 200 mg by mouth TID.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "addendum",
+            "kind": "addendum",
+            "text": "Intentional change: Take Folic acid 400 mcg by mouth BID; take Folic acid 400 mcg by mouth QD.",
+            "issued_at": "2026-10-29T10:00:00Z",
+            "effective_at": "2026-10-29T10:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Folic acid",
+                "dose": "400",
+                "unit": "mcg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "400"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Folic acid",
+                "dose": "400",
+                "unit": "mcg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "400"
+            ],
+            "uncertain": false
+          },
+          "addendum:L1": {
+            "medications": [
+              {
+                "name": "Folic acid",
+                "dose": "400",
+                "unit": "mcg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "take"
+              },
+              {
+                "name": "Folic acid",
+                "dose": "400",
+                "unit": "mcg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "400",
+              "400"
+            ],
+            "uncertain": false
+          },
+          "home:L2": {
+            "medications": [
+              {
+                "name": "Apixaban",
+                "dose": "5",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "5"
+            ],
+            "uncertain": false
+          },
+          "discharge:L2": {
+            "medications": [
+              {
+                "name": "Ibuprofen",
+                "dose": "200",
+                "unit": "mg",
+                "frequency": "TID",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "200"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "documented_intentional_change"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "addendum:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "addendum:L1"
+            ]
+          },
+          {
+            "codes": [
+              "selected_label_interaction_review"
+            ],
+            "required_statement_ids": [
+              "home:L2",
+              "discharge:L2"
+            ],
+            "allowed_statement_ids": [
+              "home:L2",
+              "discharge:L2"
+            ]
+          }
+        ],
+        "questions": [],
+        "selected_interactions": [
+          {
+            "pair": [
+              "apixaban",
+              "ibuprofen"
+            ],
+            "statement_ids": [
+              "home:L2",
+              "discharge:L2"
+            ],
+            "reference_ids": [
+              "dailymed-apixaban"
+            ]
+          }
+        ],
+        "interaction_control": "positive"
+      }
+    },
+    {
+      "id": "taper-regular",
+      "family": "taper_phase",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAK",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Taper Prednisone: 20 mg by mouth QD on days 1-3; then 10 mg by mouth QD on days 4-6; then stop.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "The team will confirm the calendar before the caregiver uses it.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "discharge:L1": {
+            "medications": [],
+            "taper_phases": [
+              {
+                "sequence": 1,
+                "dose": "20",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "start_day": "1",
+                "end_day": "3"
+              },
+              {
+                "sequence": 2,
+                "dose": "10",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "start_day": "4",
+                "end_day": "6"
+              }
+            ],
+            "taper_medicine": "Prednisone",
+            "terminal_action": "stop",
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "20",
+              "1",
+              "3",
+              "10",
+              "4",
+              "6"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "taper_sequence"
+            ],
+            "required_statement_ids": [
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1"
+            ]
+          }
+        ],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "taper-source-order",
+      "family": "taper_phase",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAL",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Taper Prednisone: 10 mg by mouth QD on days 4-6; then 20 mg by mouth QD on days 1-3; then stop.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "The smaller amount is printed first even though its days appear later.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "discharge:L1": {
+            "medications": [],
+            "taper_phases": [
+              {
+                "sequence": 1,
+                "dose": "10",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "start_day": "4",
+                "end_day": "6"
+              },
+              {
+                "sequence": 2,
+                "dose": "20",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "start_day": "1",
+                "end_day": "3"
+              }
+            ],
+            "taper_medicine": "Prednisone",
+            "terminal_action": "stop",
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "10",
+              "4",
+              "6",
+              "20",
+              "1",
+              "3"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "taper_sequence"
+            ],
+            "required_statement_ids": [
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_taper"
+            ],
+            "required_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "taper-overlap",
+      "family": "taper_phase",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAM",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Taper Prednisone: 15 mg by mouth QD on days 1-4; then 5 mg by mouth QD on days 4-6; then stop.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "The middle day seems to belong to both stages. Please check which written phase applies.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "discharge:L1": {
+            "medications": [],
+            "taper_phases": [
+              {
+                "sequence": 1,
+                "dose": "15",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "start_day": "1",
+                "end_day": "4"
+              },
+              {
+                "sequence": 2,
+                "dose": "5",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "start_day": "4",
+                "end_day": "6"
+              }
+            ],
+            "taper_medicine": "Prednisone",
+            "terminal_action": "stop",
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "15",
+              "1",
+              "4",
+              "5",
+              "4",
+              "6"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "taper_sequence"
+            ],
+            "required_statement_ids": [
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_taper"
+            ],
+            "required_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "taper-no-terminal",
+      "family": "taper_phase",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAN",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Taper Prednisone: 12.5 mg by mouth QD on days 1-2; then 7.5 mg by mouth QD on days 3-5.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "The written instructions end after the smaller amount; what does the team intend next?",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "discharge:L1": {
+            "medications": [],
+            "taper_phases": [
+              {
+                "sequence": 1,
+                "dose": "12.5",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "start_day": "1",
+                "end_day": "2"
+              },
+              {
+                "sequence": 2,
+                "dose": "7.5",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "start_day": "3",
+                "end_day": "5"
+              }
+            ],
+            "taper_medicine": "Prednisone",
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "12.5",
+              "1",
+              "2",
+              "7.5",
+              "3",
+              "5"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "taper_sequence"
+            ],
+            "required_statement_ids": [
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_taper"
+            ],
+            "required_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "taper-missing-anchor",
+      "family": "taper_phase",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAO",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Taper Prednisone: 10 mg by mouth QD on days 1-2; then 5 mg by mouth QD on days 3-4; then stop.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": null
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "Does day one mean discharge day or the first day after collecting the medicine?",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "discharge:L1": {
+            "medications": [],
+            "taper_phases": [
+              {
+                "sequence": 1,
+                "dose": "10",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "start_day": "1",
+                "end_day": "2"
+              },
+              {
+                "sequence": 2,
+                "dose": "5",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "start_day": "3",
+                "end_day": "4"
+              }
+            ],
+            "taper_medicine": "Prednisone",
+            "terminal_action": "stop",
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "10",
+              "1",
+              "2",
+              "5",
+              "3",
+              "4"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "or"
+            ],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "taper_sequence"
+            ],
+            "required_statement_ids": [
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_taper"
+            ],
+            "required_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "hold-and",
+      "family": "hold_restart_logic",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAP",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Hold Lisinopril while systolic blood pressure < 100 mmHg AND dizziness = present; restart only after the discharge team confirms.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "Both conditions are recorded on the instruction sheet.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "discharge:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": "Lisinopril",
+            "condition_text": "systolic blood pressure < 100 mmHg AND dizziness = present",
+            "logic_tokens": [
+              "<",
+              "AND",
+              "="
+            ],
+            "restart_authority": "only after the discharge team confirms.",
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "100"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "conditional_hold"
+            ],
+            "required_statement_ids": [
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1"
+            ]
+          }
+        ],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "hold-or-caregiver",
+      "family": "hold_restart_logic",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAQ",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Hold Carvedilol if pulse < 55 bpm OR dizziness = present; restart only after the named clinician confirms.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "I thought both signs had to happen together before asking about a pause.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "discharge:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": "Carvedilol",
+            "condition_text": "pulse < 55 bpm OR dizziness = present",
+            "logic_tokens": [
+              "<",
+              "OR",
+              "="
+            ],
+            "restart_authority": "only after the named clinician confirms.",
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "55"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "conditional_hold"
+            ],
+            "required_statement_ids": [
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_hold_restart"
+            ],
+            "required_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "hold-opposite-symbols",
+      "family": "hold_restart_logic",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAR",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Hold Atenolol if pulse < 60 bpm; restart only after the team confirms.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "addendum",
+            "kind": "addendum",
+            "text": "Hold Atenolol if pulse > 60 bpm; restart only after the team confirms.",
+            "issued_at": "2026-10-29T10:00:00Z",
+            "effective_at": "2026-10-29T10:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "discharge:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": "Atenolol",
+            "condition_text": "pulse < 60 bpm",
+            "logic_tokens": [
+              "<"
+            ],
+            "restart_authority": "only after the team confirms.",
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "60"
+            ],
+            "uncertain": false
+          },
+          "addendum:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": "Atenolol",
+            "condition_text": "pulse > 60 bpm",
+            "logic_tokens": [
+              ">"
+            ],
+            "restart_authority": "only after the team confirms.",
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "60"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "conditional_hold"
+            ],
+            "required_statement_ids": [
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1"
+            ]
+          },
+          {
+            "codes": [
+              "conditional_hold"
+            ],
+            "required_statement_ids": [
+              "addendum:L1"
+            ],
+            "allowed_statement_ids": [
+              "addendum:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "compare_instructions",
+              "confirm_hold_restart"
+            ],
+            "required_statement_ids": [
+              "discharge:L1",
+              "addendum:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1",
+              "addendum:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "hold-unless",
+      "family": "hold_restart_logic",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAS",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Hold Spironolactone unless potassium < 5 mmol/L; restart only if the discharge team authorizes it.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "I cannot tell whether unless reverses the condition or who can authorize restarting.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "discharge:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": "Spironolactone",
+            "condition_text": "potassium < 5 mmol/L",
+            "logic_tokens": [
+              "unless",
+              "<",
+              "only if"
+            ],
+            "restart_authority": "only if the discharge team authorizes it.",
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "5"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "unless",
+              "or"
+            ],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "conditional_hold"
+            ],
+            "required_statement_ids": [
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_hold_restart"
+            ],
+            "required_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1",
+              "caregiver:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "no-hold-instruction",
+      "family": "hold_restart_logic",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAT",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Amlodipine 2.5 mg by mouth QD.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Amlodipine 2.5 mg by mouth QD.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "No pause or restart question is being raised; the caregiver can explain the unchanged written plan.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Amlodipine",
+                "dose": "2.5",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "2.5"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Amlodipine",
+                "dose": "2.5",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "2.5"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "or"
+            ],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "brand-generic-context",
+      "family": "caregiver_identity_form",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAU",
+        "language": "en",
+        "caregiver_concerns": "The old bottle says BrandBlue and the new list uses GenericBlue. Are these the same medicine?",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take BrandBlue 25 mg by mouth BID.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take GenericBlue extended release 25 mg by mouth QD.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "BrandBlue",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "25"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "GenericBlue extended release",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "25"
+            ],
+            "uncertain": false
+          },
+          "caregiver-concerns:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "and"
+            ],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [],
+        "questions": [
+          {
+            "codes": [
+              "confirm_identity_form"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "caregiver-concerns:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "caregiver-concerns:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "long-short-context",
+      "family": "caregiver_identity_form",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAV",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Metoprolol extended release 50 mg by mouth QD.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Metoprolol immediate release 25 mg by mouth BID.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "The white oval one used to last all day; the new sheet describes a short-acting version. Are they interchangeable?",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Metoprolol extended release",
+                "dose": "50",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "50"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Metoprolol immediate release",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "25"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [],
+        "questions": [
+          {
+            "codes": [
+              "confirm_identity_form"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "caregiver:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "caregiver:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "different-strength-boxes",
+      "family": "caregiver_identity_form",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAW",
+        "language": "en",
+        "caregiver_concerns": "Two boxes have the same name but different strengths. Which label should I show the pharmacist?",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Simvastatin 10 mg by mouth QHS.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Simvastatin 20 mg by mouth QHS.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Simvastatin",
+                "dose": "10",
+                "unit": "mg",
+                "frequency": "QHS",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "10"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Simvastatin",
+                "dose": "20",
+                "unit": "mg",
+                "frequency": "QHS",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "20"
+            ],
+            "uncertain": false
+          },
+          "caregiver-concerns:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "dose_schedule_conflict"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_identity_form"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "caregiver-concerns:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "caregiver-concerns:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "unchanged-teachback",
+      "family": "caregiver_identity_form",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAX",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Stop Warfarin 2.5 mg by mouth QHS.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Stop Ibuprofen 200 mg by mouth BID.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "Both listed medicines are explicitly stopped; no question about restarting or identity has been raised.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Warfarin",
+                "dose": "2.5",
+                "unit": "mg",
+                "frequency": "QHS",
+                "route": "oral",
+                "action": "stop"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "2.5"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Ibuprofen",
+                "dose": "200",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "stop"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "200"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "or"
+            ],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "all_stopped"
+      }
+    },
+    {
+      "id": "salt-release-identity",
+      "family": "caregiver_identity_form",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAY",
+        "language": "el",
+        "caregiver_concerns": "I call both my heart pill, but one is marked XL and the other is not. Is the formulation confirmed?",
+        "documents": [
+          {
+            "document_id": "home",
+            "kind": "home_list",
+            "text": "Take Metoprolol tartrate 25 mg by mouth BID.",
+            "issued_at": "2026-10-27T08:00:00Z",
+            "effective_at": "2026-10-27T08:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Metoprolol succinate 25 mg by mouth QD.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "home:L1": {
+            "medications": [
+              {
+                "name": "Metoprolol tartrate",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "reported"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "25"
+            ],
+            "uncertain": false
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Metoprolol succinate",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "25"
+            ],
+            "uncertain": false
+          },
+          "caregiver-concerns:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "and",
+              "not"
+            ],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [],
+        "questions": [
+          {
+            "codes": [
+              "confirm_identity_form"
+            ],
+            "required_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "caregiver-concerns:L1"
+            ],
+            "allowed_statement_ids": [
+              "home:L1",
+              "discharge:L1",
+              "caregiver-concerns:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "pending-owner-gap",
+      "family": "pending_followup_owner",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCAZ",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "lab",
+            "kind": "lab_report",
+            "text": "Pending test: potassium; owner: not assigned; follow-up: within 2 days",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "The caregiver has not been given a contact name.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "lab:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "not"
+            ],
+            "restart_authority": null,
+            "pending_test": "potassium",
+            "owner": "not assigned",
+            "follow_up": "within 2 days",
+            "numeric_literals": [
+              "2"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "not"
+            ],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "pending_follow_up_gap"
+            ],
+            "required_statement_ids": [
+              "lab:L1"
+            ],
+            "allowed_statement_ids": [
+              "lab:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_pending_owner"
+            ],
+            "required_statement_ids": [
+              "lab:L1",
+              "caregiver:L1"
+            ],
+            "allowed_statement_ids": [
+              "lab:L1",
+              "caregiver:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "pending-assigned",
+      "family": "pending_followup_owner",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCBA",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "lab",
+            "kind": "lab_report",
+            "text": "Pending test: urine culture; owner: discharge clinic; follow-up: within 48 hours",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "The caregiver can name the clinic and the follow-up arrangement.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z",
+            "text": "Take Warfarin 2.5 mg by mouth QHS.\nTake Naproxen 250 mg by mouth BID."
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "lab:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": "urine culture",
+            "owner": "discharge clinic",
+            "follow_up": "within 48 hours",
+            "numeric_literals": [
+              "48"
+            ],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "and"
+            ],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          },
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Warfarin",
+                "dose": "2.5",
+                "unit": "mg",
+                "frequency": "QHS",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "2.5"
+            ],
+            "uncertain": false
+          },
+          "discharge:L2": {
+            "medications": [
+              {
+                "name": "Naproxen",
+                "dose": "250",
+                "unit": "mg",
+                "frequency": "BID",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "250"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "pending_result_follow_up"
+            ],
+            "required_statement_ids": [
+              "lab:L1"
+            ],
+            "allowed_statement_ids": [
+              "lab:L1"
+            ]
+          },
+          {
+            "codes": [
+              "selected_label_interaction_review"
+            ],
+            "required_statement_ids": [
+              "discharge:L1",
+              "discharge:L2"
+            ],
+            "allowed_statement_ids": [
+              "discharge:L1",
+              "discharge:L2"
+            ]
+          }
+        ],
+        "questions": [],
+        "selected_interactions": [
+          {
+            "pair": [
+              "warfarin",
+              "naproxen"
+            ],
+            "statement_ids": [
+              "discharge:L1",
+              "discharge:L2"
+            ],
+            "reference_ids": [
+              "dailymed-warfarin"
+            ]
+          }
+        ],
+        "interaction_control": "positive"
+      }
+    },
+    {
+      "id": "pending-two-owners",
+      "family": "pending_followup_owner",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCBB",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "lab",
+            "kind": "lab_report",
+            "text": "Pending test: potassium; owner: outpatient clinic; follow-up: within 2 days",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "addendum",
+            "kind": "addendum",
+            "text": "Pending test: potassium; owner: ward team; follow-up: within 2 days",
+            "issued_at": "2026-10-29T10:00:00Z",
+            "effective_at": "2026-10-29T10:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "lab:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": "potassium",
+            "owner": "outpatient clinic",
+            "follow_up": "within 2 days",
+            "numeric_literals": [
+              "2"
+            ],
+            "uncertain": false
+          },
+          "addendum:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": "potassium",
+            "owner": "ward team",
+            "follow_up": "within 2 days",
+            "numeric_literals": [
+              "2"
+            ],
+            "uncertain": false
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "pending_result_follow_up"
+            ],
+            "required_statement_ids": [
+              "lab:L1"
+            ],
+            "allowed_statement_ids": [
+              "lab:L1"
+            ]
+          },
+          {
+            "codes": [
+              "pending_result_follow_up"
+            ],
+            "required_statement_ids": [
+              "addendum:L1"
+            ],
+            "allowed_statement_ids": [
+              "addendum:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_pending_owner"
+            ],
+            "required_statement_ids": [
+              "lab:L1",
+              "addendum:L1"
+            ],
+            "allowed_statement_ids": [
+              "lab:L1",
+              "addendum:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "pending-who-calls",
+      "family": "pending_followup_owner",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCBC",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "lab",
+            "kind": "lab_report",
+            "text": "Pending test: thyroid panel; owner: primary care; follow-up: not scheduled",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "caregiver",
+            "kind": "caregiver_note",
+            "text": "If I hear nothing, which person is supposed to reach out and when?",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "lab:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "not"
+            ],
+            "restart_authority": null,
+            "pending_test": "thyroid panel",
+            "owner": "primary care",
+            "follow_up": "not scheduled",
+            "numeric_literals": [],
+            "uncertain": false
+          },
+          "caregiver:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [
+              "and"
+            ],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "pending_follow_up_gap"
+            ],
+            "required_statement_ids": [
+              "lab:L1"
+            ],
+            "allowed_statement_ids": [
+              "lab:L1"
+            ]
+          }
+        ],
+        "questions": [
+          {
+            "codes": [
+              "confirm_pending_owner"
+            ],
+            "required_statement_ids": [
+              "lab:L1",
+              "caregiver:L1"
+            ],
+            "allowed_statement_ids": [
+              "lab:L1",
+              "caregiver:L1"
+            ]
+          }
+        ],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    },
+    {
+      "id": "historical-not-pending",
+      "family": "pending_followup_owner",
+      "dossier": {
+        "profile": "medplain-reconciliation-v1",
+        "patient_alias": "Demo-RCBD",
+        "language": "en",
+        "caregiver_concerns": "",
+        "documents": [
+          {
+            "document_id": "discharge",
+            "kind": "discharge",
+            "text": "Take Levothyroxine 50 mcg by mouth QD.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          },
+          {
+            "document_id": "lab",
+            "kind": "lab_report",
+            "text": "The previous result is historical. No new test is awaiting a result.",
+            "issued_at": "2026-10-29T09:00:00Z",
+            "effective_at": "2026-10-29T09:00:00Z"
+          }
+        ]
+      },
+      "gold": {
+        "clinical_by_statement": {
+          "discharge:L1": {
+            "medications": [
+              {
+                "name": "Levothyroxine",
+                "dose": "50",
+                "unit": "mcg",
+                "frequency": "QD",
+                "route": "oral",
+                "action": "take"
+              }
+            ],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [
+              "50"
+            ],
+            "uncertain": false
+          },
+          "lab:L1": {
+            "medications": [],
+            "taper_phases": [],
+            "taper_medicine": null,
+            "terminal_action": null,
+            "hold_medicine": null,
+            "condition_text": null,
+            "logic_tokens": [],
+            "restart_authority": null,
+            "pending_test": null,
+            "owner": null,
+            "follow_up": null,
+            "numeric_literals": [],
+            "uncertain": true
+          }
+        },
+        "structural_issues": [
+          {
+            "codes": [
+              "uncertain_source_wording"
+            ],
+            "required_statement_ids": [
+              "lab:L1"
+            ],
+            "allowed_statement_ids": [
+              "lab:L1"
+            ]
+          }
+        ],
+        "questions": [],
+        "selected_interactions": [],
+        "interaction_control": "pair_absent"
+      }
+    }
+  ]
+}
