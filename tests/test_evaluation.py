@@ -183,6 +183,8 @@ def test_actual_official_case_experiment_custom_evaluators_and_report_hash(tmp_p
         assert counts["extraction_exact_count"] == counts["field_fidelity_passed"] == 6
         assert counts["gate_false_accept_count"] == 0 and counts["gate_mutation_count"] == 11
         assert counts["inference_usage"]["tokens"] is None
+        assert counts["input_refused_count"] == 4 and counts["model_refused_count"] == 0
+        assert counts["not_executed_count"] == 0
     assert report["report_sha256"] == canonical_hash({k: v for k, v in report.items() if k != "report_sha256"})
     assert report["corpus"]["sha256"] == canonical_hash(corpus())
     path = tmp_path / "evaluation.json"

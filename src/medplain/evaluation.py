@@ -488,6 +488,10 @@ def aggregate(cases: list[dict], arm: str, mode: str) -> dict:
     times = sorted(o["client_latency_ms"] for o in outcomes if o["client_latency_ms"] is not None)
     return {"case_count": len(cases), "verified_count": sum(o["status"] == "verified" for o in outcomes),
             "refused_count": sum(o["status"] == "refused" for o in outcomes),
+            "input_refused_count": sum(o["kind"] == "input_refusal" for o in outcomes),
+            "model_refused_count": sum(o["kind"] == "model_refusal" for o in outcomes),
+            "not_executed_count": sum(o["kind"] == "budget_not_executed" for o in outcomes),
+            "agent_workflow_started_count": sum(bool(o["nodes"]) for o in outcomes) if arm == "strands" else 0,
             "runtime_error_count": sum(o["status"] == "error" for o in outcomes),
             "validity_passed": sum(s["validity"] for s in scores),
             "extraction_exact_count": sum(s["extraction_exact"] for s in scores),
@@ -585,6 +589,7 @@ def run_evaluation(source_commit: str, mode="fixture", judge_url=None) -> dict:
                               "No measured comprehension, clinical appropriateness or patient outcome benefit.",
                               "Latency comparisons include different work; no speedup or token-savings claim.",
                               "LLM judges were not run; deterministic clinical checks are authoritative.",
+                              "The raw official SDK aggregate mixes evaluators and both arms; it is not an agent utility score.",
                               "Remote raw intake does not expose fault injection; correction drills are offline only."]}
     report["measurement_status"] = {
         "execution": "complete", "outcome_validity": "all_expected" if all(
