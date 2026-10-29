@@ -1,0 +1,100 @@
+{
+  "version": "medplain-primary-references-v1",
+  "observed_on": "2026-10-29",
+  "status": "pinned_reference_snapshot",
+  "scope": "Workflow and selected product-label references. This is not comprehensive interaction data, patient-specific clinical advice, or an endorsement by the cited organizations.",
+  "cards": [
+    {
+      "id": "ahrq-match",
+      "publisher": "AHRQ",
+      "title": "MATCH medication reconciliation",
+      "url": "https://www.ahrq.gov/patient-safety/settings/hospital/match/chapter-3.html",
+      "section": "Designing the Medication Reconciliation Process",
+      "excerpt": "Compare home and discharge medicine lists and seek prescriber clarification for unexplained differences. A blanket request to resume home medicines does not replace reconciliation.",
+      "use": "Source comparison and clarification workflow; does not authorize a dose or establish document authority."
+    },
+    {
+      "id": "ahrq-red",
+      "publisher": "AHRQ",
+      "title": "Re-Engineered Discharge, Tool 3",
+      "url": "https://www.ahrq.gov/patient-safety/settings/hospital/red/toolkit/redtool3.html",
+      "section": "Pending tests and follow-up",
+      "excerpt": "A discharge plan should identify pending tests and specify who will review results and how the patient will receive them.",
+      "use": "Prompt for missing follow-up ownership; does not interpret a test result or invent an appointment."
+    },
+    {
+      "id": "ahrq-teachback",
+      "publisher": "AHRQ",
+      "title": "Health Literacy Universal Precautions, Teach-Back",
+      "url": "https://www.ahrq.gov/health-literacy/improve/precautions/tool5.html",
+      "section": "Use the Teach-Back Method",
+      "excerpt": "Ask the patient or caregiver to explain the plan in their own words. Clarify misunderstandings and check again instead of relying on a yes-or-no understanding question.",
+      "use": "Bounded questions to discuss with the care team; an automated prompt does not measure comprehension."
+    },
+    {
+      "id": "who-transitions",
+      "publisher": "World Health Organization",
+      "title": "Medication safety in transitions of care",
+      "url": "https://www.who.int/publications/i/item/WHO-UHC-SDS-2019.9",
+      "section": "Technical report, 2019",
+      "excerpt": "Transitions of care and polypharmacy require reliable medication information, structured processes, patient and family participation, and measurement.",
+      "use": "Workflow rationale; does not validate this prototype or an autonomous prescribing algorithm."
+    },
+    {
+      "id": "fhir-dosage",
+      "publisher": "HL7",
+      "title": "FHIR R4 Dosage",
+      "url": "https://hl7.org/fhir/R4/dosage.html",
+      "section": "Sequence, timing, route and dose",
+      "excerpt": "Dosage represents sequence, timing, route, amount and additional instructions separately. Retaining those distinctions matters for staged or conditional source instructions.",
+      "use": "Data-model inspiration only; the dossier is not a general FHIR importer."
+    },
+    {
+      "id": "rxnorm-scope",
+      "publisher": "U.S. National Library of Medicine",
+      "title": "RxNorm terminology and lookup semantics",
+      "url": "https://lhncbc.nlm.nih.gov/RxNav/APIs/api-RxNorm.findRxcuiByString.html",
+      "section": "Exact and normalized name lookup",
+      "excerpt": "Terminology lookup identifies candidate medicine concepts. Ingredient identity alone does not establish equivalence of strength, release form, route or schedule.",
+      "use": "Pinned ingredient-identity references only. Unknown or ambiguous products require clarification, not automatic substitution."
+    },
+    {
+      "id": "nlm-interaction-service",
+      "publisher": "U.S. National Library of Medicine",
+      "title": "RxNav interaction service availability",
+      "url": "https://lhncbc-portal.lhcaws-prod-pub.nlm.nih.gov/RxNav/information/FAQs.html",
+      "section": "Drug-drug interaction features",
+      "excerpt": "RxNav discontinued its drug-drug interaction features on January 2, 2024. An unavailable dataset must not be interpreted as absence of interactions.",
+      "use": "Availability limitation; RxNorm is not a comprehensive interaction checker."
+    },
+    {
+      "id": "dailymed-warfarin",
+      "publisher": "DailyMed / NLM, submitted product labeling",
+      "title": "Warfarin sodium label: bleeding-risk medicines",
+      "url": "https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid=51e98fb6-ba76-497e-95d8-fe895ef0b7ed&version=7",
+      "section": "7.3 Drugs that Increase Bleeding Risk",
+      "excerpt": "This label lists nonsteroidal anti-inflammatory medicines, including ibuprofen and naproxen, among medicines that can increase bleeding risk with warfarin.",
+      "use": "Selected label-backed review flag only. Confirm which medicines are current with the care team; do not independently stop or change a medicine.",
+      "selected_pairs": [["warfarin", "ibuprofen"], ["warfarin", "naproxen"]]
+    },
+    {
+      "id": "dailymed-apixaban",
+      "publisher": "DailyMed / NLM, submitted product labeling",
+      "title": "Eliquis label: anticoagulants and antiplatelet agents",
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=7be1f4c1-bb2f-4ded-ae9a-515d2a22f93e",
+      "section": "7.3, submitted labeling dated 2025-08-29",
+      "excerpt": "This label describes increased bleeding risk when apixaban is combined with chronic NSAID use or other medicines affecting hemostasis.",
+      "use": "Selected label-backed review flag only. It does not establish a contraindication in this invented case or authorize changing anticoagulation.",
+      "selected_pairs": [["apixaban", "ibuprofen"], ["apixaban", "naproxen"]]
+    },
+    {
+      "id": "openfda-scope",
+      "publisher": "U.S. Food and Drug Administration",
+      "title": "openFDA data limitations",
+      "url": "https://open.fda.gov/apis/drug/label/",
+      "section": "Drug labeling API",
+      "excerpt": "openFDA is public reference data, not a patient-specific medical decision engine. Its documentation warns against relying on it for medical-care decisions.",
+      "use": "No comprehensive interaction sensitivity or zero-hallucination guarantee is inferred from API access."
+    }
+  ]
+}
