@@ -1,0 +1,68 @@
+name: MedPlain CI
+
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      judge_url:
+        description: 'Public AWS URL to verify after deployment'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: medplain-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MEDPLAIN_MODEL_MODE: fixture
+      MEDPLAIN_COMMIT: ${{ github.sha }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Scan tracked source for secrets and prohibited punctuation
+        run: python scripts/check_source.py
+      - name: Install CI-only dependencies
+        run: python -m pip install '.[test]' build playwright
+      - name: Lint
+        run: ruff check src tests scripts
+      - name: Unit and integration tests without network
+        run: python scripts/offline_tests.py -q --junitxml=artifacts/tests.xml --cov=medplain --cov-report=term-missing --cov-report=xml:artifacts/coverage.xml
+      - name: Build standalone wheel
+        run: python -m build --wheel
+      - name: Install browser in CI only
+        run: python -m playwright install --with-deps chromium
+      - name: Execute anonymous desktop and 375px journeys
+        run: python scripts/browser_smoke.py --output artifacts/browser
+      - name: Prepare Linux Lambda dependencies
+        run: python -m pip install . --target "$RUNNER_TEMP/medplain-runtime" --no-compile
+      - name: Assemble Lambda package and SHA-256 manifest
+        run: python scripts/package_lambda.py --dependency-dir "$RUNNER_TEMP/medplain-runtime" --commit "$GITHUB_SHA"
+      - name: Publish build and test evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: medplain-${{ github.sha }}
+          path: |
+            artifacts/
+            dist/*.whl
+          retention-days: 10
+          if-no-files-found: error
+      - name: Require a live 200 and execute the flagship claim
+        if: ${{ inputs.judge_url != '' }}
+        env:
+          JUDGE_URL: ${{ inputs.judge_url }}
+        run: python scripts/live_smoke.py "$JUDGE_URL" --expected-commit "$GITHUB_SHA"
