@@ -63,7 +63,7 @@ def deploy(args: argparse.Namespace) -> dict:
         role = cli(args, "iam", "create-role", "--role-name", role_name, "--assume-role-policy-document", json.dumps(trust), "--tags", f"Key=Project,Value={PROJECT}")
     policy = {
         "Version": "2012-10-17", "Statement": [
-            {"Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], "Resource": f"arn:aws:logs:{args.region}:{args.account}:log-group:/aws/lambda/{args.function}:*"},
+            {"Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], "Resource": [f"arn:aws:logs:{args.region}:{args.account}:log-group:/aws/lambda/{args.function}", f"arn:aws:logs:{args.region}:{args.account}:log-group:/aws/lambda/{args.function}:*"]},
             {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], "Resource": f"arn:aws:bedrock:{args.region}::foundation-model/{args.model_id}"},
         ],
     }
@@ -92,6 +92,7 @@ def deploy(args: argparse.Namespace) -> dict:
         cli(args, "lambda", "update-function-code", "--function-name", args.function, "--zip-file", f"fileb://{args.package.resolve()}")
         cli(args, "lambda", "wait", "function-updated", "--function-name", args.function)
         cli(args, "lambda", "update-function-configuration", "--function-name", args.function, "--environment", environment, "--timeout", "90", "--memory-size", "768")
+        cli(args, "lambda", "wait", "function-updated", "--function-name", args.function)
     cli(args, "lambda", "wait", "function-active-v2", "--function-name", args.function)
     cli(args, "lambda", "put-function-concurrency", "--function-name", args.function, "--reserved-concurrent-executions", "2")
     url_config = cli(args, "lambda", "get-function-url-config", "--function-name", args.function, missing="ResourceNotFoundException")

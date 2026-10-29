@@ -69,7 +69,7 @@ def check(url: str, output: Path) -> dict:
                 page.locator("#download-receipt").click()
             download_info.value.save_as(output / f'{packet["id"]}-receipt.json')
             page.locator("#verify-receipt").click()
-            expect(page.locator("#chain-verification")).to_contain_text("valid", ignore_case=True)
+            expect(page.locator("#chain-verification")).to_contain_text("Chain integrity verified")
         page.screenshot(path=str(output / "desktop.png"), full_page=True)
         page.set_viewport_size({"width": 375, "height": 812})
         page.reload(wait_until="networkidle")
