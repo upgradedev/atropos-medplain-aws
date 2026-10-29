@@ -2713,6 +2713,19 @@ tbody tr:hover {
   display: grid;
   gap: 22px;
 }
+.clarification-card {
+  grid-template-columns: minmax(0, 1fr);
+}
+.clarification-card > * {
+  min-width: 0;
+}
+.clarification-card .subtle-tag {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  text-align: left;
+}
 .regimen-withheld {
   padding: 16px;
   margin: 14px 0;
