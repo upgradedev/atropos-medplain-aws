@@ -181,6 +181,17 @@ def test_verifier_tools_include_authoritative_packet_id():
         assert deterministic_tool()["packet_id"] == packet.packet_id
 
 
+def test_nested_verification_schema_requires_complete_clinical_evidence():
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        engine.MedicationVerification(
+            packet_id="packet", medication_discrepancies=[], interactions=[{"title": "Incomplete"}],
+        )
+    with pytest.raises(ValidationError):
+        engine.ParsedClinicalRecord(packet_id="packet", source_verified=True, labs=[{"id": "lab"}])
+
+
 def test_real_strands_hook_repairs_structured_verifier_output_once(monkeypatch):
     original_model = engine._model
 

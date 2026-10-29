@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.metadata
 import os
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 from strands import Agent, tool
@@ -31,13 +31,39 @@ EXPLAINER = "PatientAdvocateExplainerAgent"
 AGENT_NAMES = (PARSER, VERIFIER, EXPLAINER)
 
 
+class LabRangeEvaluation(BaseModel):
+    """Every lab field returned by the deterministic range evaluator."""
+
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    name: str
+    value: str
+    unit: str
+    low: str
+    high: str
+    plain_label: str
+    status: Literal["low", "within range", "high"]
+
+
+class InteractionEvidence(BaseModel):
+    """Required fields for each curated interaction lookup result."""
+
+    model_config = ConfigDict(extra="forbid")
+    medications: list[str]
+    title: str
+    message: str
+    source: str
+    severity: str
+    scope: str
+
+
 class ParsedClinicalRecord(BaseModel):
     """Source-verified packet identity and deterministic range evaluations."""
 
     model_config = ConfigDict(extra="forbid")
     packet_id: str
     source_verified: bool
-    labs: list[dict[str, Any]]
+    labs: list[LabRangeEvaluation]
 
 
 class MedicationVerification(BaseModel):
@@ -46,7 +72,7 @@ class MedicationVerification(BaseModel):
     model_config = ConfigDict(extra="forbid")
     packet_id: str
     medication_discrepancies: list[str]
-    interactions: list[dict[str, Any]]
+    interactions: list[InteractionEvidence]
 
 
 @dataclass
