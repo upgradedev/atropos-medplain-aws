@@ -114,7 +114,7 @@ def examples() -> list[dict]:
 def _name(raw: str) -> str:
     # A bounded lexical parser shared with the complete rule baseline. Original
     # names/forms stay visible; no RxNorm equivalence or first-match identity.
-    value = re.split(r"\b(?:taking|take|stop|hold|continue|resume|replaces|home|was|is|use)\b", raw,
+    value = re.split(r"\b(?:taking|take|stop|hold|held|withhold|continue|resume|replaces|home|was|is|use|using|discontinue|discontinued|start|started)\b", raw,
                      flags=re.IGNORECASE)[-1]
     value = re.sub(r"^(?:list|medicine|medication|at discharge|before admission)\s*[:,-]?\s*", "", value,
                    flags=re.IGNORECASE)
@@ -129,7 +129,9 @@ def _clinical(text: str, kind: str) -> dict:
         # across a semicolon can incorrectly transfer Stop to the next drug.
         prefix = match["name"].lower()
         action = "reported" if kind in {"home_list", "caregiver_note"} else "take"
-        if re.search(r"\b(?:do not stop|do not hold|not taking|not currently taking|never|not prescribed)\b", prefix):
+        unsupported_negation = (re.search(r"\b(?:not|never|no longer)\b", prefix)
+                                and not re.search(r"\bdo not take\b", prefix))
+        if unsupported_negation:
             action, uncertain_action = "uncertain", True
         elif re.search(r"\b(?:stop|do not take|discontinue)\b", prefix):
             action = "stop"

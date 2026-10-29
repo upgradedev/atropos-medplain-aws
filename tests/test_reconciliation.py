@@ -50,6 +50,14 @@ def test_hold_stays_distinct_and_unsupported_negation_is_uncertain():
     assert row["citation"]["quote"] == "Do not stop Aspirin 81 mg by mouth QD."
 
 
+@pytest.mark.parametrize("prefix", ["Do not discontinue", "Not currently taking", "No longer using", "Never take"])
+def test_unrecognized_negations_never_become_confident_stop_or_take(prefix):
+    source = dossier(second=f"{prefix} Aspirin 81 mg by mouth QD.")
+    row = source_statements(source)[1]
+    assert row["clinical"]["medications"][0]["action"] == "uncertain"
+    assert row["clinical"]["uncertain"] is True
+
+
 def test_partial_known_regimen_keeps_unsupported_modifier_uncertain():
     source = dossier(second="Take Aspirin 81 mg by mouth QD except on clinic days.")
     assert source_statements(source)[1]["clinical"]["uncertain"] is True
