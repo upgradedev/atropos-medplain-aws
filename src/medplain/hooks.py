@@ -18,7 +18,8 @@ from strands.hooks import (
 from medplain.gate import SafetyGate
 from medplain.gate import canonical_hash
 from medplain.intake import IntakeError, materialize_selection
-from medplain.schemas import PatientExplanation
+from medplain.publication import resolve_publication
+from medplain.schemas import PatientExplanation, PatientPublicationPlan
 
 if TYPE_CHECKING:
     from medplain.engine import RequestContext
@@ -91,6 +92,12 @@ class ClinicalSafetyGateHook(HookProvider):
         context = self.context
         context.completed_tools[self.role] = set()
         context.expected_results.pop(self.role, None)
+        if self.role == "PatientAdvocateExplainerAgent":
+            context.publication_snapshot = None
+            context.publication_snapshot_hash = None
+            context.publication_artifact_nonce = None
+            context.publication_binding = None
+            context.validated_publication_plan = None
         context.hook_invocations += 1
         context.nodes_executed.append(self.role)
         if self.role == "DrugAndContraindicationVerifierAgent" and context.attempts and not is_repair:
@@ -219,7 +226,15 @@ class ClinicalSafetyGateHook(HookProvider):
             context.trace.append({"agent": self.role, "status": "completed", "message": "Tool evidence verified."})
             return
 
-        candidate = PatientExplanation.model_validate(output.model_dump(mode="json"))
+        if (not isinstance(output, PatientPublicationPlan)
+                or output.model_dump(mode="json") != context.expected_results.get(self.role)):
+            raise RuntimeError("The patient publication plan differs from the fresh builder reference")
+        candidate = resolve_publication(
+            context.publication_snapshot, context.publication_snapshot_hash, context.publication_binding,
+            output, context.packet, context.session_id, context.request_nonce, context.hook_invocations,
+            context.publication_artifact_nonce,
+        )
+        context.validated_publication_plan = output.model_dump(mode="json")
         context.attempts += 1
         if context.stress and context.attempts == 1:
             candidate = self._inject_dosage_mutation(candidate)
