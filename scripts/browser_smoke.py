@@ -75,6 +75,11 @@ def check(url: str, output: Path) -> dict:
         page.set_viewport_size({"width": 375, "height": 812})
         page.reload(wait_until="networkidle")
         expect(page.locator("#explain-button")).to_be_enabled()
+        page.evaluate("window.scrollTo({top: 0, left: 0, behavior: 'instant'})")
+        call_to_action = page.locator("#explain-button").bounding_box()
+        assert call_to_action and 0 <= call_to_action["y"] and call_to_action["y"] + call_to_action["height"] <= 812, "375px initial viewport must expose the primary action"
+        expect(page.locator("#button-reason")).to_be_visible()
+        page.screenshot(path=str(output / "mobile-375-initial.png"))
         page.locator('.packet-card[data-adversarial="true"]').click()
         expect(page.locator("#explain-button")).to_be_enabled()
         page.locator("#explain-button").click()
