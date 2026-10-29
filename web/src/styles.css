@@ -140,6 +140,15 @@ textarea {
 }
 select {
   cursor: pointer;
+  color-scheme: dark;
+}
+select option,
+select optgroup {
+  background-color: var(--panel);
+  color: var(--ink);
+}
+:root[data-theme="light"] select {
+  color-scheme: light;
 }
 textarea {
   min-height: 90px;
