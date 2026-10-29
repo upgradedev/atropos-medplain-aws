@@ -235,7 +235,7 @@ def _smoke(url: str, expected_commit: str | None, allow_fixture: bool,
     if client.call("/api/ops/cases?limit=20")["total"] != 0:
         raise AssertionError("live inference proof must begin with an explicitly empty session")
     boot = client.call("/api/ops/bootstrap")
-    evidence.document.update(runtime=boot["runtime"], stage="session_ready")
+    evidence.document.update(runtime=boot.get("runtime"), stage="session_ready")
     evidence.write()
     if len(boot["facilities"]) != 3 or not all(item["synthetic"] for item in boot["facilities"]):
         raise AssertionError("geographic facilities must be explicit synthetic demonstration points")
