@@ -16,6 +16,17 @@ from pydantic import BaseModel
 from strands.models.model import Model
 
 
+def fixture_source_selection(extraction: dict[str, Any]) -> dict[str, Any]:
+    """Explicit offline response preparation; never part of the Bedrock path."""
+    result = {"source_sha256": extraction["source_sha256"], "patient_alias": extraction["patient_alias"]}
+    for kind in ["medications", "labs"]:
+        result[kind] = [{key: value for key, value in record.items() if key != "source_quote"}
+                        for record in extraction[kind]]
+    for kind in ["follow_up", "red_flags"]:
+        result[kind] = [{"source_line": record["source_line"]} for record in extraction[kind]]
+    return result
+
+
 class FixtureModel(Model):
     """Replay a bounded tool plan and then a Pydantic structured output."""
 

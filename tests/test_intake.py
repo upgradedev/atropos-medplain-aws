@@ -7,12 +7,15 @@ import pytest
 
 from medplain import engine
 from medplain.clinical import build_explanation
+from medplain.fixture_model import fixture_source_selection
 from medplain.gate import ReceiptChain, SafetyGate, canonical_hash
+from medplain.hooks import mismatch_paths
 from medplain.intake import (
-    HEADER, PROFILE, SOURCE_SYSTEM, TEMPLATE, IntakeError, normalize_source, validate_intake_result,
+    HEADER, PROFILE, SOURCE_SYSTEM, TEMPLATE, IntakeError, materialize_selection, normalize_source, validate_intake_result,
     validate_intake_source,
 )
 from medplain.ops_validation import validate_result
+from medplain.schemas import SourceSelection
 
 NOTE = "\n".join([
     HEADER,
@@ -112,6 +115,10 @@ def test_actual_sdk_extraction_then_existing_verifier_and_patient_gate():
     assert proof["extraction"]["medications"][0]["dose"] == "7.5"
     assert proof["extraction"]["medications"][1]["status"] == "stopped"
     assert proof["extraction_sha256"] == canonical_hash(proof["extraction"])
+    selection = result["runtime"]["source_selection"]
+    assert "source_quote" not in selection["medications"][0]
+    assert set(selection["follow_up"][0]) == {"source_line"}
+    assert result["runtime"]["source_selection_sha256"] == canonical_hash(selection)
     assert result["runtime"]["nodes_executed"] == list(engine.AGENT_NAMES)
     assert any(row["status"] == "source_extraction" for row in result["trace"])
     assert validate_result(bundle.packet, result, "raw-extraction", bundle.intake)
@@ -121,8 +128,9 @@ def test_actual_sdk_extraction_then_existing_verifier_and_patient_gate():
 
 
 @pytest.mark.parametrize("mutation", [
-    "dose", "status", "frequency", "unit", "quote", "line", "omission",
-    "lab_value", "lab_unit", "lab_low", "lab_high", "lab_quote", "lab_omission",
+    "dose", "status", "frequency", "unit", "wrong_citation", "line", "omission",
+    "swapped_citations", "duplicate_citations", "follow_up_citation", "red_flags_citation",
+    "lab_value", "lab_unit", "lab_low", "lab_high", "lab_citation", "lab_omission",
 ])
 def test_wrong_model_extraction_is_not_replaced_with_ledger_answer(monkeypatch, mutation):
     original = engine._model
@@ -147,8 +155,8 @@ def test_wrong_model_extraction_is_not_replaced_with_ledger_answer(monkeypatch, 
                         lab["low"] = "130"
                     elif mutation == "lab_high":
                         lab["high"] = "150"
-                    elif mutation == "lab_quote":
-                        lab["source_quote"] = "Lab Sodium: 149 mmol/L (reference 135 to 145)."
+                    elif mutation == "lab_citation":
+                        lab["source_line"] = 3
                     else:
                         actual["labs"] = actual["labs"][1:]
                 elif mutation == "dose":
@@ -159,10 +167,18 @@ def test_wrong_model_extraction_is_not_replaced_with_ledger_answer(monkeypatch, 
                     med["frequency"] = "QHS"
                 elif mutation == "unit":
                     med["unit"] = "mcg"
-                elif mutation == "quote":
-                    med["source_quote"] = "Take Newmed 75 mg by mouth BID."
+                elif mutation == "wrong_citation":
+                    med["source_line"] = 6
                 elif mutation == "line":
                     med["source_line"] = 4
+                elif mutation == "swapped_citations":
+                    med["source_line"], actual["medications"][1]["source_line"] = 4, 3
+                elif mutation == "duplicate_citations":
+                    actual["medications"][1]["source_line"] = 3
+                elif mutation == "follow_up_citation":
+                    actual["follow_up"][0]["source_line"] = 8
+                elif mutation == "red_flags_citation":
+                    actual["red_flags"][0]["source_line"] = 7
                 else:
                     actual["medications"] = actual["medications"][1:]
                 return actual
@@ -193,6 +209,54 @@ def test_wrong_model_extraction_is_not_replaced_with_ledger_answer(monkeypatch, 
     assert result["runtime"]["nodes_executed"] == [engine.PARSER, engine.PARSER]
     assert any("No normalized answer is provided" in prompt for prompt in resume_prompts)
     assert all("Previous authoritative tool result" not in prompt for prompt in resume_prompts)
+
+
+@pytest.mark.parametrize("citation", [True, False, "3", 3.0, 0, -1, 26])
+def test_model_citations_require_strict_bounded_integers(citation):
+    from pydantic import ValidationError
+
+    selection = fixture_source_selection(normalize_source(NOTE).expected_extraction.model_dump(mode="json"))
+    selection["medications"][0]["source_line"] = citation
+    with pytest.raises(ValidationError):
+        SourceSelection.model_validate(selection)
+
+
+def test_materialization_uses_cited_lines_without_filling_clinical_fields_or_omissions():
+    bundle = normalize_source(NOTE)
+    selection = fixture_source_selection(bundle.expected_extraction.model_dump(mode="json"))
+    selection["medications"][0]["dose"] = "75"
+    selection["labs"][0]["low"] = "130"
+    selection["medications"].append(copy.deepcopy(selection["medications"][0]))
+    actual = materialize_selection(NOTE, SourceSelection.model_validate(selection))
+    assert actual.medications[0].dose == "75"
+    assert actual.medications[0].source_quote == "Take Newmed 7.5 mg by mouth BID."
+    assert actual.labs[0].low == "130"
+    assert len(actual.medications) == 4, "Materialization must not deduplicate model-selected records"
+    assert actual.model_dump() != bundle.expected_extraction.model_dump()
+    selection["medications"] = selection["medications"][1:2]
+    omitted = materialize_selection(NOTE, SourceSelection.model_validate(selection))
+    assert len(omitted.medications) == 1, "Materialization must not fill missing model records"
+    assert omitted.medications[0].name == "Oldmed"
+
+
+@pytest.mark.parametrize("kind,line", [("medications", 6), ("labs", 3), ("follow_up", 8), ("red_flags", 7),
+                                       ("medications", 25)])
+def test_wrong_kind_or_out_of_actual_source_citations_are_safe_path_errors(kind, line):
+    selection = fixture_source_selection(normalize_source(NOTE).expected_extraction.model_dump(mode="json"))
+    selection[kind][0]["source_line"] = line
+    with pytest.raises(IntakeError, match=rf"{kind}\[0\].source_line"):
+        materialize_selection(NOTE, SourceSelection.model_validate(selection))
+
+
+def test_materialization_crlf_and_safe_leaf_diagnostics():
+    raw = NOTE.replace("\n", "\r\n")
+    bundle = normalize_source(raw)
+    model = SourceSelection.model_validate(fixture_source_selection(bundle.expected_extraction.model_dump(mode="json")))
+    assert materialize_selection(raw, model).model_dump() == bundle.expected_extraction.model_dump()
+    expected = {"medications": [{"dose": "private-original"}], "labs": [{"low": "source-number"}]}
+    altered = {"medications": [{"dose": "UNSAFE_UNCHECKED_VALUE"}], "labs": [{"low": "other-number"}]}
+    assert mismatch_paths(expected, altered) == ["labs[0].low", "medications[0].dose"]
+    assert "UNSAFE_UNCHECKED_VALUE" not in str(mismatch_paths(expected, altered))
 
 
 def test_tampered_provenance_and_extraction_never_pass_durable_validation(monkeypatch):

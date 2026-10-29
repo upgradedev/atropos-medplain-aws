@@ -17,6 +17,7 @@ from strands.hooks import (
 
 from medplain.gate import SafetyGate
 from medplain.gate import canonical_hash
+from medplain.intake import IntakeError, materialize_selection
 from medplain.schemas import PatientExplanation
 
 if TYPE_CHECKING:
@@ -27,6 +28,32 @@ MAX_MODEL_TURNS_PER_NODE = 5
 MAX_CANDIDATES = 2
 MAX_STRUCTURED_OUTPUT_REPAIRS = 1
 MAX_REQUIRED_TOOL_REPAIRS = 1
+
+
+def mismatch_paths(expected: Any, actual: Any, prefix: str = "") -> list[str]:
+    """Bounded leaf paths only; never disclose unchecked values in diagnostics."""
+    if type(expected) is not type(actual):
+        return [prefix or "structured_result"]
+    paths = []
+    if isinstance(expected, dict):
+        for key in sorted(expected.keys() | actual.keys()):
+            path = f"{prefix}.{key}" if prefix else key
+            if key not in expected or key not in actual:
+                paths.append(path)
+            else:
+                paths.extend(mismatch_paths(expected[key], actual[key], path))
+            if len(paths) >= 16:
+                break
+    elif isinstance(expected, list):
+        if len(expected) != len(actual):
+            paths.append(f"{prefix}.length")
+        for index, (left, right) in enumerate(zip(expected, actual)):
+            paths.extend(mismatch_paths(left, right, f"{prefix}[{index}]"))
+            if len(paths) >= 16:
+                break
+    elif expected != actual:
+        paths.append(prefix or "structured_result")
+    return paths[:16]
 
 
 class ClinicalSafetyGateHook(HookProvider):
@@ -132,9 +159,17 @@ class ClinicalSafetyGateHook(HookProvider):
         if self.role != "PatientAdvocateExplainerAgent":
             expected = context.expected_results.get(self.role)
             actual = output.model_dump(mode="json")
-            if actual != expected:
-                fields = sorted(key for key in (expected or actual) if actual.get(key) != (expected or {}).get(key))
-                diagnostic = ", ".join(fields) or "structured result"
+            selection = actual
+            fields = []
+            if self.role == "LabAndDischargeParserAgent" and context.intake_source is not None:
+                context.source_selection_sha256 = canonical_hash(selection)
+                try:
+                    actual = materialize_selection(context.intake_source["source_text"], output).model_dump(mode="json")
+                except IntakeError as exc:
+                    fields = [str(exc).split(": ", 1)[0]]
+            fields = fields or mismatch_paths(expected, actual)
+            if fields:
+                diagnostic = ", ".join(fields)
                 if expected is not None and self.structured_output_repairs < MAX_STRUCTURED_OUTPUT_REPAIRS:
                     self.structured_output_repairs += 1
                     self._repair_pending = True
@@ -155,8 +190,11 @@ class ClinicalSafetyGateHook(HookProvider):
                         event.resume = (
                             f"Your extraction did not match the independent source ledger in {diagnostic}. "
                             "Call the source tool again and extract every fact from its ORIGINAL raw lines. "
-                            "Preserve exact source quotes, 1-based line numbers, numbers, units, frequencies, "
-                            "and the distinction between Take and Stop/Do not take. No normalized answer is "
+                            "Return SourceSelection with exact clinical fields and 1-based source_line citations. "
+                            "Do not include source_quote or statement text; code materializes only text from your "
+                            "cited original lines. A source_quote or text mismatch means the cited source_line "
+                            "is wrong. Preserve names, numbers, units, normalized frequencies and "
+                            "the distinction between Take and Stop/Do not take. No normalized answer is "
                             "provided. Do not invent facts or infer clinical appropriateness."
                         )
                     return
@@ -165,6 +203,7 @@ class ClinicalSafetyGateHook(HookProvider):
                 )
             event.agent.state.set("source_verified", True)
             if self.role == "LabAndDischargeParserAgent" and context.intake_source is not None:
+                context.source_selection = selection
                 context.parsed = context.intake_bundle.packet
                 context.intake_validation = {
                     "profile": context.intake_source["profile"],

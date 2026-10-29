@@ -28,7 +28,7 @@ The **Safety walkthrough** guides this sequence. It is a product tour, separate 
 
 In **New case**, choose **Import synthetic note**, load the editable template and change its invented medicines, values or laboratory intervals. The supported `medplain-discharge-note-v1` format is displayed beside the editor. Confirm that the note is invented before submitting. A new import enters the same durable outbox, SQS and Strands workflow as the sample cases.
 
-The parser Agent reads the original numbered source lines and produces a typed `SourceExtraction` with complete source quotes, line numbers, medicines, lab results and directives. Its tool does not provide the normalized answer. An independent deterministic ledger consumes every source line and checks the extraction, including dose strings, units, frequency aliases and `Stop` / `Do not take` negation. Unsupported or ambiguous lines are refused before inference; changed extraction is withheld at the SDK hook.
+The parser Agent reads the original numbered source lines and proposes a typed `SourceSelection`: cited line numbers and model-extracted medication/lab fields. Trusted code copies source quotes and follow-up/help text verbatim from those cited original lines, without supplying or repairing clinical fields. The resulting full `SourceExtraction` must exactly match an independent ledger that consumes every source line, including dose strings, units, frequency aliases and `Stop` / `Do not take` negation. The tool does not provide normalized answers. Unsupported or ambiguous input is refused before inference; wrong facts, missing records or incorrect citations are withheld at the SDK hook.
 
 The application retains the exact original note, raw-source SHA-256 and ledger hash. The normalized packet's FHIR identifier includes the raw-source hash, binding it through the existing receipt source digest. Worker persistence, reviewer release and public reads independently reconstruct that binding. Imported cases always require exact-artifact review. The original clinical publication gate remains unchanged.
 
@@ -41,6 +41,8 @@ This is an English ASCII line profile with at most 8,000 characters, 25 lines, s
 The packaged report is labelled **offline fixture execution**, not Bedrock performance. It measures source extraction, supported field fidelity, refusal behavior, corrective trajectories and common-gate mutation rejection. Both arms use the same gate; its rejection results do not establish agent superiority. Accepted patient text is still constrained to the same deterministic renderer, so equal outputs are an expected result. No improvement in patient comprehension or clinical outcomes is claimed.
 
 The separate [evaluation workflow](.github/workflows/evals.yml) can run a bounded comparison against the deployed Bedrock path through its public API. It records actual worker timing separately from client wall time and preserves failed cases. Token use is unreported when the provider does not supply it. That manual run is separate from the offline report bundled in the application.
+
+The [first actual Bedrock measurement at 97d5616](https://github.com/upgradedev/atropos-medplain-aws/actions/runs/40940089854) completed zero of six valid imports, while the baseline completed all six. All four unsupported inputs were refused. Every failed import stopped at parser verification without a patient artifact. Those original negative results remain preserved. A workflow completing successfully means its measurement ran; read the report's `measurement_status` and per-case failures before interpreting capability. Subsequent reports identify their own exact source and harness commits.
 
 ## Operations console
 
@@ -60,7 +62,7 @@ Strands is load-bearing: its `Agent` loop executes the registered tools, its Pyd
 
 | Strands node | Deterministic tools and output |
 |---|---|
-| `LabAndDischargeParserAgent` | Samples: cross-checks manifest, text and FHIR. New notes: independently extracts typed facts and exact quotes from original lines, checked against the source ledger |
+| `LabAndDischargeParserAgent` | Samples: cross-checks manifest, text and FHIR. New notes: proposes cited lines and typed clinical facts; code copies exact quotes, and the full extraction must match the source ledger |
 | `DrugAndContraindicationVerifierAgent` | `medication_dosage_frequency_parity_checker` and `drug_interaction_checker` check dose, unit, frequency, stop status and selected demonstration pairs |
 | `PatientAdvocateExplainerAgent` | `grounded_explanation_builder` produces a constrained `PatientExplanation`; the `AfterInvocationEvent` hook checks it before publication |
 
@@ -178,6 +180,7 @@ python scripts/ops_live_smoke.py 'YOUR_PUBLIC_AWS_URL' --expected-commit 'FULL_S
 | Source | Reused pattern and boundary |
 |---|---|
 | [Strands Agents Python SDK](https://github.com/strands-agents/sdk-python), Apache-2.0 | Public `Agent`, `@tool`, Graph, lifecycle hook, structured-output and custom-model interfaces. The SDK is a pinned runtime dependency. |
+| [Strands Evals](https://github.com/strands-agents/evals/tree/v1.7.0) | Pinned optional evaluation dependency. Public `Case`, `Experiment` and custom evaluator interfaces; corpus, literal annotations, deterministic clinical/trajectory scorers and full baseline written for this project. |
 | [Lachesis](https://github.com/upgradedev/lachesis-guard), MIT | Conceptual inspiration: deterministic decisions at an SDK lifecycle seam and request/session-bound state. Inspected read-only. No Lachesis code, benchmark, model, fixtures or product was copied. |
 | FastAPI, Pydantic and Mangum | Standard open-source web, schema and Lambda adapter dependencies, declared in `pyproject.toml`. |
 | React, TypeScript, Vite, Tailwind, TanStack Table and Leaflet | Public component, build, styling, table and map APIs; dependencies declared in `web/package.json`. |

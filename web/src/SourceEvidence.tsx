@@ -46,6 +46,23 @@ export default function SourceEvidence({ data }: { data: CaseDetail }) {
               title="Independent extraction ledger SHA-256"
               value={data.intake.ledger_sha256}
             />
+            {parserVerified && data.result?.intake_validation?.extraction ? (
+              <details>
+                <summary>Inspect verified extraction citations</summary>
+                <p className="muted">
+                  The Agent proposes clinical fields and line citations. Code
+                  copies quotes and narrative from those original lines. The
+                  complete extraction must match the independent ledger.
+                </p>
+                <pre>
+                  {JSON.stringify(
+                    data.result.intake_validation.extraction,
+                    null,
+                    2,
+                  )}
+                </pre>
+              </details>
+            ) : null}
             <h3>Deterministic normalization</h3>
             <p className="muted">
               Accepted input fields normalized before the model runs. This view
