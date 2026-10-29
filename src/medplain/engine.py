@@ -228,7 +228,7 @@ def run_packet(
             invocation_state={"session_id": session_id, "packet_id": packet.packet_id},
         )
         graph_status = result.status.value
-        if result.failed_nodes:
+        if result.failed_nodes or graph_status != "completed":
             error = "A Strands node failed. No patient explanation was published."
     except Exception as exc:
         # Avoid exposing provider traces, credentials or an unchecked model response.

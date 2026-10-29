@@ -134,6 +134,14 @@ class ClinicalSafetyGateHook(HookProvider):
         payload = candidate.model_dump(mode="json")
         for medication in payload["medications"]:
             if medication["status"] == "active":
-                medication["dose"] = format(Decimal(medication["dose"]) * 10, "f")
+                original_dose = medication["dose"]
+                mutated_dose = format(Decimal(original_dose) * 10, "f")
+                original_instruction = f": {original_dose} {medication['unit']},"
+                if original_instruction not in medication["text"]:
+                    raise RuntimeError("The stress packet's dose is not present in its patient instruction")
+                medication["dose"] = mutated_dose
+                medication["text"] = medication["text"].replace(
+                    original_instruction, f": {mutated_dose} {medication['unit']},", 1
+                )
                 return PatientExplanation.model_validate(payload)
         raise RuntimeError("The stress packet has no active medication to mutate")

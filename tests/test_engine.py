@@ -47,6 +47,8 @@ def test_adversarial_dose_is_withheld_then_corrected_by_actual_graph_cycle():
     assert result["correction_count"] == 1
     assert [receipt["verdict"] for receipt in result["receipts"]] == ["refused", "verified"]
     assert result["receipts"][0]["discrepancies"]
+    assert any(" dose:" in error for error in result["receipts"][0]["discrepancies"])
+    assert any(" text:" in error for error in result["receipts"][0]["discrepancies"])
     assert result["receipts"][1]["previous_hash"] == result["receipts"][0]["hash"]
     assert result["receipts"][0]["artifact_hash"] != result["receipts"][1]["artifact_hash"]
     assert result["explanation"] == build_explanation(packet).model_dump(mode="json")
@@ -124,6 +126,20 @@ def test_bedrock_configuration_is_explicit_without_network(monkeypatch):
 def test_unknown_model_mode_is_rejected():
     with pytest.raises(ValueError, match="model_mode"):
         run_packet(get_packets()[0], "unknown", model_mode="fallback")
+
+
+def test_noncompleted_graph_cannot_publish_even_a_verified_candidate(monkeypatch):
+    packet = get_packets()[0]
+
+    def failed_graph(context, model_mode):
+        context.candidate = build_explanation(packet)
+        context.verdict = SimpleNamespace(passed=True)
+        return lambda *args, **kwargs: SimpleNamespace(status=SimpleNamespace(value="failed"), failed_nodes=0)
+
+    monkeypatch.setattr(engine, "_make_graph", failed_graph)
+    result = run_packet(packet, "graph-failed")
+    assert result["status"] == "refused"
+    assert result["explanation"] is None
 
 
 def test_model_turn_budget_fails_closed():
