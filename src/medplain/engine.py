@@ -268,7 +268,7 @@ def _make_graph(context: RequestContext, model_mode: str) -> Any:
             "Do NOT include source_quote or narrative text. Code attaches only the exact text of your cited lines. "
             "Preserve source order and include every record exactly once. Copy source_sha256. "
             "Generic example, unrelated to this note: line 3, Take Toymed 3 mg by mouth BID. maps to "
-            "{source_line:3,name:Toymed,dose:'3',unit:mg,frequency:BID,status:active}. "
+            '{"source_line":3,"name":"Toymed","dose":"3","unit":"mg","frequency":"BID","status":"active"}. '
             "Do not add, omit, reinterpret or repair source facts. The independent source ledger will verify "
             "every line, negation, numeric value, unit, frequency and source quote before later agents may run."
         )
