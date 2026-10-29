@@ -186,28 +186,6 @@ def expected_facts(case: dict) -> dict | None:
             "red_flags": [row["text"] for row in gold["red_flags"]]}
 
 
-def packet_extraction(packet, case: dict) -> dict:
-    """Baseline extraction comes from its actual normalized packet, not the gold."""
-    lines = case["source_text"].splitlines()
-    # Source provenance is annotated independently; clinical values come only
-    # from the normalizer output. A wrong value cannot inherit a gold value.
-    gold = expected_extraction(case)
-    return {"source_sha256": hashlib.sha256(case["source_text"].encode()).hexdigest(),
-            "patient_alias": packet.patient,
-            "medications": [{**{k: getattr(m, k) for k in ("name", "dose", "unit", "frequency", "status")},
-                             "source_line": row["source_line"], "source_quote": lines[row["source_line"] - 1]}
-                            for m, row in zip(packet.medications, gold["medications"], strict=True)],
-            "labs": [{**{k: getattr(lab, k) for k in ("name", "value", "unit", "low", "high")},
-                      "source_line": row["source_line"], "source_quote": lines[row["source_line"] - 1]}
-                     for lab, row in zip(packet.labs, gold["labs"], strict=True)],
-            "follow_up": [{"text": text, "source_line": row["source_line"],
-                           "source_quote": lines[row["source_line"] - 1]}
-                          for text, row in zip(packet.follow_up, gold["follow_up"], strict=True)],
-            "red_flags": [{"text": text, "source_line": row["source_line"],
-                           "source_quote": lines[row["source_line"] - 1]}
-                          for text, row in zip(packet.red_flags, gold["red_flags"], strict=True)]}
-
-
 MUTATIONS = [
     ("decimal-dose", "medications", 0, "dose", "125"),
     ("mg-to-mcg", "medications", 0, "unit", "mcg"),
@@ -356,7 +334,7 @@ def local_outcome(case: dict, arm: str, stress=False) -> dict:
             chain.append(candidate, verdict)
             outcome.update(status="verified" if verdict.passed else "refused",
                            kind="verified" if verdict.passed else "gate_refusal",
-                           extraction=packet_extraction(bundle.packet, case),
+                           extraction=bundle.expected_extraction.model_dump(),
                            explanation=candidate.model_dump() if verdict.passed else None,
                            explanation_text=render_explanation(candidate) if verdict.passed else None,
                            artifact_hash=chain.receipts[-1]["artifact_hash"], receipts=chain.receipts)
@@ -553,7 +531,14 @@ def run_evaluation(source_commit: str, mode="fixture", judge_url=None) -> dict:
         measured[(case["id"], arm)] = outcome
         return {"output": outcome, "trajectory": outcome["nodes"]}
 
-    official = Experiment(cases=eval_cases, evaluators=_evaluators()).run_evaluations(task)
+    evaluators = _evaluators()
+    official = Experiment(cases=eval_cases, evaluators=evaluators).run_evaluations(task)
+    expected_keys = {(case["id"], arm) for case in heldout for arm in ("strands", "baseline")}
+    if set(measured) != expected_keys:
+        raise RuntimeError("Official experiment did not execute every case and arm; no measurement report is valid")
+    if (len(official.cases) != len(eval_cases) * len(evaluators)
+            or len(official.test_passes) != len(official.cases)):
+        raise RuntimeError("Official evaluator report is incomplete; no empty or partial score is valid")
     rows = [{"id": case["id"], "source_text": case["source_text"], "expected": case,
              "outcomes": {arm: measured[(case["id"], arm)] for arm in ("strands", "baseline")},
              "scores": {arm: score_outcome(case, measured[(case["id"], arm)], arm)

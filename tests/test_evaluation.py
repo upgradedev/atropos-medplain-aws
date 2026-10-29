@@ -60,6 +60,16 @@ def test_gold_checker_rejects_coherent_value_change_and_cannot_inherit_changed_e
     assert not publication_valid(normalize_source(case["source_text"]).packet, outcome)
 
 
+def test_baseline_cannot_borrow_gold_source_lines_or_quotes():
+    case = corpus()[0]
+    case["gold"]["medications"][0]["source_line"] = 4
+    outcome = local_outcome(case, "baseline")
+    assert outcome["extraction"]["medications"][0]["source_line"] == 3
+    assert outcome["extraction"]["medications"][0]["source_quote"].startswith("Take Metoprolol 12.5 mg")
+    scores = score_outcome(case, outcome, "baseline")
+    assert not scores["extraction_exact"] and scores["field_fidelity"]
+
+
 def test_shared_gate_rejects_all_eleven_coherent_mutations_and_exposes_each_field():
     results = []
     for case in corpus()[:2]:
