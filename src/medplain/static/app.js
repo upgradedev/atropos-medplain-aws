@@ -332,6 +332,9 @@
       state.busy = false;
       byId("result-panel").setAttribute("aria-busy", "false");
       updateControls();
+      if (window.matchMedia("(max-width: 530px)").matches) {
+        byId("result-panel").scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      }
     }
   }
 
