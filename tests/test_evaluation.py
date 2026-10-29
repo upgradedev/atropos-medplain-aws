@@ -95,6 +95,15 @@ def test_corrective_graph_trajectory_is_actual_and_fresh_tools_cannot_be_removed
     changed = copy.deepcopy(outcome)
     changed["nodes"][3] = PARSER
     assert not trajectory_valid(changed)
+    # Aggregate counts would be fooled by duplicated first-verifier calls.
+    # Every later invocation must independently contain its own fresh tools.
+    changed = copy.deepcopy(outcome)
+    changed["tools"] = [t for t in changed["tools"] if t["invocation_index"] != 4]
+    changed["tools"] += copy.deepcopy([t for t in changed["tools"] if t["invocation_index"] == 2])
+    assert not trajectory_valid(changed)
+    changed = copy.deepcopy(outcome)
+    changed["tools"][0]["invocation_index"] = True
+    assert not trajectory_valid(changed)
     # The deterministic baseline is allowed to rebuild safely too.
     baseline = local_outcome(case, "baseline", stress=True)
     assert baseline["status"] == "verified" and baseline["correction_count"] == 1

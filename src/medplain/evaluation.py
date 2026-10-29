@@ -242,11 +242,17 @@ def trajectory_valid(outcome: dict, expected_refusal=False) -> bool:
     expected = [PARSER, VERIFIER, EXPLAINER] + [VERIFIER, EXPLAINER] * outcome["correction_count"]
     if collapsed != expected:
         return False
-    for role, tools in REQUIRED_TOOLS.items():
-        for tool in tools:
-            if sum(t.get("agent") == role and t.get("tool") == tool and t.get("success") is True
-                   for t in outcome["tools"]) < nodes.count(role):
-                return False
+    per_invocation = {index: set() for index in range(1, len(nodes) + 1)}
+    for tool in outcome["tools"]:
+        index = tool.get("invocation_index")
+        if (type(index) is not int or not 1 <= index <= len(nodes)
+                or tool.get("agent") != nodes[index - 1]):
+            return False
+        if tool.get("success") is True:
+            per_invocation[index].add(tool.get("tool"))
+    for index, role in enumerate(nodes, start=1):
+        if role not in REQUIRED_TOOLS or not set(REQUIRED_TOOLS[role]).issubset(per_invocation[index]):
+            return False
     verdicts = [r["verdict"] for r in outcome["receipts"]]
     return verdicts == ["refused"] * outcome["correction_count"] + ["verified"]
 
