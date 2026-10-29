@@ -80,16 +80,20 @@ def _tools(context: Context) -> dict[str, list]:
 
     @tool
     def check_reconciliation_constraints() -> dict:
-        """Inspect source atoms and mandatory structural checks; propose targeted context questions yourself."""
+        """Read caregiver context, clinical passages and already-rendered checks separately; plan additional relationships."""
         if not context.index_verified:
             raise ValueError("Original source coverage has not been verified")
         statements = source_statements(context.dossier)
-        return {"source_hash": canonical_hash(context.dossier), "source_statements": statements,
-                "structural_floor": structural_issues(statements),
+        return {"source_hash": canonical_hash(context.dossier),
+                "source_documents": [dict(document) for document in context.dossier["documents"]],
+                "source_statement_order": [row["statement_id"] for row in statements],
+                "clinical_source_statements": [row for row in statements if row["document_kind"] != "caregiver_note"],
+                "caregiver_context": [row for row in statements if row["document_kind"] == "caregiver_note"],
+                "already_rendered_checks": structural_issues(statements),
                 "caregiver_concerns": context.dossier["caregiver_concerns"],
                 "allowed_question_codes": ["compare_instructions", "confirm_intentional_change", "confirm_taper",
                     "confirm_hold_restart", "confirm_identity_form", "confirm_pending_owner", "caregiver_question", "teachback", "confirm_interaction_review"],
-                "scope": "Select relevant cross-document evidence and questions. These links remain proposals, not verified clinical errors. Do not resolve prescriptions."}
+                "scope": "Select additional relationships among original passages, including caregiver_note documents even when caregiver_concerns is empty. Already-rendered checks already have questions. Proposed links are not verified clinical errors or resolved prescriptions."}
 
     @tool
     def lookup_reconciliation_references() -> dict:
@@ -116,7 +120,9 @@ def _tools(context: Context) -> dict[str, list]:
         context.snapshot, context.snapshot_hash, context.binding = snapshot, digest, binding
         return dict(context.publication_plan)
 
-    return {INDEXER: [read_reconciliation_sources], PLANNER: [check_reconciliation_constraints, lookup_reconciliation_references],
+    # Declaration order is the live call schedule. Keep REQUIRED_TOOLS' frozen
+    # descriptor unchanged; show reference scope first and the current case last.
+    return {INDEXER: [read_reconciliation_sources], PLANNER: [lookup_reconciliation_references, check_reconciliation_constraints],
             PUBLISHER: [build_clarification_card]}
 
 
@@ -291,7 +297,8 @@ def _model(mode: str, context: Context, role: str, tools: list, output_model):
                                 region_name=os.getenv("AWS_REGION", "us-east-1"), max_tokens=4096, temperature=0.0,
                                 boto_client_config=Config(connect_timeout=5, read_timeout=45,
                                                           retries={"total_max_attempts": 1}))
-        return RequiredToolModel(delegate, lambda: [name for name in REQUIRED_TOOLS[role]
+        call_order = [item.tool_name for item in tools if item.tool_name in REQUIRED_TOOLS[role]]
+        return RequiredToolModel(delegate, lambda: [name for name in call_order
                                  if name not in context.completed.get(role, set())], output_model.__name__)
     raise ValueError("Reconciliation mode must be fixture or bedrock")
 
@@ -302,23 +309,44 @@ def _make_graph(context: Context, mode: str):
     instructions = {
         INDEXER: "Call read_reconciliation_sources. Return SourceIndex with source_hash and all statement_ids in source order. Do not interpret orders.",
         PLANNER: (
-            "Call check_reconciliation_constraints AND lookup_reconciliation_references fresh. References are pinned "
-            "workflow/identity/selected-label context, not comprehensive clinical clearance; the retired interaction "
-            "service is unavailable. Never infer equivalent formulation, substitution or automatic stop from a name/ID. "
-            "Your useful task is selecting the ORIGINAL cross-document passages "
-            "that answer caregiver concerns and planning targeted clarification/teachback questions. Return "
+            "Call lookup_reconciliation_references first, then check_reconciliation_constraints fresh. References "
+            "describe pinned scope, not comprehensive clinical clearance. Never infer equivalent formulation, "
+            "substitution or automatic stop from a name/ID. Your task is RELATIONSHIP SELECTION, not a checklist "
+            "of medicine, taper, hold or pending-test mentions. Use the case-specific context tool's partitions. "
+            "Read EVERY caregiver_context record, including caregiver_note documents when caregiver_concerns is empty. "
+            "Read clinical_source_statements together, including addenda and explicit agreement/non-conflict. "
+            "already_rendered_checks will appear with their own questions automatically. Do not repeat one of those "
+            "checks merely because it exists. Propose a question only for ADDITIONAL uncertainty supported by the "
+            "relationship between original passages: a caregiver interpretation versus written instructions, "
+            "incompatible source details, an unclear referent, an identity/form question, or unresolved responsibility. "
+            "If there is no additional uncertainty, return questions:[]; an unchanged plan, an explicitly explained "
+            "change, or a bare clinical label does not itself require an extra question. Return "
             "ReconciliationSelection with source_hash, questions:[{code,statement_ids}], teachback:[{code:'teachback',statement_ids}]. "
-            "Do not copy an expected plan: none is supplied. Select precise relevant citations and avoid redundant/all-pairs "
-            "questions. Always include at least one teachback. Questions are contextual proposals, NOT verified clinical errors. "
-            "Mandatory structural checks will be included independently and cannot be removed by your selection. "
-            "Those checks already have targeted questions, so use questions for helpful caregiver-context links "
-            "rather than echoing every structural question. If there is no additional context, questions may be empty. "
-            "Use codes compare_instructions (2 documents), confirm_intentional_change (explicit Intentional change: source), "
-            "confirm_taper (cited phases), confirm_hold_restart (cited hold condition), confirm_identity_form (caregiver context, "
-            "never assert equivalence), confirm_pending_owner (pending source), caregiver_question, and teachback ONLY in "
-            "teachback array. confirm_interaction_review requires BOTH sources of a selected label-backed pair in the "
-            "mandatory floor. It asks a pharmacist to confirm possible exposure, never asserts current concurrent use, "
-            "a contraindication or a stop instruction. Link caregiver concerns to relevant source passages. "
+            "For ONE uncertainty, select ONE code and cite ALL passages necessary to understand it in the SAME "
+            "statement_ids list. Include the caregiver passage AND the clinical passage it questions; for competing "
+            "documents include BOTH competing passages. Do not split the clinical half and the contextual half into "
+            "separate questions. Do not attach unrelated sources or create all-pairs questions. Generic citation "
+            "illustration, unrelated to any input: if a relationship depends on alpha:L7 and beta:L4, use one list "
+            "['alpha:L7','beta:L4'], not two one-item questions. If gamma:L2 supplies the uncertainty, include all "
+            "three. These are placeholder IDs, never output them unless actually present. "
+            "Choose compare_instructions for an additional incompatibility between cited passages, not simply two "
+            "lists. Choose confirm_intentional_change for an explicit Intentional change: source whose relation to "
+            "the cited instructions needs clarification; include those instructions with the rationale. Choose "
+            "confirm_taper for a contextual phase/order/day-anchor/final-action question, citing both the phase "
+            "source and the passage raising that uncertainty. Choose confirm_hold_restart for conflicting hold "
+            "conditions or an interpretation/restart-authority question, citing all related predicates/context. "
+            "Choose confirm_identity_form when a caregiver asks whether names, strengths, boxes or release forms "
+            "refer to the same product; cite the named-product passages AND that caregiver context. This asks the "
+            "pharmacist to confirm identity and does NOT assert equivalence, so use this specific code rather than "
+            "separating a generic caregiver question from the medicine sources. Choose confirm_pending_owner for "
+            "an additional ownership/contact/follow-up uncertainty, citing the relevant pending record(s) AND the "
+            "passage causing the question; a bare pending-test mention is already covered. "
+            "confirm_interaction_review requires both sources of a selected label-backed pair and should not "
+            "repeat an already-rendered review flag without additional context. It never asserts current concurrent "
+            "use, a contraindication or a stop instruction. Use caregiver_question only when no specific code fits, "
+            "still grouping its context and clinical evidence. Put teachback ONLY in the teachback array and "
+            "always include at least one; teachback is separate from additional uncertainty. "
+            "There is no supplied expected plan. Your selections remain contextual proposals, NOT verified errors. "
             "Preserve taper/hold/AND/OR/comparators/negation and never infer a restart or latest-wins authority. "
             "No clinical fields, new advice, free text, medication changes or extra keys. All medicine instructions stay quoted."
         ),

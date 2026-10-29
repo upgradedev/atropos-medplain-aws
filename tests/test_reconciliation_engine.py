@@ -1,5 +1,6 @@
 """Real SDK offline trajectories, repair bounds and independent gate failures."""
 
+import asyncio
 import copy
 from types import SimpleNamespace
 
@@ -9,8 +10,10 @@ from medplain.fixture_model import FixtureModel
 from medplain.gate import canonical_hash, verify_receipts
 from medplain import reconciliation_engine as engine
 from medplain.reconciliation import (
-    baseline_selection, build_artifact, examples, gate_errors, run_reconciliation, validate_reconciliation_result,
+    baseline_selection, build_artifact, examples, gate_errors, run_reconciliation, source_statements,
+    validate_reconciliation_result,
 )
+from medplain.reconciliation_models import ReconciliationSelection
 
 
 @pytest.mark.parametrize("example", examples(), ids=lambda row: row["example_id"])
@@ -26,6 +29,111 @@ def test_actual_sdk_indexes_plans_and_publishes_with_fresh_tools(example):
         observed = [row for row in result["runtime"]["tools_executed"] if row["invocation_index"] == index]
         assert {row["tool"] for row in observed if row["success"]} == set(engine.REQUIRED_TOOLS[role])
         assert all(row["agent"] == role for row in observed)
+
+
+def test_empty_concerns_still_exposes_original_caregiver_document_context():
+    source = copy.deepcopy(examples()[0]["dossier"])
+    source["caregiver_concerns"] = ""
+    note = "\r\nThe orange card and the printed instructions seem different.\r\n"
+    source["documents"].append({"document_id": "context-note", "kind": "caregiver_note",
+                                "issued_at": "2026-10-29T13:00:00Z", "effective_at": None, "text": note})
+    original = copy.deepcopy(source)
+    context = engine.Context(source, "context-partition", False)
+    context.index_verified = True
+    tools = engine._tools(context)[engine.PLANNER]
+    read_context = next(item for item in tools if item.tool_name == "check_reconciliation_constraints")
+    evidence = read_context()
+    assert evidence["caregiver_concerns"] == ""
+    assert [row["statement_id"] for row in evidence["caregiver_context"]] == ["context-note:L2"]
+    assert evidence["caregiver_context"][0]["citation"]["quote"] == "The orange card and the printed instructions seem different."
+    assert evidence["source_documents"][-1]["text"].encode("utf-8") == note.encode("utf-8")
+    partitioned = evidence["clinical_source_statements"] + evidence["caregiver_context"]
+    by_id = {row["statement_id"]: row for row in partitioned}
+    assert len(by_id) == len(partitioned)
+    assert [by_id[sid] for sid in evidence["source_statement_order"]] == source_statements(source)
+    assert source == original
+    assert "already_rendered_checks" in evidence and "structural_floor" not in evidence
+    evidence["source_documents"][0]["text"] = "A consumer changed its returned tool payload."
+    assert context.dossier["documents"][0]["text"] == original["documents"][0]["text"]
+    assert source == original
+
+
+def test_virtual_concerns_and_caregiver_documents_both_keep_citation_identity():
+    source = copy.deepcopy(examples()[0]["dossier"])
+    source["caregiver_concerns"] = "First context line.\nSecond context line."
+    source["documents"].append({"document_id": "reported-context", "kind": "caregiver_note",
+                                "issued_at": "2026-10-29T13:00:00Z", "effective_at": None,
+                                "text": "A separate caregiver document."})
+    context = engine.Context(source, "two-context-origins", False)
+    context.index_verified = True
+    tool = next(item for item in engine._tools(context)[engine.PLANNER]
+                if item.tool_name == "check_reconciliation_constraints")
+    result = tool()
+    assert [row["statement_id"] for row in result["caregiver_context"]] == [
+        "reported-context:L1", "caregiver-concerns:L1", "caregiver-concerns:L2"]
+    assert [row["citation"]["quote"] for row in result["caregiver_context"]] == [
+        "A separate caregiver document.", "First context line.", "Second context line."]
+
+
+def test_live_adapter_forces_references_then_case_context_without_changing_frozen_descriptor(monkeypatch):
+    class RecordingDelegate:
+        def __init__(self):
+            self.choices = []
+
+        async def stream(self, messages, **kwargs):
+            self.choices.append(kwargs["tool_choice"])
+            yield {"messageStart": {"role": "assistant"}}
+
+    delegate = RecordingDelegate()
+    monkeypatch.setattr(engine, "BedrockModel", lambda **kwargs: delegate)
+    context = engine.Context(examples()[0]["dossier"], "fresh-order", False)
+    context.completed[engine.PLANNER] = set()
+    tools = engine._tools(context)[engine.PLANNER]
+    assert engine.REQUIRED_TOOLS[engine.PLANNER] == ("check_reconciliation_constraints", "lookup_reconciliation_references")
+    model = engine._model("bedrock", context, engine.PLANNER, tools, ReconciliationSelection)
+    specs = [{"name": name} for name in ["lookup_reconciliation_references", "check_reconciliation_constraints", "ReconciliationSelection"]]
+
+    async def exercise():
+        for name in ["lookup_reconciliation_references", "check_reconciliation_constraints"]:
+            async for _ in model.stream([], specs):
+                pass
+            assert delegate.choices[-1] == {"tool": {"name": name}}
+            context.completed[engine.PLANNER].add(name)
+        async for _ in model.stream([], specs):
+            pass
+        assert delegate.choices[-1] == {"tool": {"name": "ReconciliationSelection"}}
+        context.completed[engine.PLANNER].clear()
+        async for _ in model.stream([], specs):
+            pass
+        assert delegate.choices[-1] == {"tool": {"name": "lookup_reconciliation_references"}}
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("question", [
+    {"code": "compare_instructions", "statement_ids": ["discharge:L1", "home:L1"]},
+    {"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"]},
+])
+def test_model_questions_are_not_filtered_or_repaired_into_better_citation_groups(monkeypatch, question):
+    source = copy.deepcopy(examples()[0]["dossier"])
+    selected = {"source_hash": canonical_hash(source), "questions": [question],
+                "teachback": [{"code": "teachback", "statement_ids": ["home:L1"]}]}
+    original = engine._model
+
+    def model(mode, context, role, tools, output_model):
+        if role == engine.PLANNER:
+            return FixtureModel([item.tool_name for item in tools], output_model, lambda: copy.deepcopy(selected))
+        return original(mode, context, role, tools, output_model)
+
+    monkeypatch.setattr(engine, "_model", model)
+    result = run_reconciliation(source, "preserve-model-plan", mode="fixture")
+    assert result["status"] == "verified", result
+    # These valid proposals may be semantically unhelpful. Preserve them so the
+    # unchanged independent ruler measures that failure instead of hiding it.
+    assert result["runtime"]["selection"] == selected
+    assert result["artifact"]["proposed_questions"][0]["statement_ids"] == question["statement_ids"]
+    assert result["artifact"]["proposed_questions"][0]["code"] == question["code"]
+    validate_reconciliation_result(source, result)
 
 
 def test_stress_refuses_changed_source_quote_then_real_graph_rebuilds():
