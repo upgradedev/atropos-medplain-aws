@@ -1024,7 +1024,10 @@ function Console() {
                   >
                     Load examples
                   </button>
-                  <p className="control-reason" data-testid="load-demo-examples-reason">
+                  <p
+                    className="control-reason"
+                    data-testid="load-demo-examples-reason"
+                  >
                     {loadExamplesReason ||
                       "Loads prepared examples into an empty session without running Bedrock. Once loaded, repeating this action does not duplicate them."}
                   </p>
