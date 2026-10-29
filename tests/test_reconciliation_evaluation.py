@@ -317,6 +317,39 @@ def test_remote_unverified_session_fails_closed_and_wall_clock_never_submits(mon
         evaluation.RemoteRunner("https://example.invalid", "a" * 40, journal)
 
 
+def test_remote_wall_time_expiring_during_bootstrap_submits_no_job(monkeypatch, tmp_path):
+    state = fake_http(monkeypatch)
+    original_request = evaluation.RemoteRunner.request
+
+    def request(self, path, payload=None):
+        response = original_request(self, path, payload)
+        if path == "/api/ops/bootstrap":
+            self.deadline = 0
+        return response
+
+    monkeypatch.setattr(evaluation.RemoteRunner, "request", request)
+    cases = evaluation.corpus()
+    journal = evaluation.CheckpointJournal(tmp_path / "partial.json", cases, "a" * 40, "bedrock")
+    runner = evaluation.RemoteRunner(evaluation.CANONICAL_URL, "a" * 40, journal)
+    outcome = runner.run(cases[0])
+    assert outcome["status"] == "not_executed"
+    assert runner.jobs == journal.document["job_reservations"] == 0
+    assert state["sessions"] == 1 and not state["commands"]
+
+
+def test_invalid_result_never_receives_reference_bound_positive_credit(paired):
+    row = copy.deepcopy(paired["cases"][0])
+    outcome = row["outcomes"]["strands"]
+    outcome.update(status="error", independent_validation=False)
+    row["scores"]["strands"] = evaluation.score_outcome(row["expected"], outcome)
+    # Reference identifiers can remain in retained failed raw evidence. They
+    # cannot be reported as a successfully source-bound interaction review.
+    assert row["scores"]["strands"]["selected_interaction_review"]["reference_ids_match"]
+    counters = evaluation.aggregate([row], "strands")
+    assert counters["selected_interaction_review"]["reference_bound_positive_cases"] == 0
+    assert counters["selected_interaction_review"]["true_positive"] == 0
+
+
 def test_empty_truncated_corpus_and_tampered_report_fail(tmp_path, paired):
     path = tmp_path / "bad.json"
     path.write_text(json.dumps({"schema_version": 1, "version": evaluation.CORPUS_VERSION, "cases": []}))

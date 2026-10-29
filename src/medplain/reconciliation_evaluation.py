@@ -394,6 +394,13 @@ class RemoteRunner:
             dossier = validate_dossier(copy.deepcopy(case["dossier"]))
             if not self.token or self.session_commands >= 20:
                 self.new_session()
+            # Session/bootstrap I/O can consume the remaining wall-time. Check
+            # again at the last boundary before reserving a possibly paid job.
+            if time.monotonic() >= self.deadline:
+                outcome.update(status="not_executed", kind="budget_not_executed",
+                               error="Wall-time allowance ended during session setup; no command submitted")
+                self.journal.record(case, "strands", outcome, "not_executed_after_setup")
+                return outcome
             self.jobs += 1
             self.session_commands += 1
             self.journal.reserved(self.jobs)
@@ -480,7 +487,8 @@ def aggregate(rows: list[dict], arm: str) -> dict:
                       exact_case_count=sum(row[key]["exact"] for row in scores))
         result[key] = totals
     result["selected_interaction_review"].update(
-        reference_bound_positive_cases=sum(row["selected_interaction_review"]["reference_ids_match"]
+        reference_bound_positive_cases=sum(row["valid_outcome"]
+                                           and row["selected_interaction_review"]["reference_ids_match"]
                                            and bool(case["expected"]["gold"]["selected_interactions"])
                                            for row, case in zip(scores, rows, strict=True)),
         universe=[list(pair) for pair in SELECTED_PAIR_UNIVERSE],
