@@ -30,6 +30,31 @@ def digest(value: object) -> str:
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
+def assert_patient_width(page, output: Path) -> None:
+    """Retain the actual patient window and measured offenders before closing it."""
+    measured = page.evaluate("""() => {
+      const width = innerWidth;
+      const offenders = Array.from(document.querySelectorAll('body *')).flatMap(element => {
+        const rect = element.getBoundingClientRect(); const style = getComputedStyle(element);
+        if (!rect.width || style.display === 'none' || style.visibility === 'hidden' || (rect.right <= width + 0.5 && rect.left >= -0.5)) return [];
+        const parents = []; let node = element;
+        for (let index = 0; node && index < 5; index++, node = node.parentElement) {
+          const box = node.getBoundingClientRect();
+          parents.push({tag:node.tagName,id:node.id,class:String(node.className?.baseVal ?? node.className),width:box.width,left:box.left,right:box.right});
+        }
+        return [{tag:element.tagName,id:element.id,class:String(element.className?.baseVal ?? element.className),
+          width:rect.width,left:rect.left,right:rect.right,scrollWidth:element.scrollWidth,clientWidth:element.clientWidth,
+          text:element.textContent?.trim().slice(0,180),parents,
+          styles:Object.fromEntries(['display','position','width','minWidth','maxWidth','overflowX','overflowWrap','wordBreak','whiteSpace','gridTemplateColumns','flexDirection','fontSize','letterSpacing'].map(name=>[name,style[name]]))}];
+      }).sort((left,right)=>right.right-left.right).slice(0,50);
+      return {overflow:document.documentElement.scrollWidth > width,viewport:width,documentWidth:document.documentElement.scrollWidth,offenders};
+    }""")
+    if measured["overflow"]:
+        (output / "patient-overflow.json").write_text(json.dumps(measured, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        page.screenshot(path=str(output / "patient-overflow.png"), full_page=True)
+    assert not measured["overflow"], "patient horizontal overflow; inspect patient-overflow.json/png for measured element widths"
+
+
 def audit_detail(detail: dict, submitted: dict, expected_mode: str, commit: str) -> dict:
     """Independently bind UTF-8 source citations, accepted artifact and receipts."""
     result = detail["result"]
@@ -298,7 +323,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
         controls.get_by_role("button", name="Resume device voice", exact=True).click()
         controls.get_by_role("button", name="Stop voice", exact=True).click()
         assert [row["action"] for row in patient.evaluate("window.__medplainVoiceTest")] == ["speak", "pause", "resume", "cancel"]
-        assert not patient.evaluate("document.documentElement.scrollWidth > innerWidth")
+        assert_patient_width(patient, output)
         patient.screenshot(path=str(output / "clarification-patient-accessible-mobile-375.png"), full_page=True)
         patient.evaluate("sessionStorage.setItem('medplain.test.voice.unavailable', '1')")
         patient.goto(urljoin(base + "/", patient_path), wait_until="networkidle")
