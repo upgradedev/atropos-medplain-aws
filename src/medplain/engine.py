@@ -63,6 +63,7 @@ class RequestContext:
     attempts: int = 0
     correction_count: int = 0
     hook_invocations: int = 0
+    structured_output_repairs: int = 0
     expected_results: dict[str, dict[str, Any]] = field(default_factory=dict)
     trace: list[dict[str, str]] = field(default_factory=list)
     tools_executed: list[dict[str, Any]] = field(default_factory=list)
@@ -93,7 +94,7 @@ def _tools(context: RequestContext) -> dict[str, list[Any]]:
         discrepancies = check_medication_parity(context.parsed, candidate)
         result = context.expected_results.setdefault(VERIFIER, {"packet_id": context.packet.packet_id})
         result["medication_discrepancies"] = discrepancies
-        return {"medication_discrepancies": discrepancies}
+        return {"packet_id": context.packet.packet_id, "medication_discrepancies": discrepancies}
 
     @tool
     def drug_interaction_checker() -> dict[str, Any]:
@@ -103,7 +104,7 @@ def _tools(context: RequestContext) -> dict[str, list[Any]]:
         context.interactions = check_interactions(context.parsed)
         result = context.expected_results.setdefault(VERIFIER, {"packet_id": context.packet.packet_id})
         result["interactions"] = context.interactions
-        return {"interactions": context.interactions}
+        return {"packet_id": context.packet.packet_id, "interactions": context.interactions}
 
     @tool
     def grounded_explanation_builder() -> dict[str, Any]:
@@ -154,7 +155,9 @@ def _make_graph(context: RequestContext, model_mode: str) -> Any:
         PARSER: "Call lab_reference_range_evaluator, then return its exact result as ParsedClinicalRecord.",
         VERIFIER: (
             "Call medication_dosage_frequency_parity_checker and drug_interaction_checker. "
-            "Combine their exact results with packet_id as MedicationVerification. "
+            "Both tools return the authoritative packet_id. Copy that exact packet_id and combine the exact "
+            "medication_discrepancies and interactions fields as MedicationVerification. "
+            "Keep every nested interaction field, value, URL and array item exactly as supplied. "
             "Do not replace source prescriptions or invent an interaction. A discrepancy routes to correction."
         ),
         EXPLAINER: (
@@ -259,6 +262,7 @@ def run_packet(
             "nodes_executed": context.nodes_executed,
             "tools_executed": context.tools_executed,
             "hook_invocations": context.hook_invocations,
+            "structured_output_repairs": context.structured_output_repairs,
             "session_state": context.session_state,
         },
     }

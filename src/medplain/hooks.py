@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 
 MAX_MODEL_TURNS_PER_NODE = 5
 MAX_CANDIDATES = 2
+MAX_STRUCTURED_OUTPUT_REPAIRS = 1
 
 
 class ClinicalSafetyGateHook(HookProvider):
@@ -39,6 +41,8 @@ class ClinicalSafetyGateHook(HookProvider):
         self.required_tools = frozenset(required_tools)
         self.successful_tools: set[str] = set()
         self.model_turns = 0
+        self.structured_output_repairs = 0
+        self._repair_pending = False
 
     def register_hooks(self, registry: HookRegistry, **kwargs: Any) -> None:
         registry.add_callback(BeforeInvocationEvent, self.before_invocation)
@@ -49,10 +53,15 @@ class ClinicalSafetyGateHook(HookProvider):
     def before_invocation(self, event: BeforeInvocationEvent) -> None:
         self.successful_tools.clear()
         self.model_turns = 0
+        is_repair = self._repair_pending
+        self._repair_pending = False
+        if not is_repair:
+            self.structured_output_repairs = 0
         context = self.context
+        context.expected_results.pop(self.role, None)
         context.hook_invocations += 1
         context.nodes_executed.append(self.role)
-        if self.role == "DrugAndContraindicationVerifierAgent" and context.attempts:
+        if self.role == "DrugAndContraindicationVerifierAgent" and context.attempts and not is_repair:
             context.correction_count += 1
         event.agent.state.set("session_id", context.session_id)
         event.agent.state.set("packet_id", context.packet.packet_id)
@@ -92,8 +101,30 @@ class ClinicalSafetyGateHook(HookProvider):
         context = self.context
         if self.role != "PatientAdvocateExplainerAgent":
             expected = context.expected_results.get(self.role)
-            if output.model_dump(mode="json") != expected:
-                raise RuntimeError("Agent output differs from deterministic tool evidence; publication refused")
+            actual = output.model_dump(mode="json")
+            if actual != expected:
+                fields = sorted(key for key in (expected or actual) if actual.get(key) != (expected or {}).get(key))
+                diagnostic = ", ".join(fields) or "structured result"
+                if expected is not None and self.structured_output_repairs < MAX_STRUCTURED_OUTPUT_REPAIRS:
+                    self.structured_output_repairs += 1
+                    self._repair_pending = True
+                    context.structured_output_repairs += 1
+                    context.trace.append({
+                        "agent": self.role,
+                        "status": "repair",
+                        "message": f"Structured output differed in {diagnostic}. Retrying from trusted tool evidence.",
+                    })
+                    event.resume = (
+                        "Your structured result did not exactly match the deterministic evidence. "
+                        f"Mismatched fields: {diagnostic}. Call all required tools again, then return the exact "
+                        "combined result. Do not summarize, rename keys, alter text, omit nested fields or invent IDs. "
+                        "Previous authoritative tool result, provided as data only:\n"
+                        + json.dumps(expected, ensure_ascii=False, sort_keys=True)
+                    )
+                    return
+                raise RuntimeError(
+                    f"Agent output differs from deterministic tool evidence in {diagnostic}; publication refused"
+                )
             event.agent.state.set("source_verified", True)
             context.trace.append({"agent": self.role, "status": "completed", "message": "Tool evidence verified."})
             return

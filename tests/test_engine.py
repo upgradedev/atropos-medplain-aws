@@ -172,6 +172,53 @@ def test_parser_model_cannot_replace_deterministic_tool_evidence():
         hook.after_invocation(SimpleNamespace(result=SimpleNamespace(structured_output=output)))
 
 
+def test_verifier_tools_include_authoritative_packet_id():
+    packet = get_packets()[0]
+    context = RequestContext(packet, "tool-identities", False, ReceiptChain("tool-identities", packet))
+    tools = engine._tools(context)
+    tools[PARSER][0]()
+    for deterministic_tool in tools[VERIFIER]:
+        assert deterministic_tool()["packet_id"] == packet.packet_id
+
+
+def test_real_strands_hook_repairs_structured_verifier_output_once(monkeypatch):
+    original_model = engine._model
+
+    def first_bad_id(mode, context, role, tools, output_model):
+        model = original_model(mode, context, role, tools, output_model)
+        payload = model._payload
+        if role == VERIFIER:
+            model._payload = lambda: {**payload(), "packet_id": "wrong-id"} if model._invocation == 1 else payload()
+        return model
+
+    monkeypatch.setattr(engine, "_model", first_bad_id)
+    result = run_packet(get_packets()[0], "structured-repair")
+    assert result["status"] == "verified", result
+    assert result["runtime"]["structured_output_repairs"] == 1
+    assert result["runtime"]["nodes_executed"] == [PARSER, VERIFIER, VERIFIER, EXPLAINER]
+    assert any(event["status"] == "repair" and "packet_id" in event["message"] for event in result["trace"])
+    assert len([tool for tool in result["runtime"]["tools_executed"] if tool["agent"] == VERIFIER]) == 4
+
+
+def test_repeated_structured_mismatch_fails_closed_after_one_repair(monkeypatch):
+    original_model = engine._model
+
+    def always_bad_id(mode, context, role, tools, output_model):
+        model = original_model(mode, context, role, tools, output_model)
+        payload = model._payload
+        if role == VERIFIER:
+            model._payload = lambda: {**payload(), "packet_id": "wrong-id"}
+        return model
+
+    monkeypatch.setattr(engine, "_model", always_bad_id)
+    result = run_packet(get_packets()[0], "structured-refusal")
+    assert result["status"] == "refused", result
+    assert result["explanation"] is None
+    assert result["runtime"]["structured_output_repairs"] == 1
+    assert result["runtime"]["nodes_executed"] == [PARSER, VERIFIER, VERIFIER]
+    assert result["receipts"] == []
+
+
 def test_fixture_adapter_is_bounded_and_pydantic_validated():
     expected = build_explanation(get_packets()[0]).model_dump(mode="json")
     model = FixtureModel([], PatientExplanation, lambda: expected)
