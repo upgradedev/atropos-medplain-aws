@@ -82,7 +82,29 @@ export interface SourceIntake {
   source_sha256: string;
   ledger_sha256: string;
 }
+export type DocumentKind = "home_list" | "discharge" | "addendum" | "caregiver_note" | "lab_report";
+export interface ReconciliationDocument {
+  document_id: string;
+  kind: DocumentKind;
+  issued_at: string;
+  effective_at: string | null;
+  text: string;
+}
+export interface ReconciliationDossier {
+  profile: "medplain-reconciliation-v1";
+  patient_alias: string;
+  language: "en" | "el";
+  caregiver_concerns: string;
+  documents: ReconciliationDocument[];
+}
+export interface ReconciliationExamples {
+  profile: string;
+  examples: { id: string; title: string; description: string; dossier: ReconciliationDossier }[];
+  limits?: Record<string, number>;
+}
 export interface CaseSummary {
+  source_profile?: string;
+  parent_case_id?: string | null;
   origin?: CaseOrigin;
   prepared?: PreparedMetadata | null;
   source_kind?: "imported_note" | "sample";

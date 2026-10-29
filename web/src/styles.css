@@ -2665,3 +2665,19 @@ tbody tr:hover {
     scroll-behavior: auto !important;
   }
 }
+
+.reading-controls { padding: 16px; border: 1px solid var(--line); border-radius: 12px; margin: 18px 0; background: var(--raised); }
+.reading-controls .button { min-height: 44px; }
+.reading-controls .control-reason { margin-top: 10px; }
+.reconciliation-form { display: grid; gap: 18px; }
+.reconciliation-metadata { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.reconciliation-editor { padding: 18px; border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 15px; }
+.reconciliation-editor textarea { min-height: 180px; width: 100%; }
+.reconciliation-editor input, .reconciliation-editor select { min-width: 0; width: 100%; }
+.reconciliation-form pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+:root[data-reading-contrast="true"] { --canvas: #000; --panel: #080808; --raised: #171717; --line: #bdbdbd; --ink: #fff; --muted: #ddd; --accent: #80ffe1; --accent-ink: #000; --success: #80ffe1; --warning: #ffe16e; --danger: #ffb2c2; }
+:root[data-theme="light"][data-reading-contrast="true"] { --canvas: #fff; --panel: #fff; --raised: #f3f3f3; --line: #292929; --ink: #000; --muted: #292929; --accent: #00553d; --accent-ink: #fff; --success: #00553d; --warning: #663800; --danger: #8b1437; }
+:root[data-reading-large="true"] .patient-document, :root[data-reading-large="true"] .clarification-card, :root[data-reading-large="true"] .explanation { font-size: 18px; line-height: 1.8; }
+:root[data-reading-large="true"] .patient-document p, :root[data-reading-large="true"] .patient-document li, :root[data-reading-large="true"] .clarification-card p, :root[data-reading-large="true"] .clarification-card li, :root[data-reading-large="true"] .explanation p, :root[data-reading-large="true"] .explanation li { font-size: 18px; line-height: 1.8; }
+@media (max-width: 640px) { .reconciliation-metadata { grid-template-columns: minmax(0, 1fr); } .reconciliation-editor { padding: 14px; } .reading-controls .action-row { display: grid; grid-template-columns: minmax(0, 1fr); } }
+@media (forced-colors: active) { .reading-controls, .reconciliation-editor { border: 1px solid CanvasText; } }
