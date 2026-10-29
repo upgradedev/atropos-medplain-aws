@@ -33,10 +33,10 @@ def deployed_commit() -> str:
 
 @app.middleware("http")
 async def public_boundary(request: Request, call_next):
-    # Only fixed sample selectors reach Bedrock. No submitted clinical documents.
+    # Bound all JSON commands, including the explicitly synthetic note profile.
     if request.method == "POST":
         if request.headers.get("content-type", "").split(";")[0] != "application/json":
-            return JSONResponse(status_code=415, content={"detail": "Send a JSON sample selector only."})
+            return JSONResponse(status_code=415, content={"detail": "Send JSON for a supported synthetic demo action."})
         declared = request.headers.get("content-length", "0")
         if not declared.isdecimal() or int(declared) > 131072:
             return JSONResponse(status_code=413, content={"detail": "Request is too large for this demo."})
@@ -149,8 +149,10 @@ if STATIC.exists():
 # The operations domain owns its API. Static routes remain separate from all
 # commands, so a client-side URL can never shadow an API or worker endpoint.
 from medplain.ops_api import router as operations_router  # noqa: E402
+from medplain.evidence_api import router as evidence_router  # noqa: E402
 
 app.include_router(operations_router)
+app.include_router(evidence_router)
 
 if (CONSOLE / "assets").is_dir():
     app.mount("/console/assets", StaticFiles(directory=CONSOLE / "assets"), name="console-assets")

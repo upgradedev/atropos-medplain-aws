@@ -24,6 +24,24 @@ The clean pneumonia packet can release automatically under the synthetic demo po
 
 The **Safety walkthrough** guides this sequence. It is a product tour, separate from the organizer's required AWS workshop. The original [single-packet demonstration](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/demo) remains available at the same AWS host.
 
+## Import a new synthetic discharge note
+
+In **New case**, choose **Import synthetic note**, load the editable template and change its invented medicines, values or laboratory intervals. The supported `medplain-discharge-note-v1` format is displayed beside the editor. Confirm that the note is invented before submitting. A new import enters the same durable outbox, SQS and Strands workflow as the sample cases.
+
+The parser Agent reads the original numbered source lines and produces a typed `SourceExtraction` with complete source quotes, line numbers, medicines, lab results and directives. Its tool does not provide the normalized answer. An independent deterministic ledger consumes every source line and checks the extraction, including dose strings, units, frequency aliases and `Stop` / `Do not take` negation. Unsupported or ambiguous lines are refused before inference; changed extraction is withheld at the SDK hook.
+
+The application retains the exact original note, raw-source SHA-256 and ledger hash. The normalized packet's FHIR identifier includes the raw-source hash, binding it through the existing receipt source digest. Worker persistence, reviewer release and public reads independently reconstruct that binding. Imported cases always require exact-artifact review. The original clinical publication gate remains unchanged.
+
+This is an English ASCII line profile with at most 8,000 characters, 25 lines, six medicines and six labs. It supports new invented names and values within that profile. It is not a general hospital-document parser or PHI detector. The confirmation does not detect or remove private data. Enter only invented information; accepted notes are stored in the anonymous session and sent to its configured model.
+
+## Compare Strands with a deterministic baseline
+
+**Settings** displays the source-bound evaluation report and offers its full JSON. CI uses real **Strands Evals `Case`, `Experiment` and deterministic evaluators** to compare the SDK workflow with the full deterministic normalizer, renderer and the same safety gate on the same independent synthetic corpus. The baseline can process every supported input and receives the same validation rules. Per-case outcomes, failures, corpus/ruler hashes and report hash remain available.
+
+The packaged report is labelled **offline fixture execution**, not Bedrock performance. It measures source extraction, supported field fidelity, refusal behavior, corrective trajectories and common-gate mutation rejection. Both arms use the same gate; its rejection results do not establish agent superiority. Accepted patient text is still constrained to the same deterministic renderer, so equal outputs are an expected result. No improvement in patient comprehension or clinical outcomes is claimed.
+
+The separate [evaluation workflow](.github/workflows/evals.yml) can run a bounded comparison against the deployed Bedrock path through its public API. It records actual worker timing separately from client wall time and preserves failed cases. Token use is unreported when the provider does not supply it. That manual run is separate from the offline report bundled in the application.
+
 ## Operations console
 
 React, TypeScript, Tailwind and TanStack Table provide a responsive shell with a collapsible sidebar, counter badges, workspace switcher, `/` search and a user menu. Overview, Cases, Queues, Maps and Settings use the same server-scoped synthetic session. Cases support server filtering, sorting and pagination, with a tabbed detail drawer. Action results use toasts; unavailable APIs, empty cohorts and loading requests have explicit states. Disabled actions state their reason.
@@ -32,7 +50,7 @@ Overview charts show persisted case states and desk workload, including the expl
 
 Maps has two views: an interactive agent workflow with recorded trace drill-down, and a geographic map of **synthetic discharge desks** at city-center coordinates. These are demonstration facilities, not patient addresses or real hospital sites. The geographic view bundles generalized Natural Earth country outlines and uses Leaflet for pan, zoom, current-session counts and marker-to-case drill-down. It makes no external tile requests and needs no map API key. The browser never requests the visitor's location.
 
-An opaque anonymous capability scopes the session. Operator, reviewer, auditor and admin are explicitly labelled **synthetic demo lenses**, selectable by the same visitor. The server enforces the selected role and case ownership, but this is not authenticated hospital staff authorization. Sessions and public release capabilities expire after 24 hours. The prepared collection reuses the included source profiles; arbitrary patient input is still unavailable. Native dropdowns explicitly follow the selected dark or light color scheme, with opaque option backgrounds and readable text.
+An opaque anonymous capability scopes the session. Operator, reviewer, auditor and admin are explicitly labelled **synthetic demo lenses**, selectable by the same visitor. The server enforces the selected role and case ownership, but this is not authenticated hospital staff authorization. Sessions and public release capabilities expire after 24 hours. The prepared collection reuses the included source profiles; new invented notes use the bounded intake profile above. Native dropdowns explicitly follow the selected dark or light color scheme, with opaque option backgrounds and readable text.
 
 ## What runs
 
@@ -42,7 +60,7 @@ Strands is load-bearing: its `Agent` loop executes the registered tools, its Pyd
 
 | Strands node | Deterministic tools and output |
 |---|---|
-| `LabAndDischargeParserAgent` | `lab_reference_range_evaluator` checks the source text against the manifest and FHIR profile, then evaluates supplied lab intervals |
+| `LabAndDischargeParserAgent` | Samples: cross-checks manifest, text and FHIR. New notes: independently extracts typed facts and exact quotes from original lines, checked against the source ledger |
 | `DrugAndContraindicationVerifierAgent` | `medication_dosage_frequency_parity_checker` and `drug_interaction_checker` check dose, unit, frequency, stop status and selected demonstration pairs |
 | `PatientAdvocateExplainerAgent` | `grounded_explanation_builder` produces a constrained `PatientExplanation`; the `AfterInvocationEvent` hook checks it before publication |
 
@@ -87,7 +105,7 @@ A worker independently rechecks saved source, full artifact and receipt integrit
 
 This is a synthetic engineering demonstration, not a medical device or clinical advice. Source fidelity does not establish that a source prescription is appropriate. Do not use these invented medicine plans for your own care.
 
-The supported input is a deliberately narrow discharge table and FHIR `Bundle` profile containing `MedicationRequest` and `Observation` resources, plus a canonical discharge narrative. The API accepts only identifiers for the shipped samples. Arbitrary FHIR bundles, PDFs, EHR uploads, hospital portal connections and automatic discharge-finalization triggers are not deployed.
+The supported input is a deliberately narrow discharge table and FHIR `Bundle` profile containing `MedicationRequest` and `Observation` resources, plus a canonical discharge narrative. The API accepts shipped sample identifiers and explicitly confirmed invented notes in the displayed line profile. It independently compiles new notes into that same canonical packet contract. Arbitrary FHIR bundles, PDFs, EHR uploads, hospital portal connections and automatic discharge-finalization triggers are not deployed.
 
 Clinical prose is constrained to source-grounded templates. The agents select and verify tool evidence; unrestricted model-written medical advice is intentionally outside the publication contract. No reading grade, patient comprehension, readmission benefit or clinical outcome has been measured.
 
@@ -102,8 +120,9 @@ The demo needs only a browser. Dependency installation, package builds and Chrom
 For a separate Linux development environment with Python 3.12:
 
 ```bash
-python -m pip install -e '.[test]'
+python -m pip install -e '.[test,eval]'
 python scripts/build_prepared_demo.py --output src/medplain/data/prepared_demo.json --source-commit "$(git rev-parse HEAD)"
+python scripts/evaluate_medplain.py --mode fixture --source-commit "$(git rev-parse HEAD)" --output src/medplain/data/evaluation_report.json
 cd web && npm ci && npm run build && cd ..
 python scripts/stage_console.py
 MEDPLAIN_MODEL_MODE=fixture uvicorn medplain.api:app --host 127.0.0.1 --port 8000

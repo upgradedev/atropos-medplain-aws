@@ -46,8 +46,12 @@ def verify_archive(archive_path: Path, console: Path) -> dict:
         if prepared.is_file():
             if archive.read("medplain/data/prepared_demo.json") != prepared.read_bytes():
                 raise ValueError("packaged prepared collection differs from the validated CI data")
+        evaluation = Path("src/medplain/data/evaluation_report.json")
+        if evaluation.is_file():
+            if archive.read("medplain/data/evaluation_report.json") != evaluation.read_bytes():
+                raise ValueError("packaged evaluation report differs from the measured CI comparison")
     return {"archive": archive_path.name, "verified_console_assets": len(manifest["files"]),
-            "verified_prepared_collection": prepared.is_file()}
+            "verified_prepared_collection": prepared.is_file(), "verified_evaluation_report": evaluation.is_file()}
 
 
 if __name__ == "__main__":
