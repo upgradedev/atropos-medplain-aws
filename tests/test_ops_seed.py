@@ -106,6 +106,45 @@ def test_seed_request_race_is_idempotent_and_never_replaces_reviewed_cohort(back
     assert_no_jobs(store, client)
 
 
+def test_seed_never_calls_an_agent_at_runtime_even_in_bedrock_mode(backend, monkeypatch):
+    import medplain.engine as engine
+
+    def unexpected_model_call(*args, **kwargs):
+        raise AssertionError("A visitor must only copy validated packaged examples")
+
+    monkeypatch.setattr(engine, "run_packet", unexpected_model_call)
+    monkeypatch.setenv("MEDPLAIN_MODEL_MODE", "bedrock")
+    svc, store, client = backend
+    pk, session = visitor(svc, True)
+    assert session["case_count"] == len(store.cases(pk)) == 12
+    assert svc.seed_demo(pk, session)["collection"]["prepared_count"] == 12
+    assert_no_jobs(store, client)
+
+
+def test_seed_and_real_create_race_never_lose_the_authoritative_count(backend):
+    svc, store, _ = backend
+    pk, session = visitor(svc)
+
+    def seed():
+        try:
+            return svc.seed_demo(pk, session)
+        except OpsError as error:
+            assert error.status == 409
+            return None
+
+    def create():
+        return svc.create(pk, session, "home-after-pneumonia", "demo-athens", False, "seed-vs-real")
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        seeded = pool.submit(seed)
+        live = pool.submit(create)
+        result, created = seeded.result(), live.result()
+    assert created[1]
+    expected = 13 if result else 1
+    assert len(store.cases(pk)) == store.get(pk, "SESSION")["case_count"] == expected
+    assert len([c for c in store.cases(pk) if c.get("origin") == "prepared_demo"]) == expected - 1
+
+
 def test_two_visitors_get_distinct_case_capabilities_but_original_preparation_evidence(backend):
     svc, store, _ = backend
     first, _ = visitor(svc, True)
