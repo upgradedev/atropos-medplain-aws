@@ -242,19 +242,40 @@ export default function CaseDrawer({
         </State>
       ) : (
         <>
-            {data.origin === "prepared_demo" ? (
-              <div className="prepared-notice case-prepared-notice" data-testid="prepared-case-notice">
-                <Icon name="cases" />
-                <div><strong>Prepared synthetic example</strong><p>This persisted example was prepared with an offline fixture model. It is not a fresh Bedrock run. Its receipts and execution trace belong to that prepared example.</p></div>
+          {data.origin === "prepared_demo" ? (
+            <div
+              className="prepared-notice case-prepared-notice"
+              data-testid="prepared-case-notice"
+            >
+              <Icon name="cases" />
+              <div>
+                <strong>Prepared synthetic example</strong>
+                <p>
+                  This persisted example was prepared with an offline fixture
+                  model. It is not a fresh Bedrock run. Its receipts and
+                  execution trace belong to that prepared example.
+                </p>
               </div>
-            ) : data.origin === "live_run" ? (
-              <p className="run-origin-note">{data.result?.model_mode === "bedrock" ? "New verification run using Amazon Bedrock." : data.result?.model_mode === "fixture" ? "New verification run using an offline fixture model." : "New verification run. Model evidence is recorded when processing completes."}</p>
-            ) : <p className="run-origin-note">This legacy record has no recorded origin. Its model evidence appears in the Agents tab when available.</p>}
+            </div>
+          ) : data.origin === "live_run" ? (
+            <p className="run-origin-note">
+              {data.result?.model_mode === "bedrock"
+                ? "New verification run using Amazon Bedrock."
+                : data.result?.model_mode === "fixture"
+                  ? "New verification run using an offline fixture model."
+                  : "New verification run. Model evidence is recorded when processing completes."}
+            </p>
+          ) : (
+            <p className="run-origin-note">
+              This legacy record has no recorded origin. Its model evidence
+              appears in the Agents tab when available.
+            </p>
+          )}
           <div className="drawer-title">
             <h3>{data.packet_title}</h3>
             <p>
-                Added to session {clock(data.created_at)} · {duration(data.duration_ms)} ·{" "}
-              {data.correction_count} corrections
+              Added to session {clock(data.created_at)} ·{" "}
+              {duration(data.duration_ms)} · {data.correction_count} corrections
             </p>
           </div>
           {pollPaused ? (
@@ -405,7 +426,9 @@ export default function CaseDrawer({
                 <div className="section-heading">
                   <h3>Recorded execution</h3>
                   <span className="subtle-tag">
-                      {data.origin === "prepared_demo" ? "Prepared offline example" : data.result?.model_mode || "Not completed"}
+                    {data.origin === "prepared_demo"
+                      ? "Prepared offline example"
+                      : data.result?.model_mode || "Not completed"}
                   </span>
                 </div>
                 <p className="muted">
@@ -456,7 +479,15 @@ export default function CaseDrawer({
                     {JSON.stringify(data.result?.runtime || {}, null, 2)}
                   </pre>
                 </details>
-                  {data.prepared ? <details><summary>Prepared example provenance{data.origin === "live_run" ? " before this new run" : ""}</summary><pre>{JSON.stringify(data.prepared, null, 2)}</pre></details> : null}
+                {data.prepared ? (
+                  <details>
+                    <summary>
+                      Prepared example provenance
+                      {data.origin === "live_run" ? " before this new run" : ""}
+                    </summary>
+                    <pre>{JSON.stringify(data.prepared, null, 2)}</pre>
+                  </details>
+                ) : null}
               </>
             ) : null}
             {tab === "Receipt" ? (

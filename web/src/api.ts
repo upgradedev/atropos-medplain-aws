@@ -70,10 +70,9 @@ export async function api<T>(
   }
 }
 export async function newSession(preparedDemo = true): Promise<Bootstrap> {
-  const created = await api<Session & { session_token: string }>(
-    "/session",
-    { prepared_demo: preparedDemo },
-  );
+  const created = await api<Session & { session_token: string }>("/session", {
+    prepared_demo: preparedDemo,
+  });
   saveToken(created.session_token);
   return api<Bootstrap>("/bootstrap");
 }
@@ -82,7 +81,8 @@ export async function loadExamples(): Promise<Bootstrap> {
   return api<Bootstrap>("/bootstrap");
 }
 async function readBoot(): Promise<Bootstrap> {
-  const explicitEmpty = new URLSearchParams(location.search).get("collection") === "empty";
+  const explicitEmpty =
+    new URLSearchParams(location.search).get("collection") === "empty";
   if (!memoryToken && !token()) return newSession(!explicitEmpty);
   try {
     const data = await api<Bootstrap>("/bootstrap");
@@ -97,7 +97,8 @@ async function readBoot(): Promise<Bootstrap> {
     }
     return data;
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) return newSession(!explicitEmpty);
+    if (error instanceof ApiError && error.status === 401)
+      return newSession(!explicitEmpty);
     throw error;
   }
 }

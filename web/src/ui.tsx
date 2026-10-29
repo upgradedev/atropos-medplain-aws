@@ -47,7 +47,10 @@ export function Badge({ status }: { status: Status | string }) {
 }
 export function OriginBadge({ origin }: { origin?: CaseOrigin }) {
   return (
-    <span className={`origin-badge origin-${origin || "unknown"}`} data-testid="case-origin">
+    <span
+      className={`origin-badge origin-${origin || "unknown"}`}
+      data-testid="case-origin"
+    >
       {origin === "prepared_demo"
         ? "Prepared example"
         : origin === "live_run"
