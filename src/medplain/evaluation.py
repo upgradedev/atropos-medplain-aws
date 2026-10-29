@@ -13,6 +13,7 @@ import math
 import os
 import re
 import statistics
+import subprocess
 import time
 import urllib.error
 import urllib.request
@@ -530,6 +531,15 @@ def run_evaluation(source_commit: str, mode="fixture", judge_url=None) -> dict:
 
     if importlib.metadata.version("strands-agents-evals") != EVALS_VERSION:
         raise ValueError("Use the pinned official Strands Evals optional dependency")
+    harness_commit = os.getenv("GITHUB_SHA")
+    if not harness_commit:
+        try:
+            harness_commit = subprocess.check_output(["git", "rev-parse", "HEAD"],
+                                                     cwd=Path(__file__).resolve().parents[2]).decode().strip()
+        except (OSError, subprocess.CalledProcessError):
+            harness_commit = None
+    if mode == "bedrock" and harness_commit != source_commit:
+        raise ValueError("Check out the exact deployed commit before comparing its deterministic baseline")
     heldout = corpus()
     remote = RemoteRunner(judge_url or "", source_commit) if mode == "bedrock" else None
     measured = {}
@@ -560,7 +570,7 @@ def run_evaluation(source_commit: str, mode="fixture", judge_url=None) -> dict:
              "validity": "All expected valid and refused samples retained; runtime errors are not valid refusals.",
              "facts": "Exact annotated medication/lab/follow-up/precaution fields; no medical judgment.",
              "trajectory": "Node order, successful fresh required tools per invocation and receipt verdict sequence."}
-    report = {"schema_version": 1, "source_commit": source_commit,
+    report = {"schema_version": 1, "source_commit": source_commit, "harness_commit": harness_commit,
               "generated_at": datetime.now(timezone.utc).isoformat(), "mode": mode,
               "framework": {"package": "strands-agents-evals", "version": EVALS_VERSION,
                             "sdk_version": importlib.metadata.version("strands-agents"),
