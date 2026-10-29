@@ -1,0 +1,94 @@
+[
+  {
+    "example_id": "unexplained-dose-stop",
+    "title": "Two lists, two unanswered changes",
+    "summary": "Compare a home dose with a discharge dose and a stopped medicine. The source does not explain the differences.",
+    "dossier": {
+      "profile": "medplain-reconciliation-v1", "patient_alias": "Demo-River", "language": "en",
+      "caregiver_concerns": "The old Lisinopril bottle is still on the kitchen table. Which list should we ask the discharge team to confirm?",
+      "documents": [
+        {"document_id": "home", "kind": "home_list", "issued_at": "2026-10-25T09:00:00Z", "effective_at": null,
+         "text": "Before admission, taking Lisinopril 10 mg by mouth QD.\nBefore admission, taking Aspirin 81 mg by mouth QD."},
+        {"document_id": "discharge", "kind": "discharge", "issued_at": "2026-10-29T10:00:00Z", "effective_at": "2026-10-29T10:00:00Z",
+         "text": "At discharge, take Lisinopril 5 mg by mouth BID.\nAt discharge, stop Aspirin 81 mg by mouth QD."}
+      ]
+    }
+  },
+  {
+    "example_id": "documented-intentional-change",
+    "title": "A change with an explicit explanation",
+    "summary": "An addendum explicitly records an intentional dose change. A difference is not automatically an error.",
+    "dossier": {
+      "profile": "medplain-reconciliation-v1", "patient_alias": "Demo-Cedar", "language": "en",
+      "caregiver_concerns": "We understand there was a planned change to Lisinopril but want the team to explain the two lists together.",
+      "documents": [
+        {"document_id": "home", "kind": "home_list", "issued_at": "2026-10-25T09:00:00Z", "effective_at": null,
+         "text": "Before admission, taking Lisinopril 10 mg by mouth QD."},
+        {"document_id": "discharge", "kind": "discharge", "issued_at": "2026-10-29T10:00:00Z", "effective_at": "2026-10-29T10:00:00Z",
+         "text": "At discharge, take Lisinopril 5 mg by mouth BID."},
+        {"document_id": "addendum", "kind": "addendum", "issued_at": "2026-10-29T11:00:00Z", "effective_at": "2026-10-29T10:00:00Z",
+         "text": "Intentional change: Lisinopril 5 mg by mouth BID replaces home Lisinopril 10 mg by mouth QD."}
+      ]
+    }
+  },
+  {
+    "example_id": "taper-phases",
+    "title": "A taper that cannot become one dose",
+    "summary": "Keep both dose phases, their sequence, their day anchor and the final stop instruction intact.",
+    "dossier": {
+      "profile": "medplain-reconciliation-v1", "patient_alias": "Demo-Bay", "language": "el",
+      "caregiver_concerns": "The calendar starts on the day we arrive home. Does that match the Prednisone taper day anchor?",
+      "documents": [
+        {"document_id": "discharge", "kind": "discharge", "issued_at": "2026-10-29T10:00:00Z", "effective_at": "2026-10-29T10:00:00Z",
+         "text": "Taper Prednisone: 20 mg by mouth QD on days 1-3; then 10 mg by mouth QD on days 4-6; then stop."},
+        {"document_id": "addendum", "kind": "addendum", "issued_at": "2026-10-29T11:00:00Z", "effective_at": null,
+         "text": "The discharge date is the recorded day anchor. The caregiver asks the team to confirm the calendar before using it."}
+      ]
+    }
+  },
+  {
+    "example_id": "conditional-hold",
+    "title": "Hold conditions and restart authority",
+    "summary": "Preserve a comparator, the AND connector and the explicit requirement for team confirmation. A new lab value does not authorize restart.",
+    "dossier": {
+      "profile": "medplain-reconciliation-v1", "patient_alias": "Demo-Elm", "language": "en",
+      "caregiver_concerns": "If the pressure improves but dizziness remains, who confirms whether Lisinopril can restart?",
+      "documents": [
+        {"document_id": "discharge", "kind": "discharge", "issued_at": "2026-10-29T10:00:00Z", "effective_at": null,
+         "text": "At discharge, take Lisinopril 5 mg by mouth QD.\nHold Lisinopril while systolic blood pressure < 100 mmHg AND dizziness = present; restart only after the discharge team confirms."},
+        {"document_id": "lab", "kind": "lab_report", "issued_at": "2026-10-29T12:00:00Z", "effective_at": null,
+         "text": "Systolic blood pressure recorded at 104 mmHg. This observation does not contain a restart order."}
+      ]
+    }
+  },
+  {
+    "example_id": "brand-form-caregiver",
+    "title": "An old bottle and a different release form",
+    "summary": "Use caregiver context to ask about identity and formulation. Name similarity does not establish interchangeability.",
+    "dossier": {
+      "profile": "medplain-reconciliation-v1", "patient_alias": "Demo-Pine", "language": "en",
+      "caregiver_concerns": "The old bottle says Lopressor and the new list says Metoprolol succinate ER. Are the brand and release form the same?",
+      "documents": [
+        {"document_id": "home", "kind": "home_list", "issued_at": "2026-10-25T09:00:00Z", "effective_at": null,
+         "text": "Before admission, taking Lopressor 25 mg by mouth BID."},
+        {"document_id": "discharge", "kind": "discharge", "issued_at": "2026-10-29T10:00:00Z", "effective_at": null,
+         "text": "At discharge, take Metoprolol succinate ER 50 mg by mouth QD."}
+      ]
+    }
+  },
+  {
+    "example_id": "pending-result-gap",
+    "title": "A pending result without an owner",
+    "summary": "Connect the pending result and caregiver question to a named owner and follow-up clarification. Do not invent the result or a medicine change.",
+    "dossier": {
+      "profile": "medplain-reconciliation-v1", "patient_alias": "Demo-Ash", "language": "en",
+      "caregiver_concerns": "The potassium result is still pending. We do not know who will call us or whether a follow-up appointment exists.",
+      "documents": [
+        {"document_id": "discharge", "kind": "discharge", "issued_at": "2026-10-29T10:00:00Z", "effective_at": null,
+         "text": "At discharge, take Furosemide 20 mg by mouth QD.\nPending test: potassium; owner: not assigned; follow-up: within 2 days."},
+        {"document_id": "caregiver", "kind": "caregiver_note", "issued_at": "2026-10-29T11:00:00Z", "effective_at": null,
+         "text": "The caregiver has the hospital switchboard number but no named follow-up contact."}
+      ]
+    }
+  }
+]
