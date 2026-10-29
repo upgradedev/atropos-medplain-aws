@@ -114,7 +114,7 @@ class ExtractedStatement(SourceSpan):
 
 
 class SourceExtraction(Contract):
-    """Model-normalized facts, each bound to a complete line of the original note."""
+    """Verified normalized facts and verbatim evidence bound to original source lines."""
 
     source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     patient_alias: str = Field(pattern=r"^Demo-[A-Za-z0-9-]{1,32}$")
@@ -122,3 +122,39 @@ class SourceExtraction(Contract):
     labs: list[ExtractedLab] = Field(min_length=1, max_length=6)
     follow_up: list[ExtractedStatement] = Field(min_length=1, max_length=3)
     red_flags: list[ExtractedStatement] = Field(min_length=1, max_length=3)
+
+
+class SourceLineReference(Contract):
+    source_line: int = Field(
+        strict=True, ge=1, le=25,
+        description="Exact 1-based line number from the source tool. Cite the line for this record, not its array index.",
+    )
+
+
+class MedicationSelection(SourceLineReference):
+    name: str = Field(min_length=1, max_length=60, description="Medicine identity copied exactly, including spelling and case.")
+    dose: str = Field(min_length=1, max_length=12, description="Exact numeric source string, preserving decimal digits. Do not calculate or change it.")
+    unit: Literal["mg", "mcg", "mL"] = Field(description="The medicine dose unit exactly as written, with original capitalization.")
+    frequency: Literal["QD", "BID", "TID", "QHS"] = Field(
+        description="once daily/QD => QD; twice daily/BID => BID; three times daily/TID => TID; at bedtime/QHS => QHS.",
+    )
+    status: Literal["active", "stopped"] = Field(description="Take => active. Stop or Do not take => stopped. Preserve negation.")
+
+
+class LabSelection(SourceLineReference):
+    name: str = Field(min_length=1, max_length=60, description="Exact lab identity before the colon, excluding the Lab prefix.")
+    value: str = Field(min_length=1, max_length=12, description="Exact measured numeric source string, preserving sign and decimals.")
+    unit: Literal["mmol/L", "mg/dL", "g/dL", "10^9/L", "mL/min", "ratio"]
+    low: str = Field(min_length=1, max_length=12, description="Exact numeric string after reference and before to.")
+    high: str = Field(min_length=1, max_length=12, description="Exact numeric string after to and before the closing parenthesis.")
+
+
+class SourceSelection(Contract):
+    """Extract clinical fields and cite original lines. Code attaches only verbatim source text."""
+
+    source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$", description="Copy the source tool's source_sha256 exactly.")
+    patient_alias: str = Field(pattern=r"^Demo-[A-Za-z0-9-]{1,32}$", description="Exact alias after Synthetic alias: . Keep the Demo- prefix.")
+    medications: list[MedicationSelection] = Field(min_length=1, max_length=6, description="All medicine lines in their original source order, once each.")
+    labs: list[LabSelection] = Field(min_length=1, max_length=6, description="All lab lines in their original source order, once each.")
+    follow_up: list[SourceLineReference] = Field(min_length=1, max_length=3, description="Cite every Follow-up: line, in source order. Do not include its text.")
+    red_flags: list[SourceLineReference] = Field(min_length=1, max_length=3, description="Cite every Get help: line, in source order. Do not include its text.")

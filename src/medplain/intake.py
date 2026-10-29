@@ -14,7 +14,7 @@ from decimal import Decimal
 
 from medplain.clinical import UCUM_CODES, parse_packet, render_source_profile
 from medplain.gate import canonical_hash
-from medplain.schemas import ClinicalPacket, Lab, Medication, SourceExtraction
+from medplain.schemas import ClinicalPacket, Lab, Medication, SourceExtraction, SourceSelection
 
 PROFILE = "medplain-discharge-note-v1"
 SOURCE_SYSTEM = "urn:medplain:raw-note-sha256"
@@ -240,6 +240,44 @@ def validate_intake_source(packet: ClinicalPacket, intake: dict) -> IntakeBundle
     if bundle.intake != intake or bundle.packet.model_dump() != packet.model_dump():
         raise IntakeError("Original source, ledger or normalized packet binding changed.")
     return bundle
+
+
+def materialize_selection(source_text: str, selection: SourceSelection) -> SourceExtraction:
+    """Attach text ONLY from model-cited raw lines; never fill clinical facts.
+
+    Does not consult the ledger, parse numbers, normalize frequencies, repair
+    identities, sort/deduplicate records, or supply omitted records. Independent
+    ledger equality remains a separate mandatory hook check after this step.
+    """
+    if not isinstance(selection, SourceSelection):
+        raise IntakeError("selection: expected the typed model source selection")
+    lines = source_text.splitlines()
+    chosen = selection.model_dump(mode="json")
+
+    def cited(record: dict, path: str, kind: str) -> str:
+        number = record["source_line"]
+        if type(number) is not int or not 1 <= number <= len(lines):
+            raise IntakeError(f"{path}.source_line: citation is outside the original source")
+        line = lines[number - 1]
+        matches = {
+            "medications": MEDICATION_LINE.fullmatch,
+            "labs": LAB_LINE.fullmatch,
+            "follow_up": lambda value: value.startswith("Follow-up: "),
+            "red_flags": lambda value: value.startswith("Get help: "),
+        }
+        if not matches[kind](line):
+            raise IntakeError(f"{path}.source_line: citation has the wrong source record kind")
+        return line
+
+    for kind in ["medications", "labs"]:
+        for index, record in enumerate(chosen[kind]):
+            record["source_quote"] = cited(record, f"{kind}[{index}]", kind)
+    for kind, prefix in [("follow_up", "Follow-up: "), ("red_flags", "Get help: ")]:
+        for index, record in enumerate(chosen[kind]):
+            line = cited(record, f"{kind}[{index}]", kind)
+            record["source_quote"] = line
+            record["text"] = line[len(prefix):]
+    return SourceExtraction.model_validate(chosen)
 
 
 def validate_intake_result(packet: ClinicalPacket, result: dict, intake: dict | None) -> None:

@@ -20,12 +20,12 @@ from medplain.clinical import (
     parse_packet,
     render_explanation,
 )
-from medplain.fixture_model import FixtureModel
+from medplain.fixture_model import FixtureModel, fixture_source_selection
 from medplain.gate import ReceiptChain, canonical_hash
 from medplain.hooks import MAX_CANDIDATES, ClinicalSafetyGateHook
 from medplain.intake import PROFILE, IntakeBundle, validate_intake_source
 from medplain.required_tool_model import RequiredToolModel
-from medplain.schemas import ClinicalPacket, Medication, MedicationInstruction, PatientExplanation, SourceExtraction
+from medplain.schemas import ClinicalPacket, Medication, MedicationInstruction, PatientExplanation, SourceSelection
 
 PARSER = "LabAndDischargeParserAgent"
 VERIFIER = "DrugAndContraindicationVerifierAgent"
@@ -123,6 +123,8 @@ class RequestContext:
     intake_source: dict | None = None
     intake_bundle: IntakeBundle | None = None
     intake_validation: dict | None = None
+    source_selection: dict | None = None
+    source_selection_sha256: str | None = None
 
 
 def _tools(context: RequestContext) -> dict[str, list[Any]]:
@@ -211,7 +213,8 @@ def _model(
         return FixtureModel(
             [item.tool_name for item in tools],
             output_model,
-            lambda: dict(context.expected_results[role]),
+            lambda: (fixture_source_selection(context.expected_results[role]) if output_model is SourceSelection
+                     else dict(context.expected_results[role])),
         )
     if mode == "bedrock":
         from botocore.config import Config
@@ -233,7 +236,7 @@ def _model(
 
 def _make_graph(context: RequestContext, model_mode: str) -> Any:
     tools_by_role = _tools(context)
-    output_models = {PARSER: SourceExtraction if context.intake_source is not None else ParsedClinicalRecord,
+    output_models = {PARSER: SourceSelection if context.intake_source is not None else ParsedClinicalRecord,
                      VERIFIER: MedicationVerification, EXPLAINER: PatientExplanation}
     instructions = {
         PARSER: "Call lab_reference_range_evaluator, then return its exact result as ParsedClinicalRecord.",
@@ -255,14 +258,17 @@ def _make_graph(context: RequestContext, model_mode: str) -> Any:
     if context.intake_source is not None:
         instructions[PARSER] = (
             "Call lab_reference_range_evaluator to read the submitted ORIGINAL numbered raw source lines. "
-            "Extract a SourceExtraction yourself. The tool does not supply normalized records. "
+            "Extract a SourceSelection yourself. The tool does not supply normalized records. "
             "patient_alias is the value after Synthetic alias:. For each Take/Stop/Do not take line extract "
             "name, dose as the exact source numeric STRING, unit, and frequency. Normalize once daily/QD to QD, "
             "twice daily/BID to BID, three times daily/TID to TID, at bedtime/QHS to QHS. "
             "Take means active; Stop and Do not take mean stopped. Extract all Lab lines into name,value,unit,low,high "
-            "with exact numeric STRINGS. For Follow-up and Get help remove their prefix into text. "
-            "Every record must have source_line equal to the supplied 1-based line number and source_quote equal "
-            "to that complete exact original line. Preserve source order in each list. Copy source_sha256. "
+            "with exact numeric STRINGS. For Follow-up and Get help return ONLY {source_line: line number}. "
+            "Every record must have source_line equal to that original line's supplied 1-based line number. "
+            "Do NOT include source_quote or narrative text. Code attaches only the exact text of your cited lines. "
+            "Preserve source order and include every record exactly once. Copy source_sha256. "
+            "Generic example, unrelated to this note: line 3, Take Toymed 3 mg by mouth BID. maps to "
+            "{source_line:3,name:Toymed,dose:'3',unit:mg,frequency:BID,status:active}. "
             "Do not add, omit, reinterpret or repair source facts. The independent source ledger will verify "
             "every line, negation, numeric value, unit, frequency and source quote before later agents may run."
         )
@@ -378,5 +384,7 @@ def run_packet(
             "tool_call_repairs": context.tool_call_repairs,
             "verification_evidence_refs": dict(context.expected_results.get(VERIFIER, {})),
             "session_state": context.session_state,
+            **({"source_selection": context.source_selection,
+                "source_selection_sha256": context.source_selection_sha256} if intake_source is not None else {}),
         },
     }
