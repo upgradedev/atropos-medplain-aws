@@ -1996,7 +1996,9 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "or"
+            ],
             "restart_authority": null,
             "pending_test": null,
             "owner": null,
@@ -2380,7 +2382,10 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "unless",
+              "or"
+            ],
             "restart_authority": null,
             "pending_test": null,
             "owner": null,
@@ -2514,7 +2519,9 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "or"
+            ],
             "restart_authority": null,
             "pending_test": null,
             "owner": null,
@@ -2615,7 +2622,9 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "and"
+            ],
             "restart_authority": null,
             "pending_test": null,
             "owner": null,
@@ -2994,7 +3003,9 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "or"
+            ],
             "restart_authority": null,
             "pending_test": null,
             "owner": null,
@@ -3095,7 +3106,10 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "and",
+              "not"
+            ],
             "restart_authority": null,
             "pending_test": null,
             "owner": null,
@@ -3160,7 +3174,9 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "not"
+            ],
             "restart_authority": null,
             "pending_test": "potassium",
             "owner": "not assigned",
@@ -3177,7 +3193,9 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "not"
+            ],
             "restart_authority": null,
             "pending_test": null,
             "owner": null,
@@ -3276,7 +3294,9 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "and"
+            ],
             "restart_authority": null,
             "pending_test": null,
             "owner": null,
@@ -3521,7 +3541,9 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "not"
+            ],
             "restart_authority": null,
             "pending_test": "thyroid panel",
             "owner": "primary care",
@@ -3536,7 +3558,9 @@
             "terminal_action": null,
             "hold_medicine": null,
             "condition_text": null,
-            "logic_tokens": [],
+            "logic_tokens": [
+              "and"
+            ],
             "restart_authority": null,
             "pending_test": null,
             "owner": null,
