@@ -257,6 +257,8 @@
     show("verification-section", true);
     show("correction-callout", corrected);
     if (corrected) {
+      const dosageDrill = trace.some((event) => event.agent === "AdversarialStressInjector" && event.status === "injected");
+      byId("correction-title").textContent = dosageDrill ? "Atropos caught the changed dose." : "Atropos caught a source mismatch.";
       byId("correction-copy").textContent = result.status === "verified"
         ? "The draft was refused and handed back for correction. The corrected explanation passed the same safety gate before publication."
         : "The draft was refused and handed back for correction. The final candidate did not pass, so the patient explanation remains withheld.";
@@ -271,7 +273,8 @@
       row.dataset.status = String(event.status || "complete").toLowerCase();
       const heading = element("h4", "", agentLabels[event.agent] || event.agent || "Verification event");
       if (event.agent) heading.title = event.agent;
-      heading.append(element("span", "trace-status", String(event.status || "complete").replaceAll("_", " ")));
+      const eventLabel = event.status === "running" ? "started" : String(event.status || "complete").replaceAll("_", " ");
+      heading.append(element("span", "trace-status", eventLabel));
       row.append(heading, element("p", "", event.message || event.detail || ""));
       list.append(row);
     });
