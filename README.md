@@ -30,6 +30,8 @@ Strands is load-bearing: its `Agent` loop executes the registered tools, its Pyd
 
 Each request has a new session identifier, shared request context and SDK `agent.state`. Correction state and receipt links remain inside that request. No health record database or persistent patient session is deployed.
 
+The verifier's typed result references the deterministic tool evidence by hash. The tools retain the full parity findings and curated interaction records; the model acknowledges their content references rather than rewriting their clinical classifications. The lifecycle hook requires an exact reference match. The patient advocate still returns the full structured explanation, which faces the independent clinical publication gate.
+
 ```mermaid
 flowchart LR
     P[Parser Agent] --> V[Medication verifier Agent]
