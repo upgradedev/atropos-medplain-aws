@@ -82,7 +82,13 @@ def check(url: str, output: Path) -> dict:
         page.screenshot(path=str(output / "mobile-375-initial.png"))
         page.locator('.packet-card[data-adversarial="true"]').click()
         expect(page.locator("#explain-button")).to_be_enabled()
-        page.locator("#explain-button").click()
+        with page.expect_response(lambda res: res.url.endswith("/api/explain") and res.request.method == "POST") as completed:
+            page.locator("#explain-button").click()
+        mobile_result = completed.value.json()
+        assert mobile_result.get("status") == "verified", "mobile stress run did not publish a verified explanation"
+        assert mobile_result.get("correction_count", 0) > 0, "mobile stress run did not correct the injected dose mutation"
+        if allowed_host not in {"localhost", "127.0.0.1", "::1"}:
+            assert mobile_result.get("model_mode") == "bedrock", "deployed mobile journey must execute Bedrock"
         expect(page.locator("#result-badge")).to_have_text("SOURCE FIDELITY VERIFIED")
         expect(page.locator("#correction-callout")).to_be_visible()
         overflow = page.evaluate("document.documentElement.scrollWidth > window.innerWidth")
