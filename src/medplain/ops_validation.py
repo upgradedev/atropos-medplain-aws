@@ -22,6 +22,36 @@ _RECEIPT_FIELDS = {
 }
 
 
+def validate_case_evidence(case: dict[str, Any]) -> str | None:
+    """Dispatch by captured source profile, never by a model's output shape."""
+    profile = case.get("source_profile")
+    if profile == "medplain-reconciliation-v1":
+        from medplain.reconciliation import validate_dossier, validate_reconciliation_result
+
+        if case.get("intake") is not None:
+            raise ValueError("A dossier cannot inherit a different intake profile")
+        dossier = validate_dossier(case["source"])
+        if canonical_hash(dossier) != case["source_hash"]:
+            raise ValueError("Source dossier snapshot changed")
+        result = case["result"]
+        if not isinstance(result, dict) or result.get("model_mode") not in {"fixture", "bedrock"}:
+            raise ValueError("A queued dossier requires its configured agent runtime")
+        validate_reconciliation_result(dossier, result, execution_id=case["execution_id"])
+        return result["artifact_hash"] if result["status"] == "verified" else None
+    if profile is not None:
+        raise ValueError("Unsupported saved source profile")
+    packet = ClinicalPacket.model_validate(case["source"])
+    if canonical_hash(packet.model_dump()) != case["source_hash"]:
+        raise ValueError("Source snapshot changed")
+    result = case["result"]
+    artifact_hash = validate_result(packet, result, case["execution_id"], case.get("intake"))
+    from medplain.clinical import check_interactions
+
+    if result.get("interactions") != check_interactions(packet):
+        raise ValueError("Interaction evidence changed")
+    return artifact_hash
+
+
 def validate_result(packet: ClinicalPacket, result: dict[str, Any], execution_id: str,
                     intake_source: dict | None = None) -> str | None:
     """Return the verified artifact hash, or None for a well-formed refusal.

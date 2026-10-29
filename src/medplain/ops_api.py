@@ -1,12 +1,12 @@
 """Anonymous synthetic operations API. Demo roles are not staff identities."""
 
 import logging
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from pydantic import Field, field_validator
+from pydantic import Field, StrictBool, field_validator
 
 from medplain.ops_domain import OpsError, OpsService, detail, summary
 from medplain.ops_store import Conflict, MemoryStore, StoreUnavailable, get_store
@@ -85,6 +85,22 @@ class RetryRequest(Contract):
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
+class ReconciliationRequest(Contract):
+    dossier: dict[str, Any]
+    synthetic_confirmed: Literal[True]
+    facility_id: str = Field(min_length=1, max_length=80)
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    parent_case_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+    stress: StrictBool = False
+
+    @field_validator("synthetic_confirmed", mode="before")
+    @classmethod
+    def explicit_confirmation(cls, value):
+        if value is not True:
+            raise ValueError("Explicitly confirm that every source document is wholly invented.")
+        return value
+
+
 class ReviewRequest(Contract):
     decision: Literal["release", "reject"]
     expected_version: int = Field(ge=1)
@@ -144,6 +160,29 @@ def intake_template():
 def import_case(body: ImportCaseRequest, background: BackgroundTasks, auth: Auth):
     svc, pk, session = auth
     case, created, job_id = svc.import_case(pk, session, **body.model_dump())
+    schedule_memory(background, svc, pk, case, created)
+    return {"case": summary(case), "created": created, "job_id": job_id}
+
+
+@router.get("/reconciliation-examples")
+def reconciliation_examples():
+    from medplain.clinical_references import reference_material
+    from medplain.reconciliation import PROFILE, examples
+
+    return {"profile": PROFILE,
+            "examples": [{"id": item["example_id"], "title": item["title"],
+                          "description": item["summary"], "dossier": item["dossier"]} for item in examples()],
+            "limits": {"max_documents": 4, "max_document_chars": 6000,
+                       "max_source_chars": 16000, "max_source_lines": 60,
+                       "max_caregiver_concerns": 1000},
+            "reference_material": reference_material(),
+            "scope": "Invented documents only. A verified clarification card is not a reconciled prescription."}
+
+
+@router.post("/cases/reconcile", status_code=202)
+def reconciliation_case(body: ReconciliationRequest, background: BackgroundTasks, auth: Auth):
+    svc, pk, session = auth
+    case, created, job_id = svc.reconcile_case(pk, session, **body.model_dump())
     schedule_memory(background, svc, pk, case, created)
     return {"case": summary(case), "created": created, "job_id": job_id}
 
