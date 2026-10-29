@@ -177,7 +177,7 @@ export default function Maps({
               <svg
                 viewBox="0 0 980 245"
                 className="workflow"
-                role="img"
+                role="group"
                 aria-label="Parser to medication verifier to patient advocate to safety gate. Refusal returns to medication verification."
               >
                 <defs>
