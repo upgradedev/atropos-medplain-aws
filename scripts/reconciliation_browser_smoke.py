@@ -255,7 +255,12 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     patient_path = client.call(f"/api/ops/cases/{revised_id}")["patient_url"]
     share_id = patient_path.rsplit("/", 1)[1]
     public = Client(url).call(f"/api/ops/patient/{share_id}")
-    assert public["source"] == revised_detail["source"] and public["result"] == revised_detail["result"]
+    assert public["source"] == revised_detail["source"]
+    public_result_fields = {"status", "source_profile", "source_hash", "artifact_kind", "artifact", "artifact_hash",
+                            "patient_regimen", "explanation_text", "trace", "receipts", "correction_count", "model_mode"}
+    assert set(public["result"]) == public_result_fields, "patient results must use the fixed publication field set"
+    assert public["result"] == {field: revised_detail["result"][field] for field in public_result_fields}, "every published artifact, source binding, text and receipt must exactly equal the released private result"
+    assert not {"runtime", "session_id", "error", "commit"}.intersection(public["result"]), "private execution capabilities must not be published"
     # Explicit simulated voice capability, separate from the real SDK journey.
     page.add_init_script(DEVICE_VOICE_SIMULATION)
     page.goto(base + f"/console/cases?case={revised_id}", wait_until="networkidle")
