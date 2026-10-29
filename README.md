@@ -14,7 +14,7 @@ Built for adults leaving hospital with changed medicines and limited support int
 4. Inspect the actual Strands handoff trail: the gate refuses the changed draft, routes to the verifier, and checks a rebuilt explanation.
 5. Download the JSON receipt and press **Verify receipt chain**. Its first decision is refused; its second is verified.
 
-The other packets demonstrate liquid doses in mL, doses in mcg, BID/TID/QHS frequency preservation, source laboratory ranges, and a stopped medicine. No account, API key, upload or patient data is needed. You can turn the fault injection off to compare normal execution.
+Across the samples you can inspect liquid doses in mL, doses in mcg, BID/TID/QHS frequency preservation, source laboratory ranges, and a stopped medicine. No account, API key, upload or patient data is needed. You can turn the fault injection off to compare normal execution.
 
 ## What runs
 
@@ -94,7 +94,7 @@ python scripts/offline_tests.py -q --cov=medplain --cov-report=term-missing
 
 The offline test runner refuses network socket connections. The suite mutates independent dose, unit, frequency, stop-order, narrative, FHIR, lab-range, receipt and session fixtures, then exercises the actual anonymous API and SDK correction cycle. Tests prove the gate rejects deliberately broken inputs; success is not inferred from file existence.
 
-CI installs Chromium and runs all samples at desktop and 375px, including receipt download and verification. The workflow can also be dispatched with `judge_url` to require HTTP 200, the deployed commit, live Bedrock execution, a refused/corrected stress drill, receipt tamper rejection and the deployed mobile journey. A source CI run without that URL does not establish live readiness.
+CI installs Chromium and runs all samples at desktop, including receipt download and verification, plus the stress journey at 375px. The workflow can also be dispatched with `judge_url` to require HTTP 200, the deployed commit, live Bedrock execution, a refused/corrected stress drill, receipt tamper rejection and the deployed mobile journey. A source CI run without that URL does not establish live readiness.
 
 For Bedrock mode, set `MEDPLAIN_MODEL_MODE=bedrock`, `MEDPLAIN_BEDROCK_MODEL_ID=amazon.nova-micro-v1:0` and `AWS_REGION=us-east-1`, with an AWS identity allowed to invoke that model. The runtime does not accept credentials through the browser.
 
