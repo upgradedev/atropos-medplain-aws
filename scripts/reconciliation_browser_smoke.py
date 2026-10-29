@@ -182,7 +182,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     expect(voice).to_be_disabled()
     expect(drawer.locator(".reading-controls")).to_contain_text("only after the clarification card is released")
     group = card.get_by_test_id("citation-group").first
-    group.locator("summary").click()
+    group.locator(":scope > summary").click()
     quote = group.get_by_test_id("source-quotation").first
     first_issue = next(item for item in detail["result"]["artifact"]["structural_issues"] if item["classification"] == "structural_check")
     first_statement = next(item for item in detail["result"]["artifact"]["source_statements"] if item["statement_id"] == first_issue["statement_ids"][0])
