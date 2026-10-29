@@ -1,4 +1,12 @@
 export type Role = "operator" | "reviewer" | "auditor" | "admin";
+export type CaseOrigin = "prepared_demo" | "live_run" | "unknown";
+export interface PreparedMetadata {
+  version: string | number;
+  prepared_at: string;
+  source_commit: string;
+  original_execution_id: string;
+  [key: string]: unknown;
+}
 export type Status =
   | "queued"
   | "processing"
@@ -48,8 +56,17 @@ export interface Bootstrap {
     storage: string;
   };
   limits: { max_cases: number; daily_jobs?: number; daily_reset?: string };
+  collection?: {
+    mode: "prepared_demo" | "empty";
+    initialized: boolean;
+    prepared_count: number;
+    live_count: number;
+    seed_version: string | null;
+  };
 }
 export interface CaseSummary {
+  origin?: CaseOrigin;
+  prepared?: PreparedMetadata | null;
   id: string;
   packet_id: string;
   packet_title: string;
@@ -163,6 +180,13 @@ export interface Overview {
   durations: { id: string; label: string; duration_ms: number }[];
   as_of: string;
   scope: string;
+  origin_counts?: { prepared_demo: number; live_run: number; unknown?: number };
+  by_facility?: {
+    facility_id: string;
+    name: string;
+    city: string;
+    count: number;
+  }[];
 }
 export const isActive = (status: Status) =>
   status === "queued" || status === "processing";
