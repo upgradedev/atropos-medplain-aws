@@ -10,7 +10,7 @@ export function ReconciliationSources({ dossier }: { dossier: ReconciliationDoss
     <h3>Captured source packet</h3>
     <p>Invented alias: <strong>{dossier.patient_alias}</strong> · Clarification language: {dossier.language === "el" ? "Greek" : "English"}</p>
     <p>Original quotations are never translated. Source dates are displayed as recorded in UTC; the interface does not infer which document authorizes a change.</p>
-    {dossier.caregiver_concerns ? <section className="notice"><h4>Caregiver concerns</h4><p className="source-text">{dossier.caregiver_concerns}</p></section> : null}
+    {dossier.caregiver_concerns ? <section className="notice reconciliation-source-card" id={sourceElementId("caregiver-concerns")} tabIndex={-1}><h4>Caregiver concerns</h4><p className="muted">Issued and effective times were not recorded for this form field.</p><p className="source-text">{dossier.caregiver_concerns}</p></section> : null}
     {dossier.documents.map((doc) => <section className="reconciliation-source-card" key={doc.document_id} id={sourceElementId(doc.document_id)} tabIndex={-1}>
       <h4>{DOCUMENT_LABELS[doc.kind]} <span className="mono">{doc.document_id}</span></h4>
       <p className="muted">Issued: {doc.issued_at} · Effective: {doc.effective_at || "Not specified"}</p>
@@ -24,7 +24,7 @@ function Quotation({ statement, onSource }: { statement: SourceStatement; onSour
     <div className="eyebrow">ORIGINAL SOURCE QUOTATION</div>
     <p><strong>{DOCUMENT_LABELS[statement.document_kind] || statement.document_kind}</strong> · {statement.citation.document_id}, line {statement.citation.line}</p>
     <blockquote>{statement.citation.quote}</blockquote>
-    <p className="muted">Issued {statement.issued_at}; effective {statement.effective_at || "not specified"}. A source quotation is not an authorized medication plan.</p>
+    <p className="muted">Issued {statement.issued_at || "not recorded"}; effective {statement.effective_at || "not specified"}. A source quotation is not an authorized medication plan.</p>
     {onSource ? <button type="button" className="text-button" onClick={() => onSource(statement.citation.document_id)}>Open original {statement.citation.document_id}</button> : null}
     <details><summary>Source citation integrity</summary><Hash title="Original document SHA-256" value={statement.citation.document_sha256} /><p>Recorded UTF-8 byte span: {statement.citation.byte_start} to {statement.citation.byte_end}.</p></details>
   </article>;

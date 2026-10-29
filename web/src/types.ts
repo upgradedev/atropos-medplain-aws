@@ -121,7 +121,7 @@ export interface SourceCitation {
 export interface SourceStatement {
   statement_id: string;
   document_kind: DocumentKind;
-  issued_at: string;
+  issued_at: string | null;
   effective_at: string | null;
   citation: SourceCitation;
   clinical: Record<string, unknown>;

@@ -46,6 +46,8 @@ def audit_detail(detail: dict, submitted: dict, expected_mode: str, commit: str)
     assert detail["artifact_hash"] == result["artifact_hash"] == digest({"structured": artifact, "text": result["explanation_text"]})
     statements = {row["statement_id"]: row for row in artifact["source_statements"]}
     documents = {doc["document_id"]: doc for doc in submitted["documents"]}
+    if submitted["caregiver_concerns"].strip():
+        documents["caregiver-concerns"] = {"text": submitted["caregiver_concerns"], "issued_at": None, "effective_at": None}
     assert statements and len(statements) == len(artifact["source_statements"])
     for statement in statements.values():
         citation = statement["citation"]
