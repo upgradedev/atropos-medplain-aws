@@ -136,6 +136,23 @@ def test_unicode_crlf_citation_offsets_are_raw_bytes_and_physical_lines():
         assert raw[citation["byte_start"]:citation["byte_end"]].decode("utf-8") == citation["quote"]
 
 
+@pytest.mark.parametrize("location", ["document", "concerns"])
+def test_unpaired_surrogates_fail_before_source_hashing_or_model_use(location):
+    source = dossier()
+    if location == "document":
+        source["documents"][0]["text"] += chr(0xD800)
+    else:
+        source["caregiver_concerns"] = chr(0xDFFF)
+    with pytest.raises(ValueError, match="valid UTF-8"):
+        validate_dossier(source)
+
+
+def test_real_greek_and_emoji_are_valid_quoted_utf8():
+    source = dossier(second="Ο φροντιστής έχει μια ερώτηση 🙂")
+    rows = source_statements(source)
+    assert rows[1]["citation"]["quote"] == "Ο φροντιστής έχει μια ερώτηση 🙂"
+
+
 @pytest.mark.parametrize("mutation", ["quote", "dose", "unit", "frequency", "action", "phase", "condition", "logic", "authority", "floor", "extra_advice", "regimen"])
 def test_gate_rejects_coherent_clinical_or_provenance_mutations(mutation):
     source = copy.deepcopy(examples()[3 if mutation in {"condition", "logic", "authority"} else 2 if mutation == "phase" else 0]["dossier"])

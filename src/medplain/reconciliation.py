@@ -89,6 +89,11 @@ def validate_dossier(raw: dict) -> dict:
     if len(set(ids)) != len(ids) or "caregiver-concerns" in ids:
         raise ValueError("Document IDs must be unique and cannot use the concerns identifier")
     texts = [doc["text"] for doc in dossier["documents"]] + [dossier["caregiver_concerns"]]
+    try:
+        for text in texts:
+            text.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ValueError("Source documents and caregiver concerns must be valid UTF-8 text") from exc
     if sum(len(text) for text in texts) > MAX_CHARACTERS:
         raise ValueError("The dossier exceeds the 16000 character limit")
     if sum(sum(bool(line.strip()) for line in text.splitlines()) for text in texts) > MAX_LINES:
