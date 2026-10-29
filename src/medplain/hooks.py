@@ -92,7 +92,10 @@ class ClinicalSafetyGateHook(HookProvider):
         if success:
             self.successful_tools.add(name)
             self.context.completed_tools.setdefault(self.role, set()).add(name)
-        self.context.tools_executed.append({"agent": self.role, "tool": name, "success": success})
+        self.context.tools_executed.append({
+            "agent": self.role, "tool": name, "success": success,
+            "invocation_index": self.context.hook_invocations,
+        })
 
     def after_invocation(self, event: AfterInvocationEvent) -> None:
         result = event.result
