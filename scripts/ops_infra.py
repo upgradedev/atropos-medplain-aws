@@ -155,8 +155,11 @@ def ensure_queue(args, name: str, attributes: dict, cli) -> str:
         url = found["QueueUrl"]
         cli(args, "sqs", "set-queue-attributes", "--queue-url", url, "--attributes", json.dumps(attributes))
         return url
-    return cli(args, "sqs", "create-queue", "--queue-name", name, "--attributes", json.dumps(attributes),
-               "--tags", f"Project={PROJECT}")["QueueUrl"]
+    created = cli(args, "sqs", "create-queue", "--queue-name", name, "--attributes", json.dumps(attributes),
+                  "--tags", f"Project={PROJECT}")["QueueUrl"]
+    # SQS requires a short propagation delay before a newly created queue is used.
+    time.sleep(1)
+    return created
 
 
 def log_policy(args, function: str) -> dict:
