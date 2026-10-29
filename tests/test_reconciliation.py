@@ -38,6 +38,49 @@ def test_action_does_not_leak_across_medicine_clauses():
         ("Aspirin", "81", "QD", "stop"), ("Metformin", "500", "BID", "take")]
 
 
+def test_hold_stays_distinct_and_unsupported_negation_is_uncertain():
+    source = dossier(second="Hold Aspirin 81 mg by mouth QD.")
+    rows = source_statements(source)
+    assert rows[1]["clinical"]["medications"][0]["action"] == "hold"
+    assert any(row["code"] == "stop_status_conflict" for row in structural_issues(rows))
+    source["documents"][1]["text"] = "Do not stop Aspirin 81 mg by mouth QD."
+    row = source_statements(source)[1]
+    assert row["clinical"]["medications"][0]["action"] == "uncertain"
+    assert row["clinical"]["uncertain"] is True
+    assert row["citation"]["quote"] == "Do not stop Aspirin 81 mg by mouth QD."
+
+
+def test_partial_known_regimen_keeps_unsupported_modifier_uncertain():
+    source = dossier(second="Take Aspirin 81 mg by mouth QD except on clinic days.")
+    assert source_statements(source)[1]["clinical"]["uncertain"] is True
+
+
+@pytest.mark.parametrize("anticoagulant,other,label", [
+    ("Warfarin", "Ibuprofen", "dailymed-warfarin"), ("Warfarin", "Naproxen", "dailymed-warfarin"),
+    ("Apixaban", "Ibuprofen", "dailymed-apixaban"), ("Apixaban", "Naproxen", "dailymed-apixaban"),
+])
+def test_selected_label_review_floor_is_bounded_and_source_cited(anticoagulant, other, label):
+    source = dossier(first=f"Taking {anticoagulant} 2.5 mg by mouth QD.", second=f"Take {other} 200 mg by mouth TID.")
+    result = deterministic_baseline(source)
+    issues = [row for row in result["artifact"]["structural_issues"] if row["code"] == "selected_label_interaction_review"]
+    assert len(issues) == 1
+    assert issues[0]["statement_ids"] == ["home:L1", "discharge:L1"]
+    assert issues[0]["reference_ids"] == [label]
+    assert issues[0]["classification"] == "selected_label_reference"
+    assert "not established" in issues[0]["scope"]
+    assert "not a confirmed contraindication" in issues[0]["question_text"]
+    validate_reconciliation_result(source, result)
+
+
+def test_selected_label_review_does_not_claim_comprehensive_or_current_exposure():
+    source = dossier("Stop Warfarin 2.5 mg by mouth QD.", "Stop Ibuprofen 200 mg by mouth TID.")
+    assert not any(row["code"] == "selected_label_interaction_review" for row in structural_issues(source_statements(source)))
+    source = dossier("Taking Aspirin 81 mg by mouth QD.", "Take Metformin 500 mg by mouth BID.")
+    result = deterministic_baseline(source)
+    assert not any(row["code"] == "selected_label_interaction_review" for row in result["artifact"]["structural_issues"])
+    assert "unavailable" in result["artifact"]["references"]["interaction_service"]
+
+
 def test_no_latest_wins_and_no_automatic_stop_resolution():
     issues = structural_issues(source_statements(dossier()))
     conflict = next(row for row in issues if row["code"] == "stop_status_conflict")

@@ -8,7 +8,7 @@ PROFILE = "medplain-reconciliation-v1"
 QUESTION_CODES = (
     "compare_instructions", "confirm_intentional_change", "confirm_taper",
     "confirm_hold_restart", "confirm_identity_form", "confirm_pending_owner",
-    "caregiver_question", "teachback",
+    "caregiver_question", "teachback", "confirm_interaction_review",
 )
 
 
@@ -42,7 +42,7 @@ class SourceIndex(Contract):
 QuestionCode = Literal[
     "compare_instructions", "confirm_intentional_change", "confirm_taper",
     "confirm_hold_restart", "confirm_identity_form", "confirm_pending_owner",
-    "caregiver_question", "teachback",
+    "caregiver_question", "teachback", "confirm_interaction_review",
 ]
 
 

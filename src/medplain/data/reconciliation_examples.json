@@ -85,9 +85,9 @@
       "caregiver_concerns": "The potassium result is still pending. We do not know who will call us or whether a follow-up appointment exists.",
       "documents": [
         {"document_id": "discharge", "kind": "discharge", "issued_at": "2026-10-29T10:00:00Z", "effective_at": null,
-         "text": "At discharge, take Furosemide 20 mg by mouth QD.\nPending test: potassium; owner: not assigned; follow-up: within 2 days."},
+         "text": "At discharge, take Furosemide 20 mg by mouth QD.\nPending test: potassium; owner: not assigned; follow-up: within 2 days.\nAt discharge, take Warfarin 2.5 mg by mouth QHS."},
         {"document_id": "caregiver", "kind": "caregiver_note", "issued_at": "2026-10-29T11:00:00Z", "effective_at": null,
-         "text": "The caregiver has the hospital switchboard number but no named follow-up contact."}
+         "text": "The caregiver has the hospital switchboard number but no named follow-up contact.\nThe caregiver reports taking Ibuprofen 200 mg by mouth TID from an old bottle and asks the pharmacist to check it."}
       ]
     }
   }

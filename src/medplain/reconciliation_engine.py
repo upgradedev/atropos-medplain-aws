@@ -17,6 +17,7 @@ from strands.models import BedrockModel
 from strands.multiagent import GraphBuilder
 
 from medplain.fixture_model import FixtureModel
+from medplain.clinical_references import reference_material
 from medplain.gate import canonical_hash
 from medplain.reconciliation import (
     PROFILE, _commit, append_receipt, artifact_digest, baseline_selection, build_artifact,
@@ -29,8 +30,9 @@ INDEXER = "DischargeEvidenceIndexerAgent"
 PLANNER = "CrossDocumentClarificationPlannerAgent"
 PUBLISHER = "ClarificationCardPublisherAgent"
 AGENT_NAMES = (INDEXER, PLANNER, PUBLISHER)
-REQUIRED_TOOLS = {INDEXER: "read_reconciliation_sources", PLANNER: "check_reconciliation_constraints",
-                  PUBLISHER: "build_clarification_card"}
+REQUIRED_TOOLS = {INDEXER: ("read_reconciliation_sources",),
+                  PLANNER: ("check_reconciliation_constraints", "lookup_reconciliation_references"),
+                  PUBLISHER: ("build_clarification_card",)}
 MAX_CANDIDATES = 2
 MAX_MODEL_TURNS = 5
 
@@ -49,6 +51,7 @@ class Context:
     receipts: list[dict] = field(default_factory=list)
     trace: list[dict] = field(default_factory=list)
     nodes: list[str] = field(default_factory=list)
+    invocation_outcomes: list[str] = field(default_factory=list)
     tools: list[dict] = field(default_factory=list)
     completed: dict[str, set[str]] = field(default_factory=dict)
     expected_index: dict | None = None
@@ -84,8 +87,13 @@ def _tools(context: Context) -> dict[str, list]:
                 "structural_floor": structural_issues(statements),
                 "caregiver_concerns": context.dossier["caregiver_concerns"],
                 "allowed_question_codes": ["compare_instructions", "confirm_intentional_change", "confirm_taper",
-                    "confirm_hold_restart", "confirm_identity_form", "confirm_pending_owner", "caregiver_question", "teachback"],
+                    "confirm_hold_restart", "confirm_identity_form", "confirm_pending_owner", "caregiver_question", "teachback", "confirm_interaction_review"],
                 "scope": "Select relevant cross-document evidence and questions. These links remain proposals, not verified clinical errors. Do not resolve prescriptions."}
+
+    @tool
+    def lookup_reconciliation_references() -> dict:
+        """Read pinned official workflow, identity and selected-label reference provenance, with explicit gaps."""
+        return reference_material()
 
     @tool
     def build_clarification_card() -> dict:
@@ -107,7 +115,7 @@ def _tools(context: Context) -> dict[str, list]:
         context.snapshot, context.snapshot_hash, context.binding = snapshot, digest, binding
         return dict(context.publication_plan)
 
-    return {INDEXER: [read_reconciliation_sources], PLANNER: [check_reconciliation_constraints],
+    return {INDEXER: [read_reconciliation_sources], PLANNER: [check_reconciliation_constraints, lookup_reconciliation_references],
             PUBLISHER: [build_clarification_card]}
 
 
@@ -146,6 +154,7 @@ class ReconciliationHook(HookProvider):
         context = self.context
         context.completed[self.role] = set()
         context.nodes.append(self.role)
+        context.invocation_outcomes.append("running")
         self.turns = 0
         if not self.repair_pending:
             self.repairs = 0
@@ -166,12 +175,13 @@ class ReconciliationHook(HookProvider):
             raise RuntimeError("Reconciliation node model-turn budget exhausted")
 
     def after_tool_call(self, event):
-        if event.tool_use.get("name") != REQUIRED_TOOLS[self.role]:
+        name = event.tool_use.get("name")
+        if name not in REQUIRED_TOOLS[self.role]:
             return
         success = event.result.get("status", "success") == "success"
         if success:
-            self.context.completed[self.role].add(REQUIRED_TOOLS[self.role])
-        self.context.tools.append({"agent": self.role, "tool": REQUIRED_TOOLS[self.role], "success": success,
+            self.context.completed[self.role].add(name)
+        self.context.tools.append({"agent": self.role, "tool": name, "success": success,
                                    "invocation_index": len(self.context.nodes)})
 
     def _repair(self, event, diagnostic):
@@ -180,6 +190,7 @@ class ReconciliationHook(HookProvider):
         self.repairs += 1
         self.context.repairs += 1
         self.repair_pending = True
+        self.context.invocation_outcomes[-1] = "repair"
         self.context.trace.append({"agent": self.role, "status": "repair", "message": diagnostic})
         event.resume = ("This invocation failed its bounded source/reference contract: " + diagnostic
                         + " Call the required tool again now. Use only current exact source IDs and the allowed "
@@ -189,7 +200,7 @@ class ReconciliationHook(HookProvider):
         context = self.context
         if event.result is None:
             return
-        if REQUIRED_TOOLS[self.role] not in context.completed[self.role]:
+        if not set(REQUIRED_TOOLS[self.role]) <= context.completed[self.role]:
             self._repair(event, "A fresh required tool did not succeed.")
             return
         output = event.result.structured_output
@@ -233,6 +244,7 @@ class ReconciliationHook(HookProvider):
             if context.errors and context.attempts < MAX_CANDIDATES:
                 context.trace.append({"agent": "StrandsGraph", "status": "handoff",
                                       "message": "Automatic correction handoff for a fresh evidence review and clarification artifact."})
+        context.invocation_outcomes[-1] = "completed"
         context.trace.append({"agent": self.role, "status": "completed", "message": "The bounded source contract completed."})
 
 
@@ -251,8 +263,8 @@ def _model(mode: str, context: Context, role: str, tools: list, output_model):
                                 region_name=os.getenv("AWS_REGION", "us-east-1"), max_tokens=4096, temperature=0.0,
                                 boto_client_config=Config(connect_timeout=5, read_timeout=45,
                                                           retries={"total_max_attempts": 1}))
-        return RequiredToolModel(delegate, lambda: [REQUIRED_TOOLS[role]] if REQUIRED_TOOLS[role]
-                                 not in context.completed.get(role, set()) else [], output_model.__name__)
+        return RequiredToolModel(delegate, lambda: [name for name in REQUIRED_TOOLS[role]
+                                 if name not in context.completed.get(role, set())], output_model.__name__)
     raise ValueError("Reconciliation mode must be fixture or bedrock")
 
 
@@ -262,16 +274,23 @@ def _make_graph(context: Context, mode: str):
     instructions = {
         INDEXER: "Call read_reconciliation_sources. Return SourceIndex with source_hash and all statement_ids in source order. Do not interpret orders.",
         PLANNER: (
-            "Call check_reconciliation_constraints. Your useful task is selecting the ORIGINAL cross-document passages "
+            "Call check_reconciliation_constraints AND lookup_reconciliation_references fresh. References are pinned "
+            "workflow/identity/selected-label context, not comprehensive clinical clearance; the retired interaction "
+            "service is unavailable. Never infer equivalent formulation, substitution or automatic stop from a name/ID. "
+            "Your useful task is selecting the ORIGINAL cross-document passages "
             "that answer caregiver concerns and planning targeted clarification/teachback questions. Return "
             "ReconciliationSelection with source_hash, questions:[{code,statement_ids}], teachback:[{code:'teachback',statement_ids}]. "
             "Do not copy an expected plan: none is supplied. Select precise relevant citations and avoid redundant/all-pairs "
             "questions. Always include at least one teachback. Questions are contextual proposals, NOT verified clinical errors. "
             "Mandatory structural checks will be included independently and cannot be removed by your selection. "
+            "Those checks already have targeted questions, so use questions for helpful caregiver-context links "
+            "rather than echoing every structural question. If there is no additional context, questions may be empty. "
             "Use codes compare_instructions (2 documents), confirm_intentional_change (explicit Intentional change: source), "
             "confirm_taper (cited phases), confirm_hold_restart (cited hold condition), confirm_identity_form (caregiver context, "
             "never assert equivalence), confirm_pending_owner (pending source), caregiver_question, and teachback ONLY in "
-            "teachback array. Link caregiver concern statements to the relevant original medicine/condition/pending passages. "
+            "teachback array. confirm_interaction_review requires BOTH sources of a selected label-backed pair in the "
+            "mandatory floor. It asks a pharmacist to confirm possible exposure, never asserts current concurrent use, "
+            "a contraindication or a stop instruction. Link caregiver concerns to relevant source passages. "
             "Preserve taper/hold/AND/OR/comparators/negation and never infer a restart or latest-wins authority. "
             "No clinical fields, new advice, free text, medication changes or extra keys. All medicine instructions stay quoted."
         ),
@@ -325,6 +344,7 @@ def run(dossier: dict, session_id: str, mode: str | None = None, stress: bool = 
             "correction_count": max(0, context.attempts - 1),
             "runtime": {"sdk_version": importlib.metadata.version("strands-agents"), "orchestrator": "strands.multiagent.Graph",
                         "graph_status": graph_status, "nodes_executed": context.nodes, "tools_executed": context.tools,
+                        "invocation_outcomes": context.invocation_outcomes,
                         "hook_invocations": len(context.nodes), "structured_output_repairs": context.repairs,
                         "source_index_verified": context.index_verified, "selection": context.selection,
                         "publication_plan": context.publication_plan, "semantic_relevance_verified": False}}

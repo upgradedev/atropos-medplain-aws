@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from importlib.resources import files
 
 from medplain.gate import GENESIS, canonical_hash, verify_receipts
+from medplain.clinical_references import reference_material
 from medplain.reconciliation_models import Dossier, PROFILE, ReconciliationSelection
 
 MAX_CHARACTERS = 16000
@@ -45,6 +46,7 @@ _TEXT = {
         "confirm_hold_restart": "Can the team confirm the complete hold condition, how its conditions combine, and who can authorize restarting?",
         "confirm_identity_form": "Do these names, bottles or formulations refer to the same medicine? Ask the pharmacist to confirm identity, strength and release form.",
         "confirm_pending_owner": "Who owns this pending result or follow-up, when is it due, and who will contact the patient?",
+        "confirm_interaction_review": "These sources may describe exposure to a pair named in a selected product-label reference. Can the pharmacist confirm current use and review the cited label? This is not a confirmed contraindication or an instruction to stop a medicine.",
         "caregiver_question": "Please discuss the caregiver's concern alongside these exact source passages before confirming the plan.",
         "teachback": "Using the confirmed instructions, can the caregiver explain the schedule and the questions that still need an answer?",
         "proposed": "Agent-proposed context question; not a verified clinical error.",
@@ -59,6 +61,7 @@ _TEXT = {
         "confirm_hold_restart": "Μπορεί η ομάδα να επιβεβαιώσει ολόκληρη τη συνθήκη προσωρινής διακοπής, τον συνδυασμό των όρων και ποιος εγκρίνει την επανέναρξη;",
         "confirm_identity_form": "Αφορούν αυτά τα ονόματα, φιαλίδια ή σκευάσματα το ίδιο φάρμακο; Ζητήστε από τον φαρμακοποιό επιβεβαίωση ταυτότητας, περιεκτικότητας και μορφής αποδέσμευσης.",
         "confirm_pending_owner": "Ποιος είναι υπεύθυνος για το εκκρεμές αποτέλεσμα ή την παρακολούθηση, πότε αναμένεται και ποιος θα επικοινωνήσει με τον ασθενή;",
+        "confirm_interaction_review": "Οι πηγές μπορεί να περιγράφουν έκθεση σε ζεύγος που αναφέρεται σε επιλεγμένη πληροφορία προϊόντος. Μπορεί ο φαρμακοποιός να επιβεβαιώσει την τρέχουσα χρήση και να εξετάσει την πηγή; Δεν πρόκειται για επιβεβαιωμένη αντένδειξη ή οδηγία διακοπής φαρμάκου.",
         "caregiver_question": "Συζητήστε την ανησυχία του φροντιστή μαζί με αυτά τα ακριβή αποσπάσματα πριν επιβεβαιώσετε το σχέδιο.",
         "teachback": "Με τις επιβεβαιωμένες οδηγίες, μπορεί ο φροντιστής να εξηγήσει το πρόγραμμα και τις ερωτήσεις που παραμένουν;",
         "proposed": "Πρόταση ερώτησης από τον πράκτορα, όχι επιβεβαιωμένο κλινικό σφάλμα.",
@@ -120,12 +123,15 @@ def _name(raw: str) -> str:
 
 def _clinical(text: str, kind: str) -> dict:
     meds = []
+    uncertain_action = False
     for match in _DOSE.finditer(text):
         # Only this matched medicine clause controls its action. Looking back
         # across a semicolon can incorrectly transfer Stop to the next drug.
         prefix = match["name"].lower()
         action = "reported" if kind in {"home_list", "caregiver_note"} else "take"
-        if re.search(r"\b(?:stop|do not take|discontinue)\b", prefix):
+        if re.search(r"\b(?:do not stop|do not hold|not taking|not currently taking|never|not prescribed)\b", prefix):
+            action, uncertain_action = "uncertain", True
+        elif re.search(r"\b(?:stop|do not take|discontinue)\b", prefix):
             action = "stop"
         elif re.search(r"\b(?:hold|withhold)\b", prefix):
             action = "hold"
@@ -157,7 +163,8 @@ def _clinical(text: str, kind: str) -> dict:
         "pending_test": pending[1] if pending else None,
         "owner": owner[1] if owner else None, "follow_up": follow[1] if follow else None,
         "numeric_literals": re.findall(r"(?<![A-Za-z0-9])\d+(?:\.\d+)?", text),
-        "uncertain": not bool(meds or phases or hold or pending or owner or follow),
+        "uncertain": (not bool(meds or phases or hold or pending or owner or follow) or uncertain_action
+                      or bool(meds and not hold and re.search(r"\b(?:except|unless|as needed|PRN|only if|do not stop|do not hold|not approved|not confirmed|unconfirmed)\b", text, re.I))),
     }
 
 
@@ -217,25 +224,39 @@ def structural_issues(statements: list[dict]) -> list[dict]:
         if clinical["uncertain"] and statement["document_kind"] not in {"caregiver_note"}:
             result.append(_issue("uncertain_source_wording", [sid], "caregiver_question"))
     for name, entries in by_name.items():
-        if len({entry[0]["citation"]["document_id"] for entry in entries}) < 2:
+        if len(entries) < 2:
             continue
-        signatures = {(med["dose"], med["unit"], med["frequency"], "stop" if med["action"] == "stop" else "take")
+        signatures = {(med["dose"], med["unit"], med["frequency"], "take" if med["action"] == "reported" else med["action"])
                       for _, med in entries}
         if len(signatures) <= 1:
             continue
         ids = list(dict.fromkeys(statement["statement_id"] for statement, _ in entries))
         changes = [statement for statement in statements
                    if statement["citation"]["quote"].startswith("Intentional change:")
+                   and not statement["clinical"]["uncertain"]
                    and len([med for med in statement["clinical"]["medications"] if med["name"].casefold() == name]) >= 2]
-        covered = any(signatures <= {(med["dose"], med["unit"], med["frequency"], "stop" if med["action"] == "stop" else "take")
+        covered = any(signatures <= {(med["dose"], med["unit"], med["frequency"], "take" if med["action"] == "reported" else med["action"])
                                     for med in statement["clinical"]["medications"] if med["name"].casefold() == name}
                       for statement in changes)
         if covered:
             ids += [statement["statement_id"] for statement in changes if statement["statement_id"] not in ids]
             result.append(_issue("documented_intentional_change", ids, "confirm_intentional_change", False))
         else:
-            code = "stop_status_conflict" if any(med["action"] == "stop" for _, med in entries) else "dose_schedule_conflict"
+            code = ("stop_status_conflict" if any(med["action"] in {"stop", "hold", "uncertain"} for _, med in entries)
+                    else "dose_schedule_conflict")
             result.append(_issue(code, ids, "compare_instructions"))
+    # Finite label-backed review universe. Exact literal names only; no
+    # ingredient substitution or comprehensive drug-interaction claim.
+    for card in reference_material()["references"]["cards"]:
+        for pair in card.get("selected_pairs", []):
+            left, right = [by_name.get(name.casefold(), []) for name in pair]
+            if not left or not right or all(med["action"] == "stop" for _, med in left + right):
+                continue
+            ids = list(dict.fromkeys(statement["statement_id"] for statement, _ in left + right))
+            issue = _issue("selected_label_interaction_review", ids, "confirm_interaction_review")
+            result.append({**issue, "classification": "selected_label_reference", "reference_ids": [card["id"]],
+                           "selected_pair": pair,
+                           "scope": "Possible exposure across sources; current concurrent use is not established. Pharmacist review only, not a contraindication or stop instruction."})
     return result
 
 
@@ -248,32 +269,62 @@ def baseline_selection(dossier: dict, statements: list[dict] | None = None) -> d
     dossier = validate_dossier(dossier)
     statements = statements if statements is not None else source_statements(dossier)
     questions = []
-    seen = set()
     def add(code, ids):
-        key = code, tuple(ids)
-        if key not in seen and len(questions) < 12:
+        # One targeted focus can cite several caregiver observations. Do not
+        # pad the comparator with duplicate questions or all-pairs noise.
+        clinical_ids = {sid for sid in ids if by_id[sid]["document_kind"] != "caregiver_note"}
+        for question in questions:
+            prior = {sid for sid in question["statement_ids"] if by_id[sid]["document_kind"] != "caregiver_note"}
+            if question["code"] == code and (prior & clinical_ids or question["statement_ids"] == ids):
+                question["statement_ids"] = list(dict.fromkeys(question["statement_ids"] + ids))[:8]
+                return
+        if len(questions) < 12:
             questions.append({"code": code, "statement_ids": ids[:8]})
-            seen.add(key)
-    for issue in structural_issues(statements):
-        add(issue["question_code"], issue["statement_ids"])
+    by_id = {row["statement_id"]: row for row in statements}
     caregivers = [row for row in statements if row["document_kind"] == "caregiver_note"]
     clinical = [row for row in statements if row["clinical"]["medications"] or row["clinical"]["taper_phases"]
                 or row["clinical"]["condition_text"] or row["clinical"]["pending_test"]]
     for row in caregivers:
         words = set(re.findall(r"[a-z]{4,}", row["citation"]["quote"].lower()))
+        words -= {"discharge", "before", "admission", "taking", "take", "mouth", "daily", "medicine", "medicines",
+                  "medication", "medications", "list", "lists", "team", "confirm", "caregiver", "home", "patient"}
         relevant = [candidate for candidate in clinical if
                     words & set(re.findall(r"[a-z]{4,}", candidate["citation"]["quote"].lower()))]
         text = row["citation"]["quote"].lower()
-        code = ("confirm_identity_form" if re.search(r"\b(?:brand|generic|bottle|form|release|tablet|capsule)\b", text)
+        focused_issues = [issue for issue in structural_issues(statements)
+                          if set(issue["statement_ids"]) & {candidate["statement_id"] for candidate in relevant}]
+        code = ("confirm_interaction_review" if any(issue["code"] == "selected_label_interaction_review" for issue in focused_issues)
                 else "confirm_hold_restart" if re.search(r"\b(?:hold|restart|pressure|dizzy|dizziness)\b", text)
                 else "confirm_taper" if re.search(r"\b(?:taper|phase|days|calendar)\b", text)
                 else "confirm_pending_owner" if re.search(r"\b(?:pending|result|call|follow-up|owner)\b", text)
+                else "confirm_intentional_change" if any(issue["code"] == "documented_intentional_change" for issue in focused_issues)
+                else "confirm_identity_form" if re.search(r"\b(?:brand|generic|form|formulation|release|tablet|capsule|xl|long-acting)\b", text)
+                else "compare_instructions" if any(issue["code"] in {"dose_schedule_conflict", "stop_status_conflict"} for issue in focused_issues)
+                else "confirm_identity_form" if re.search(r"\b(?:bottle|bottles|box|boxes|label|labels)\b", text)
                 else "caregiver_question")
         # Relevant quoted sources are the same material the model receives.
         # No generic all-pairs expansion or invented equivalence is performed.
         ids = [row["statement_id"]] + [candidate["statement_id"] for candidate in relevant[:3]]
+        # Where lexical medicine names differ, use the complete pair of
+        # identity/form source lists. This proposes review, not equivalence.
+        if code == "confirm_identity_form":
+            if not relevant:
+                ids += [candidate["statement_id"] for candidate in clinical
+                        if candidate["clinical"]["medications"] and candidate["statement_id"] not in ids][:4]
+        elif code in {"compare_instructions", "confirm_intentional_change", "confirm_interaction_review"}:
+            ids += [sid for issue in focused_issues for sid in issue["statement_ids"] if sid not in ids][:4]
+        elif code == "confirm_hold_restart":
+            ids += [candidate["statement_id"] for candidate in clinical
+                    if candidate["clinical"]["condition_text"] and candidate["statement_id"] not in ids][:3]
+        elif code == "confirm_pending_owner":
+            ids += [candidate["statement_id"] for candidate in clinical
+                    if candidate["clinical"]["pending_test"] and candidate["statement_id"] not in ids][:3]
+        elif code == "confirm_taper":
+            ids += [candidate["statement_id"] for candidate in clinical
+                    if candidate["clinical"]["taper_phases"] and candidate["statement_id"] not in ids][:3]
         if len(ids) == 1 and clinical:
             ids.append(clinical[0]["statement_id"])
+        ids = list(dict.fromkeys(ids))[:8]
         if not question_errors({"code": code, "statement_ids": ids}, statements, teachback=False):
             add(code, ids)
         else:
@@ -294,8 +345,8 @@ def question_errors(question: dict, statements: list[dict], *, teachback: bool) 
         return [] if code == "teachback" else ["Only teachback questions belong in the teachback section"]
     if code == "teachback":
         return ["Teachback questions belong in the separate teachback section"]
-    if code == "compare_instructions" and (len(rows) < 2 or len({row["citation"]["document_id"] for row in rows}) < 2):
-        return ["Comparison requires at least two cited source documents"]
+    if code == "compare_instructions" and len(rows) < 2:
+        return ["Comparison requires at least two distinct cited source statements"]
     if code == "confirm_intentional_change" and not any(row["citation"]["quote"].startswith("Intentional change:") for row in rows):
         return ["An intentional-change question requires the explicitly documented change"]
     if code == "confirm_taper" and not any(row["clinical"]["taper_phases"] for row in rows):
@@ -306,6 +357,10 @@ def question_errors(question: dict, statements: list[dict], *, teachback: bool) 
         return ["A pending-result question requires a cited pending result"]
     if code == "confirm_identity_form" and not any(row["document_kind"] == "caregiver_note" for row in rows):
         return ["An identity question requires cited caregiver context and does not assert equivalence"]
+    if code == "confirm_interaction_review" and not any(
+            issue["code"] == "selected_label_interaction_review" and set(issue["statement_ids"]) <= set(ids)
+            for issue in structural_issues(statements)):
+        return ["An interaction-review question requires both sources of a selected label-backed pair"]
     return []
 
 
@@ -336,6 +391,7 @@ def build_artifact(dossier: dict, selection: dict, *, baseline: bool = False) ->
     dossier = validate_dossier(dossier)
     selection = validate_selection(dossier, selection)
     statements = source_statements(dossier)
+    material = reference_material()
     return {
         "profile": PROFILE, "source_hash": canonical_hash(dossier), "language": dossier["language"],
         "kind": "clarification_plan", "patient_regimen": None, "notice": _TEXT[dossier["language"]]["notice"],
@@ -344,6 +400,10 @@ def build_artifact(dossier: dict, selection: dict, *, baseline: bool = False) ->
                               for issue in structural_issues(statements)],
         "proposed_questions": [_render_question(question, dossier["language"], baseline=baseline) for question in selection["questions"]],
         "teachback": [_render_question(question, dossier["language"], baseline=baseline) for question in selection["teachback"]],
+        "references": {"snapshot_sha256": material["snapshot_sha256"], "scope": material["scope"],
+                       "reference_ids": [row["id"] for row in material["references"]["cards"]],
+                       "interaction_service": material["interaction_service"],
+                       "identity_snapshot_status": material["identity_snapshot"]["status"]},
     }
 
 
@@ -433,7 +493,8 @@ def validate_reconciliation_result(dossier: dict, result: dict, execution_id: st
         raise ValueError("Clarification receipt chain is invalid")
     receipt_fields = {"sequence", "session_id", "source_hash", "artifact_hash", "previous_hash", "verdict", "discrepancies", "timestamp", "hash"}
     for receipt in receipts:
-        if (set(receipt) != receipt_fields or receipt["source_hash"] != canonical_hash(dossier)
+        if (set(receipt) != receipt_fields or type(receipt["sequence"]) is not int
+                or receipt["source_hash"] != canonical_hash(dossier)
                 or receipt["session_id"] != result["session_id"]
                 or not isinstance(receipt["timestamp"], str) or not receipt["timestamp"]
                 or any(not isinstance(receipt.get(key), str) or not _HASH.fullmatch(receipt[key])
@@ -452,6 +513,39 @@ def validate_reconciliation_result(dossier: dict, result: dict, execution_id: st
     runtime = result.get("runtime", {})
     selection = runtime.get("selection")
     baseline = result["model_mode"] == "deterministic"
+    if not baseline:
+        # Persisted SDK metadata is evidence of observed execution, not an
+        # authenticity signature. Still reject a rehashed rule-only result
+        # that lacks the actual fresh-per-invocation trajectory contract.
+        required_tools = {"DischargeEvidenceIndexerAgent": {"read_reconciliation_sources"},
+                          "CrossDocumentClarificationPlannerAgent": {"check_reconciliation_constraints", "lookup_reconciliation_references"},
+                          "ClarificationCardPublisherAgent": {"build_clarification_card"}}
+        nodes, tools = runtime.get("nodes_executed"), runtime.get("tools_executed")
+        outcomes = runtime.get("invocation_outcomes")
+        if (runtime.get("orchestrator") != "strands.multiagent.Graph" or runtime.get("graph_status") != "completed"
+                or runtime.get("source_index_verified") is not True or not isinstance(nodes, list)
+                or not 3 <= len(nodes) <= 10 or nodes[0] != "DischargeEvidenceIndexerAgent"
+                or nodes[-1] != "ClarificationCardPublisherAgent" or any(node not in required_tools for node in nodes)
+                or not isinstance(tools, list) or len(tools) > 30
+                or not isinstance(outcomes, list) or len(outcomes) != len(nodes)):
+            raise ValueError("The saved clarification result lacks a completed Strands trajectory")
+        for record in tools:
+            if (not isinstance(record, dict) or type(record.get("invocation_index")) is not int
+                    or not 1 <= record["invocation_index"] <= len(nodes)
+                    or record.get("agent") != nodes[record["invocation_index"] - 1]
+                    or record.get("tool") not in required_tools[record["agent"]]
+                    or type(record.get("success")) is not bool):
+                raise ValueError("A tool record differs from its observed invocation")
+        for index, role in enumerate(nodes, start=1):
+            if outcomes[index - 1] == "repair":
+                if index >= len(nodes) or nodes[index] != role or outcomes[index] != "completed":
+                    raise ValueError("A repair invocation lacks its bounded completed replacement")
+                continue
+            if outcomes[index - 1] != "completed":
+                raise ValueError("An unfinished invocation cannot publish a clarification card")
+            observed = {row["tool"] for row in tools if row["invocation_index"] == index and row["success"]}
+            if observed != required_tools[role]:
+                raise ValueError("A completed invocation has no fresh required tool evidence")
     artifact = result.get("artifact")
     if (not isinstance(artifact, dict) or result.get("error") is not None
             or not receipts or receipts[-1]["verdict"] != "verified"
