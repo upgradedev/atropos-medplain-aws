@@ -79,7 +79,9 @@ def audit_detail(detail: dict, submitted: dict, expected_mode: str, commit: str)
 
 def open_form(page, expect):
     page.get_by_role("button", name="New case", exact=True).click()
-    page.get_by_test_id("reconcile-packet-mode").check()
+    # This control immediately opens a different dialog, so it cannot remain
+    # mounted for Playwright's post-click checkbox-state assertion.
+    page.get_by_test_id("reconcile-packet-mode").click()
     form = page.get_by_role("dialog", name="Reconcile synthetic source packet", exact=True)
     expect(form).to_be_visible()
     return form
@@ -269,6 +271,15 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
         patient.goto(urljoin(base + "/", patient_path), wait_until="networkidle")
         expect(patient.get_by_test_id("clarification-card")).to_be_visible()
         expect(patient.get_by_test_id("regimen-withheld")).to_be_visible()
+        pinned = patient.get_by_test_id("reference-panel")
+        pinned.locator("summary").first.click()
+        expect(pinned.get_by_test_id("reference-snapshot-matched")).to_be_visible()
+        primary = next(card for card in examples["reference_material"]["references"]["cards"] if card["id"] == "dailymed-warfarin")
+        reference_card = pinned.locator(f"[data-reference-id='{primary['id']}']")
+        expect(reference_card.get_by_role("link", name="Open primary source: " + primary["publisher"], exact=True)).to_have_attribute("href", primary["url"])
+        expect(reference_card.get_by_test_id("reference-summary")).to_have_text(primary["excerpt"])
+        expect(reference_card).to_contain_text("Reference summary (paraphrased)")
+        expect(reference_card).to_contain_text(examples["reference_material"]["references"]["observed_on"])
         assert patient.evaluate("window.__medplainVoiceTest") == [], "no autoplay is permitted"
         controls = patient.get_by_role("region", name="Reading and accessibility controls", exact=True)
         controls.get_by_role("button", name="Larger text", exact=True).click()
@@ -288,6 +299,26 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
         patient.goto(urljoin(base + "/", patient_path), wait_until="networkidle")
         expect(patient.get_by_role("button", name="Read aloud with device voice", exact=True)).to_be_disabled()
         expect(patient.locator(".reading-controls")).to_contain_text("No local Greek device voice is available")
+        # Explicit metadata response injections test withholding only. The real
+        # released artifact and its source/receipt hashes remain unchanged.
+        patient_context.route("**/api/ops/reconciliation-examples", lambda route: route.fulfill(status=200, json={
+            **examples, "reference_material": {**examples["reference_material"], "snapshot_sha256": "0" * 64}}), times=1)
+        patient.reload(wait_until="networkidle")
+        pinned = patient.get_by_test_id("reference-panel")
+        pinned.locator("summary").first.click()
+        expect(pinned.get_by_test_id("reference-snapshot-mismatch")).to_be_visible()
+        expect(pinned.get_by_role("link")).to_have_count(0)
+        expect(pinned.get_by_test_id("reference-summary")).to_have_count(0)
+        patient.screenshot(path=str(output / "reference-snapshot-mismatch-mobile-375.png"), full_page=True)
+        missing_material = {**examples["reference_material"], "references": {**examples["reference_material"]["references"],
+            "cards": [card for card in examples["reference_material"]["references"]["cards"] if card["id"] != primary["id"]]}}
+        patient_context.route("**/api/ops/reconciliation-examples", lambda route: route.fulfill(status=200, json={
+            **examples, "reference_material": missing_material}), times=1)
+        patient.reload(wait_until="networkidle")
+        pinned = patient.get_by_test_id("reference-panel")
+        pinned.locator("summary").first.click()
+        expect(pinned.get_by_test_id("reference-id-unavailable")).to_contain_text(primary["id"])
+        expect(pinned.locator(f"[data-reference-id='{primary['id']}']")).to_have_count(0)
     finally:
         patient_context.close()
     assert client.call("/api/ops/cases?limit=20")["total"] == 2
@@ -368,6 +399,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
             "injected_errors": [413], "voice_test": "Simulated local device voice, explicit user start/pause/resume/stop and unmount cancellation; no native speech-quality claim.",
             "evaluation_panel_test": "Explicit HTTP interface-state injections: not measured, published two-case counts with missing metrics, and stale-source rejection. Injected counts are not model results.",
             "profile_specific_recorded_workflow": "Existing reconciliation case overlays its actual agents and gate. Click/keyboard selection and profile-change fallback checked; no additional job created.",
+            "reference_followthrough": "Real released card resolves its bound pinned DailyMed URL/paraphrased summary/date. Explicit metadata-only mismatch/missing-ID injections withhold affected links and summaries; no clinical artifact was substituted.",
             "pinned_reference_snapshot_sha256": examples["reference_material"]["snapshot_sha256"]}
 
 
