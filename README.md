@@ -102,7 +102,7 @@ For Bedrock mode, set `MEDPLAIN_MODEL_MODE=bedrock`, `MEDPLAIN_BEDROCK_MODEL_ID=
 
 CI builds a Linux Python 3.12 Lambda zip and a SHA-256 manifest containing the exact source commit. Download that artifact, then run `scripts/deploy_aws.py` with `--account`, `--package` and `--commit`. Its default prints a plan; `--apply` deploys the reviewed artifact. The helper refuses a different AWS account, a mismatched package hash or commit, and existing resources without the project ownership tag.
 
-Deployment creates only dedicated `atropos-medplain` resources: a Lambda function, an execution role scoped to its log group and the named Bedrock model, a public Function URL and the two required URL invocation permissions. Reserved concurrency is limited, execution time is bounded, and logs have finite retention. There are no always-running compute instances. Request-based AWS charges still apply; concurrency is not a total spend cap.
+Deployment uses dedicated `atropos-medplain` resources: a Lambda function, an execution role scoped to its log group and the named Bedrock model, a public Function URL and the two required URL invocation permissions. A private encrypted S3 bucket stages content-addressed CI packages with expiring release objects; its ownership tag and uploaded metadata are checked before deployment. Reserved concurrency is limited, execution time is bounded, and logs have finite retention. There are no always-running compute instances. Request-based AWS charges still apply; concurrency is not a total spend cap.
 
 To verify an actual deployment, use the command below with the live URL and the artifact's full commit. It fails on non-200 responses or any missing flagship behavior.
 
