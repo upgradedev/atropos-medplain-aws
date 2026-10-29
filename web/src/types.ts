@@ -101,13 +101,68 @@ export interface ReconciliationExamples {
   profile: string;
   examples: { id: string; title: string; description: string; dossier: ReconciliationDossier }[];
   limits?: Record<string, number>;
+  reference_material?: ReferenceMaterial;
+}
+export interface ReferenceMaterial {
+  references: { version: string; observed_on: string; status: string; scope: string; cards: { id: string; publisher: string; title: string; url: string; section: string; excerpt: string; use: string }[] };
+  identity_snapshot: { version: string; status: string; scope: string; attribution: string; records: { lookup_name: string; url: string; retrieved_at: string; status: "available" | "no_result" | "unavailable"; rxnorm_ids: string[]; response_sha256: string | null; error_type?: string }[] };
+  interaction_service: string;
+  scope: string;
+  snapshot_sha256: string;
+}
+export interface SourceCitation {
+  document_id: string;
+  line: number;
+  document_sha256: string;
+  byte_start: number;
+  byte_end: number;
+  quote: string;
+}
+export interface SourceStatement {
+  statement_id: string;
+  document_kind: DocumentKind;
+  issued_at: string;
+  effective_at: string | null;
+  citation: SourceCitation;
+  clinical: Record<string, unknown>;
+}
+export interface StructuralIssue {
+  issue_id: string;
+  code: string;
+  statement_ids: string[];
+  question_code: string;
+  question_text: string;
+  requires_clarification: boolean;
+  classification: "structural_check";
+}
+export interface ContextQuestion {
+  code: string;
+  statement_ids: string[];
+  text: string;
+  classification: "context_proposal";
+  label: string;
+}
+export interface ClarificationArtifact {
+  profile: "medplain-reconciliation-v1";
+  source_hash: string;
+  language: "en" | "el";
+  kind: "clarification_plan";
+  patient_regimen: null;
+  notice: string;
+  source_statements: SourceStatement[];
+  structural_issues: StructuralIssue[];
+  proposed_questions: ContextQuestion[];
+  teachback: ContextQuestion[];
+}
+export function isReconciliationDossier(value: Packet | ReconciliationDossier): value is ReconciliationDossier {
+  return "profile" in value && value.profile === "medplain-reconciliation-v1";
 }
 export interface CaseSummary {
   source_profile?: string;
   parent_case_id?: string | null;
   origin?: CaseOrigin;
   prepared?: PreparedMetadata | null;
-  source_kind?: "imported_note" | "sample";
+  source_kind?: "imported_note" | "sample" | "reconciliation";
   source_sha256?: string | null;
   id: string;
   packet_id: string;
@@ -178,6 +233,8 @@ export interface Receipt {
   [key: string]: unknown;
 }
 export interface Result {
+  artifact_kind?: "clarification_plan";
+  artifact?: ClarificationArtifact | null;
   status: string;
   explanation: Explanation | null;
   explanation_text: string | null;
@@ -205,7 +262,7 @@ export interface Result {
   };
 }
 export interface CaseDetail extends CaseSummary {
-  source: Packet;
+  source: Packet | ReconciliationDossier;
   intake?: SourceIntake | null;
   result: Result | null;
   events: { id: string; type: string; at: string; message: string }[];

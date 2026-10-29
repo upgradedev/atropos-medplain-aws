@@ -2675,6 +2675,22 @@ tbody tr:hover {
 .reconciliation-editor textarea { min-height: 180px; width: 100%; }
 .reconciliation-editor input, .reconciliation-editor select { min-width: 0; width: 100%; }
 .reconciliation-form pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.reconciliation-sources, .clarification-card { display: grid; gap: 22px; }
+.regimen-withheld { padding: 16px; margin: 14px 0; border: 1px solid var(--warning); border-radius: 12px; background: var(--panel); }
+.regimen-withheld > strong { display: block; color: var(--warning); margin-bottom: 7px; }
+.regimen-withheld p { line-height: 1.7; }
+.reconciliation-source-card, .reconciliation-quotation, .reconciliation-issue, .context-proposal { min-width: 0; padding: 16px; margin: 12px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow-wrap: anywhere; }
+.reconciliation-quotation blockquote { margin: 14px 0; border-left: 3px solid var(--accent); padding: 10px 14px; white-space: pre-wrap; line-height: 1.8; background: var(--canvas); }
+.reconciliation-quotation p, .reconciliation-issue p, .context-proposal p { line-height: 1.7; margin-top: 9px; }
+.reconciliation-citations { display: grid; gap: 8px; }
+.context-proposal { border-style: dashed; }
+.clarification-card h3 { margin-top: 16px; }
+.reference-panel { margin: 16px 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+.reference-panel > summary { cursor: pointer; font-weight: 600; }
+.reference-panel > p, .reference-panel > h4 { margin-top: 14px; line-height: 1.7; }
+.reference-card { margin-top: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; overflow-wrap: anywhere; }
+.reference-card p { margin-top: 9px; line-height: 1.7; }
+.reference-card blockquote { margin: 12px 0; padding-left: 12px; border-left: 2px solid var(--line); line-height: 1.7; }
 :root[data-reading-contrast="true"] { --canvas: #000; --panel: #080808; --raised: #171717; --line: #bdbdbd; --ink: #fff; --muted: #ddd; --accent: #80ffe1; --accent-ink: #000; --success: #80ffe1; --warning: #ffe16e; --danger: #ffb2c2; }
 :root[data-theme="light"][data-reading-contrast="true"] { --canvas: #fff; --panel: #fff; --raised: #f3f3f3; --line: #292929; --ink: #000; --muted: #292929; --accent: #00553d; --accent-ink: #fff; --success: #00553d; --warning: #663800; --danger: #8b1437; }
 :root[data-reading-large="true"] .patient-document, :root[data-reading-large="true"] .clarification-card, :root[data-reading-large="true"] .explanation { font-size: 18px; line-height: 1.8; }

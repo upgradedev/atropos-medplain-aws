@@ -33,6 +33,7 @@ import CasesTable, { type Filters } from "./CasesTable";
 import CaseDrawer from "./CaseDrawer";
 import Patient from "./Patient";
 import NewCase from "./NewCase";
+import type { ReconciliationSeed } from "./ReconciliationForm";
 import EvaluationPanel from "./EvaluationPanel";
 const Maps = lazy(() => import("./Maps"));
 const PAGES = ["overview", "cases", "queues", "maps", "settings"] as const;
@@ -96,6 +97,7 @@ function Console() {
     cursor: "",
   });
   const [createOpen, setCreateOpen] = useState(false);
+  const [reconciliationSeed, setReconciliationSeed] = useState<ReconciliationSeed | null>(null);
   const [stressDefault, setStressDefault] = useState(false);
   const [sessionBusy, setSessionBusy] = useState(false);
   const [tour, setTour] = useState(false);
@@ -347,10 +349,11 @@ function Console() {
     }
   };
   const startCreate = (stress = false) => {
+    setReconciliationSeed(null);
     setStressDefault(stress);
     setCreateOpen(true);
   };
-  const closeCreate = useCallback(() => setCreateOpen(false), []);
+  const closeCreate = useCallback(() => { setCreateOpen(false); setReconciliationSeed(null); }, []);
   const drill = (status: string) => {
     const valid = STATUSES.includes(status as (typeof STATUSES)[number])
       ? status
@@ -1134,6 +1137,7 @@ function Console() {
           failed={(text) => toast(text, true)}
           canCreate={canCreate}
           count={sessionCaseTotal || 0}
+          reconciliationSeed={reconciliationSeed}
         />
       ) : null}
       {route.caseId ? (
@@ -1144,6 +1148,12 @@ function Console() {
           close={closeCase}
           changed={refresh}
           toast={toast}
+          onRevise={(dossier, parentCaseId) => {
+            setReconciliationSeed({ dossier, parent_case_id: parentCaseId });
+            setStressDefault(false);
+            navigate({ caseId: "" });
+            setCreateOpen(true);
+          }}
         />
       ) : null}
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, key, message } from "./api";
 import type { Bootstrap, CaseSummary, DocumentKind, ReconciliationDossier, ReconciliationExamples } from "./types";
 import { Dialog, Icon, State } from "./ui";
+import ReferencePanel from "./ReferencePanel";
 
 const PROFILE = "medplain-reconciliation-v1" as const;
 export const DOCUMENT_LABELS: Record<DocumentKind, string> = {
@@ -29,6 +30,7 @@ export default function ReconciliationForm({ bootstrap, workspace, count, canCre
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [stress, setStress] = useState(false);
   const idempotency = useRef(key());
   const submitting = useRef(false);
   useEffect(() => {
@@ -63,7 +65,7 @@ export default function ReconciliationForm({ bootstrap, workspace, count, canCre
     submitting.current = true; setBusy(true); setError("");
     try {
       const response = await api<{ case: CaseSummary; created: boolean; job_id: string }>("/cases/reconcile", {
-        dossier, synthetic_confirmed: confirmed, facility_id: facility, idempotency_key: idempotency.current,
+        dossier, synthetic_confirmed: confirmed, facility_id: facility, idempotency_key: idempotency.current, stress,
         ...(seed ? { parent_case_id: seed.parent_case_id } : {}),
       });
       done(response.case.id);
@@ -92,7 +94,7 @@ export default function ReconciliationForm({ bootstrap, workspace, count, canCre
         <label>Invented patient alias<input aria-label="Invented patient alias" autoComplete="off" value={dossier.patient_alias} disabled={busy} onChange={(event) => edit((current) => ({ ...current, patient_alias: event.target.value }))} /></label>
         <label>Clarification card language<select aria-label="Clarification card language" value={dossier.language} disabled={busy} onChange={(event) => edit((current) => ({ ...current, language: event.target.value as "en" | "el" }))}><option value="en">English</option><option value="el">Ελληνικά (Greek)</option></select></label>
       </div>
-      <p className="muted">Original source quotations remain in their original language. No reading-grade claim is made.</p>
+      <p className="muted">This language applies to clarification questions. Original source quotations remain in their original language.</p>
       {dossier.documents.map((document, index) => <section className="reconciliation-editor" key={index} aria-label={`Original source ${index + 1}`}>
         <div className="section-heading"><h3>Source {index + 1}: {DOCUMENT_LABELS[document.kind]}</h3><button type="button" className="button secondary" disabled={busy || dossier.documents.length <= 2} onClick={() => edit((current) => ({ ...current, documents: current.documents.filter((_, i) => i !== index) }))}>Remove source {index + 1}</button></div>
         {dossier.documents.length <= 2 ? <p className="control-reason">At least two original sources are required.</p> : null}
@@ -111,6 +113,8 @@ export default function ReconciliationForm({ bootstrap, workspace, count, canCre
       <label>Caregiver concerns<textarea aria-label="Caregiver concerns" value={dossier.caregiver_concerns} disabled={busy} onChange={(event) => edit((current) => ({ ...current, caregiver_concerns: event.target.value }))} /></label>
       <p className="control-reason">{Array.from(dossier.caregiver_concerns).length} / 1,000 characters. These concerns guide source-cited questions, not medication changes.</p>
       <label>Synthetic operations desk<select aria-label="Synthetic operations desk" value={facility} disabled={busy} onChange={(event) => { setFacility(event.target.value); setConfirmed(false); idempotency.current = key(); }} >{bootstrap.facilities.map((item) => <option key={item.id} value={item.id}>{item.city} · {item.name}</option>)}</select></label>
+      <label className="check-field"><input type="checkbox" aria-label="Deliberate source citation mutation drill" checked={stress} disabled={busy} onChange={(event) => { setStress(event.target.checked); setConfirmed(false); idempotency.current = key(); }} /><span><strong>Deliberate source citation mutation drill</strong><span>Manually inject an altered candidate quotation or citation after generation. Original sources remain unchanged; the integrity gate must withhold the changed candidate.</span></span></label>
+      {examples?.reference_material ? <ReferencePanel material={examples.reference_material} /> : null}
       <label className="check-field"><input type="checkbox" checked={confirmed} disabled={busy} aria-label="Confirm invented reconciliation sources" onChange={(event) => { setConfirmed(event.target.checked); setError(""); }} /><span><strong>I confirm all sources and concerns are invented and contain no real patient information.</strong><span>This confirmation is not a privacy guarantee.</span></span></label>
       {error ? <div className="inline-alert" role="alert" data-testid="reconciliation-error">{error}</div> : null}
       <button type="submit" className="button full" data-testid="start-reconciliation" disabled={Boolean(reason)} aria-describedby="reconciliation-submit-reason"><Icon name={busy ? "refresh" : "shield"} />{busy ? "Creating reconciliation case..." : "Reconcile source packet"}</button>
