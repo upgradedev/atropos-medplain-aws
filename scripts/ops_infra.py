@@ -224,7 +224,7 @@ def ensure_mapping(args, function: str, configuration: dict, cli, signed_request
         update = {key: value for key, value in configuration.items() if key not in {"EventSourceArn", "StartingPosition", "Tags"}}
         return signed_request("lambda", args.region, f"/2015-03-31/event-source-mappings/{mapping['UUID']}",
                               method="PUT", payload=update, profile=args.profile)
-    return signed_request("lambda", args.region, "/2015-03-31/event-source-mappings/", method="POST",
+    return signed_request("lambda", args.region, "/2015-03-31/event-source-mappings", method="POST",
                           payload={"FunctionName": function, "Tags": {"Project": PROJECT}, **configuration}, profile=args.profile)
 
 
