@@ -47,7 +47,8 @@ def check(url: str, output: Path) -> dict:
         expect(cards).to_have_count(3)
         expect(page.locator("#explain-button")).to_be_enabled()
         expect(page.locator("#download-receipt")).to_be_disabled()
-        expect(page.locator("#download-reason")).to_be_visible()
+        expect(page.locator("#download-receipt")).to_be_hidden()
+        expect(page.locator("#button-reason")).to_be_visible()
         packets = cards.evaluate_all("nodes => nodes.map(node => ({ id: node.dataset.packetId, stress: node.dataset.adversarial === 'true' }))")
         for packet in packets:
             page.locator(f'.packet-card[data-packet-id="{packet["id"]}"]').click()
