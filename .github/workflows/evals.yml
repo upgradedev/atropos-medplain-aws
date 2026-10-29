@@ -1,0 +1,66 @@
+name: MedPlain Strands Evals
+
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [fixture, bedrock]
+        default: fixture
+      judge_url:
+        type: string
+        default: https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws
+      expected_commit:
+        type: string
+        description: Exact deployed commit, required for manual Bedrock mode
+
+permissions:
+  contents: read
+
+jobs:
+  paired-evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MEDPLAIN_MODEL_MODE: fixture
+      AWS_EC2_METADATA_DISABLED: 'true'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate explicit live authorization inputs
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'bedrock'
+        env:
+          JUDGE_URL: ${{ inputs.judge_url }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: |
+          python - <<'PY'
+          import os,re
+          expected='https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws'
+          assert os.environ['JUDGE_URL'].rstrip('/') == expected, 'Canonical URL required'
+          assert re.fullmatch('[0-9a-f]{40}',os.environ['EXPECTED_COMMIT']), 'Exact commit required'
+          PY
+      - name: Install official pinned optional Evals dependencies in CI only
+        run: python -m pip install --no-cache-dir -e '.[test,eval]'
+      - name: Offline comparison and evaluator negative proofs
+        run: |
+          python scripts/evaluate_medplain.py --mode fixture --source-commit "$GITHUB_SHA" --output artifacts/evaluation-fixture.json
+          python scripts/offline_tests.py tests/test_evaluation.py -q --junitxml=artifacts/evaluation-tests.xml
+      - name: Bounded actual Bedrock comparison on the public deployment
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'bedrock'
+        env:
+          JUDGE_URL: ${{ inputs.judge_url }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: python scripts/evaluate_medplain.py --mode bedrock --judge-url "$JUDGE_URL" --source-commit "$EXPECTED_COMMIT" --output artifacts/evaluation-bedrock.json
+      - name: Publish raw reports and test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-${{ github.sha }}-${{ github.run_id }}
+          path: artifacts/
+          retention-days: 14
