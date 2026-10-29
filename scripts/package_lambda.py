@@ -10,7 +10,8 @@ import zipfile
 from pathlib import Path
 
 
-def package(dependency_dir: Path, source_dir: Path, output: Path, commit: str, require_console: bool = False) -> dict:
+def package(dependency_dir: Path, source_dir: Path, output: Path, commit: str, require_console: bool = False,
+            require_prepared_demo: bool = False) -> dict:
     if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit):
         raise ValueError("commit must be a full lowercase Git SHA")
     if not (dependency_dir / "strands").is_dir() or not (dependency_dir / "mangum").is_dir():
@@ -19,6 +20,9 @@ def package(dependency_dir: Path, source_dir: Path, output: Path, commit: str, r
         raise ValueError("source directory must contain medplain/api.py")
     if require_console and not (source_dir / "medplain/static/console/_console_manifest.json").is_file():
         raise ValueError("the release package requires the compiled console manifest")
+    prepared_path = source_dir / "medplain/data/prepared_demo.json"
+    if require_prepared_demo and not prepared_path.is_file():
+        raise ValueError("the release package requires the prepared demonstration collection")
     output.parent.mkdir(parents=True, exist_ok=True)
     metadata = {"commit": commit, "built_at": dt.datetime.now(dt.timezone.utc).isoformat()}
     entries = {}
@@ -43,5 +47,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, default=Path("artifacts/medplain-lambda.zip"))
     parser.add_argument("--commit", required=True)
     parser.add_argument("--require-console", action="store_true")
+    parser.add_argument("--require-prepared-demo", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(package(args.dependency_dir, args.source_dir, args.output, args.commit, args.require_console)))
+    print(json.dumps(package(args.dependency_dir, args.source_dir, args.output, args.commit,
+                             args.require_console, args.require_prepared_demo)))

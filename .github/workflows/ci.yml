@@ -39,7 +39,18 @@ jobs:
       - name: Scan tracked source for secrets and prohibited punctuation
         run: python scripts/check_source.py
       - name: Check console source formatting
+        id: console_format
         run: npx --yes prettier@3.5.3 --check 'web/**/*.{ts,tsx,css,js,cjs,json,html}'
+      - name: Prepare formatting repair after a failed check
+        if: ${{ failure() && steps.console_format.outcome == 'failure' }}
+        run: npx --yes prettier@3.5.3 --write 'web/**/*.{ts,tsx,css,js,cjs,json,html}'
+      - name: Publish formatting repair after a failed check
+        if: ${{ failure() && steps.console_format.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: console-format-repair-${{ github.sha }}
+          path: web/
+          retention-days: 2
       - name: Publish formatted console sources
         uses: actions/upload-artifact@v4
         with:
@@ -59,6 +70,10 @@ jobs:
           python scripts/check_source.py
       - name: Install CI-only dependencies
         run: python -m pip install '.[test]' build playwright
+      - name: Prepare and validate offline Strands demonstration collection
+        run: |
+          PYTHONPATH=src python scripts/build_prepared_demo.py --output src/medplain/data/prepared_demo.json --source-commit "$GITHUB_SHA"
+          python scripts/check_source.py
       - name: Lint
         run: ruff check src tests scripts
       - name: Unit and integration tests without network
@@ -69,6 +84,7 @@ jobs:
         run: |
           python -m build --wheel
           python scripts/stage_console.py --verify-archive dist/*.whl
+          python -m pip install --force-reinstall --no-deps dist/*.whl
       - name: Install browser in CI only
         run: python -m playwright install --with-deps chromium
       - name: Execute anonymous desktop and 375px journeys
@@ -79,7 +95,7 @@ jobs:
         run: python -m pip install . --target "$RUNNER_TEMP/medplain-runtime" --no-compile
       - name: Assemble Lambda package and SHA-256 manifest
         run: |
-          python scripts/package_lambda.py --dependency-dir "$RUNNER_TEMP/medplain-runtime" --commit "$GITHUB_SHA" --require-console
+          python scripts/package_lambda.py --dependency-dir "$RUNNER_TEMP/medplain-runtime" --commit "$GITHUB_SHA" --require-console --require-prepared-demo
           python scripts/stage_console.py --verify-archive artifacts/medplain-lambda.zip
       - name: Require a live 200 and execute the flagship claim
         if: ${{ inputs.judge_url != '' }}

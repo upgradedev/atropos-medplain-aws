@@ -15,7 +15,7 @@ import {
   type CaseSummary,
   type Facility,
 } from "./types";
-import { Badge, Icon, State } from "./ui";
+import { Badge, Icon, OriginBadge, State } from "./ui";
 export interface Filters {
   status: string;
   sort: string;
@@ -55,6 +55,7 @@ export default function CasesTable({
               {info.row.original.id.slice(0, 12)} · generation{" "}
               {info.row.original.generation}
             </span>
+            <OriginBadge origin={info.row.original.origin} />
           </div>
         ),
       },
@@ -137,8 +138,8 @@ export default function CasesTable({
             <span className="subtle-tag">{data?.total ?? "..."}</span>
           </h2>
           <p>
-            Search covers all cases in this session. Filters and sorting run on
-            the server.
+            Search covers this session. Prepared examples and new runs carry
+            separate origin labels. Created means added to the session.
           </p>
         </div>
         <label className="compact-field">
@@ -180,6 +181,7 @@ export default function CasesTable({
                   <Icon name="arrow" />
                 </div>
                 <Badge status={row.status} />
+                <OriginBadge origin={row.origin} />
                 <span className="muted">
                   {clock(row.created_at)} · {duration(row.duration_ms)}
                 </span>

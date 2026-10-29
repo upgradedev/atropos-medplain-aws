@@ -103,6 +103,12 @@ class AtomicDynamo:
                         if used >= int(values[":limit"]["N"]):
                             raise ConditionalFailure()
                         staged[key] = {**update["Key"], "used": {"N": str(used + 1)}, "ttl": values[":ttl"]}
+                    elif ":collection" in values:
+                        if (not row or int(row["ttl"]["N"]) <= int(values[":now"]["N"])
+                                or int(row["case_count"]["N"]) != 0 or "seeded" in row):
+                            raise ConditionalFailure()
+                        row.update(case_count=values[":count"], collection=values[":collection"],
+                                   seeded=values[":yes"])
                     else:
                         if (not row or int(row["ttl"]["N"]) <= int(values[":now"]["N"])
                                 or int(row["case_count"]["N"]) >= int(values[":max"]["N"])):

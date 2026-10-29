@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { label, type Status } from "./types";
+import { label, type CaseOrigin, type Status } from "./types";
 
 const paths: Record<string, string> = {
   overview: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
@@ -44,6 +44,20 @@ export function Icon({
 }
 export function Badge({ status }: { status: Status | string }) {
   return <span className={`badge status-${status}`}>{label(status)}</span>;
+}
+export function OriginBadge({ origin }: { origin?: CaseOrigin }) {
+  return (
+    <span
+      className={`origin-badge origin-${origin || "unknown"}`}
+      data-testid="case-origin"
+    >
+      {origin === "prepared_demo"
+        ? "Prepared example"
+        : origin === "live_run"
+          ? "New run"
+          : "Origin unrecorded"}
+    </span>
+  );
 }
 export function State({
   kind,

@@ -21,6 +21,9 @@ def check() -> list[str]:
     generated_console = Path("src/medplain/static/console")
     if generated_console.is_dir():
         files.update(path.as_posix() for path in generated_console.rglob("*") if path.is_file())
+    prepared_data = Path("src/medplain/data")
+    if prepared_data.is_dir():
+        files.update(path.as_posix() for path in prepared_data.rglob("*.json") if path.is_file())
     for name in sorted(files):
         path = Path(name)
         if not path.is_file():
@@ -32,7 +35,7 @@ def check() -> list[str]:
         for label, pattern in PATTERNS:
             if pattern.search(content):
                 errors.append(f"{name}: possible {label}; inspect before publishing")
-        if name == "README.md" or name.startswith(("src/medplain/static/", "web/")):
+        if name == "README.md" or name.startswith(("src/medplain/static/", "src/medplain/data/", "web/")):
             if "\u2014" in content:
                 errors.append(f"{name}: em dash in judge-facing prose")
     return errors

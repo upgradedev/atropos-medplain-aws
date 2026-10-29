@@ -1,6 +1,7 @@
 """Synthetic case lifecycle with owner-scoped capabilities and fenced execution."""
 
 import base64
+import copy
 import hashlib
 import json
 import os
@@ -57,12 +58,14 @@ def event(kind: str, message: str) -> dict:
 
 
 def summary(case: dict) -> dict:
-    return {key: case[key] for key in SUMMARY_KEYS}
+    return {**{key: case[key] for key in SUMMARY_KEYS},
+            "origin": case.get("origin", "unknown"), "prepared": case.get("prepared")}
 
 
 def detail(case: dict) -> dict:
     return {**summary(case), "source": case["source"], "result": case["result"],
-            "events": case["events"], "review": case["review"]}
+            "events": case["events"], "review": case["review"],
+            "prepared_history": case.get("prepared_history", [])}
 
 
 def outbox_for(case: dict) -> dict:
@@ -78,13 +81,23 @@ class OpsService:
     def __init__(self, store):
         self.store = store
 
-    def new_session(self) -> dict:
+    def new_session(self, prepared_demo: bool | None = None) -> dict:
+        # Validate packaged evidence before accepting a populated-session request.
+        from medplain.ops_seed import load_bundle
+
+        bundle = load_bundle() if prepared_demo is True else None
         token = secrets.token_urlsafe(32)
         ttl = int(time.time()) + 86400
         session = {"session_id": uuid4().hex, "role": "operator", "roles": ROLES.copy(),
                    "expires_at": datetime.fromtimestamp(ttl, timezone.utc).isoformat(),
-                   "demo": True, "ttl": ttl, "case_count": 0}
-        self.store.put_new(_key(token), "SESSION", session)
+                   "demo": True, "ttl": ttl, "case_count": 0,
+                   "collection": {"mode": "empty", "initialized": prepared_demo is not None,
+                                  "seed_version": None}}
+        pk = _key(token)
+        self.store.put_new(pk, "SESSION", session)
+        if bundle is not None:
+            self.seed_demo(pk, session, bundle)
+            session = self.store.get(pk, "SESSION")
         return {key: value for key, value in {**session, "session_token": token}.items()
                 if key not in {"ttl", "case_count"}}
 
@@ -108,8 +121,14 @@ class OpsService:
         if session["role"] not in roles:
             raise OpsError(403, "This action is unavailable in the selected synthetic demo role.")
 
-    def bootstrap(self, session: dict) -> dict:
+    def bootstrap(self, session: dict, pk: str | None = None) -> dict:
+        rows = self.store.cases(pk) if pk else []
+        collection = {"mode": "empty", "initialized": False, "seed_version": None,
+                      **session.get("collection", {}),
+                      "prepared_count": sum(c.get("origin") == "prepared_demo" for c in rows),
+                      "live_count": sum(c.get("origin") == "live_run" for c in rows)}
         return {"session": {key: session[key] for key in ["session_id", "role", "roles", "demo"]},
+                "collection": collection,
                 "workspaces": [{"id": "all", "name": "All synthetic desks"}]
                 + [{"id": f["id"], "name": f["name"]} for f in FACILITIES],
                 "facilities": FACILITIES,
@@ -119,6 +138,58 @@ class OpsService:
                             "transport_mode": self.store.transport_mode,
                             "commit": commit(), "storage": self.store.storage},
                 "limits": {"max_cases": 20, "daily_jobs": daily_allowance()[1], "daily_reset": "00:00 UTC"}}
+
+    def seed_demo(self, pk: str, session: dict, bundle: dict | None = None) -> dict:
+        from medplain.ops_seed import SCENARIOS, check_seed_size, load_bundle
+
+        self.require(session, {"operator", "admin"})
+        latest = self.store.get(pk, "SESSION")
+        if latest is None:
+            raise OpsError(401, "This synthetic session expired. Start a new session.")
+        if latest.get("collection", {}).get("seed_version"):
+            return self.bootstrap(latest, pk)
+        if latest["case_count"]:
+            raise OpsError(409, "Prepared examples can only be loaded into an empty synthetic session.")
+        bundle = bundle if bundle is not None else load_bundle()
+        cases, shares = [], []
+        now = utc_now()
+        for facility_id, status, name in SCENARIOS:
+            exemplar = bundle["exemplars"][name]
+            result = copy.deepcopy(exemplar["result"])
+            source = copy.deepcopy(exemplar["source"])
+            prepared = {"version": bundle["version"], "prepared_at": bundle["prepared_at"],
+                        "source_commit": bundle["source_commit"],
+                        "original_execution_id": exemplar["execution_id"],
+                        "original_artifact_hash": exemplar["artifact_hash"]}
+            case = {"id": uuid4().hex, "packet_id": source["packet_id"], "packet_title": source["title"],
+                    "facility_id": facility_id, "status": status, "version": 1, "generation": 1,
+                    "created_at": now, "updated_at": now, "duration_ms": None,
+                    "correction_count": result.get("correction_count", 0),
+                    "source_hash": canonical_hash(source), "artifact_hash": exemplar["artifact_hash"],
+                    "patient_url": None, "error": None, "source": source, "result": result,
+                    "events": [event("prepared_demo", "Prepared synthetic example copied from a CI offline SDK run; no live job ran for this copy.")],
+                    "review": None, "ttl": latest["ttl"], "stress": source["adversarial"],
+                    "lease_owner": None, "lease_until": 0, "execution_id": exemplar["execution_id"],
+                    "retry_requests": {}, "origin": "prepared_demo", "prepared": prepared,
+                    "prepared_history": []}
+            if status == "failed":
+                case["error"] = ("Prepared failure illustration from an intentionally interrupted offline fixture run. "
+                                 "No live provider outage occurred.")
+            if status == "rejected":
+                case["events"].append(event("prepared_demo", "Prepared rejection scenario for exploring retry; no staff decision or live processing history is implied."))
+            if status == "released":
+                shares.append(self.make_share(case))
+            cases.append(case)
+        check_seed_size(cases, shares)
+        collection = {"mode": "prepared_demo", "initialized": True, "seed_version": bundle["version"]}
+        try:
+            self.store.seed(pk, cases, shares, collection)
+        except Conflict:
+            latest = self.store.get(pk, "SESSION")
+            if latest and latest.get("collection", {}).get("seed_version"):
+                return self.bootstrap(latest, pk)
+            raise OpsError(409, "This session changed. Prepared examples require an empty session.") from None
+        return self.bootstrap(self.store.get(pk, "SESSION"), pk)
 
     def get_case(self, pk: str, case_id: str) -> dict:
         case = self.store.get(pk, "CASE#" + case_id)
@@ -162,7 +233,8 @@ class OpsService:
                 "patient_url": None, "error": None, "source": packet.model_dump(), "result": None,
                 "events": [event("queued", "Synthetic case committed with its processing outbox entry.")],
                 "review": None, "ttl": session["ttl"], "stress": stress, "lease_owner": None,
-                "lease_until": 0, "execution_id": None, "retry_requests": {}}
+                "lease_until": 0, "execution_id": None, "retry_requests": {},
+                "origin": "live_run", "prepared": None}
         idem = {"sk": idem_sk, "case_id": case["id"], "fingerprint": fingerprint, "ttl": session["ttl"]}
         try:
             self.store.create(pk, case, outbox_for(case), idem)
@@ -221,9 +293,15 @@ class OpsService:
         counts = {status: sum(c["status"] == status for c in cases) for status in STATUSES}
         counts["total"] = len(cases)
         return {"counts": counts,
+                "origin_counts": {origin: sum(c.get("origin", "unknown") == origin for c in cases)
+                                  for origin in ("prepared_demo", "live_run", "unknown")},
+                "by_facility": [{"facility_id": f["id"], "name": f["name"], "city": f["city"],
+                                 "count": sum(c["facility_id"] == f["id"] for c in cases)}
+                                for f in FACILITIES if workspace == "all" or workspace == f["id"]],
                 "outcomes": [{"label": status, "value": counts[status]} for status in STATUSES],
                 "durations": [{"id": c["id"], "label": c["packet_title"], "duration_ms": c["duration_ms"]}
-                              for c in sorted(cases, key=lambda c: c["created_at"]) if c["duration_ms"] is not None],
+                              for c in sorted(cases, key=lambda c: c["created_at"])
+                              if c.get("origin") == "live_run" and c["duration_ms"] is not None],
                 "as_of": utc_now(), "scope": "Current synthetic session"}
 
     def retry(self, pk: str, session: dict, case_id: str, expected_version: int,
@@ -242,10 +320,14 @@ class OpsService:
             raise OpsError(409, "Only failed or rejected cases can be retried.")
         if case["generation"] >= 3:
             raise OpsError(409, "This case has reached its limit of three processing generations.")
+        if case.get("origin") == "prepared_demo":
+            case.setdefault("prepared_history", []).append(copy.deepcopy({
+                key: case[key] for key in ["generation", "status", "source_hash", "artifact_hash",
+                                           "execution_id", "result", "review", "origin", "prepared"]}))
         case.update(status="queued", version=case["version"] + 1, generation=case["generation"] + 1,
                     updated_at=utc_now(), duration_ms=None, correction_count=0, artifact_hash=None,
                     patient_url=None, result=None, error=None, review=None, lease_owner=None,
-                    lease_until=0, execution_id=None)
+                    lease_until=0, execution_id=None, origin="live_run")
         case["retry_requests"][key] = {"generation": case["generation"], "expected_version": expected_version}
         case["events"].append(event("retried", "A new processing generation was committed with its outbox entry."))
         try:
@@ -361,8 +443,9 @@ class OpsService:
         share_id = secrets.token_urlsafe(32)
         case["patient_url"] = "/console/patient/" + share_id
         return {"id": share_id, "ttl": case["ttl"], "execution_id": case["execution_id"],
-                "case": {key: case[key] for key in ["id", "packet_title", "facility_id", "status", "generation",
-                                                    "source_hash", "artifact_hash", "updated_at"]},
+                "case": {**{key: case[key] for key in ["id", "packet_title", "facility_id", "status", "generation",
+                                                      "source_hash", "artifact_hash", "updated_at"]},
+                         "origin": case.get("origin", "unknown"), "prepared": case.get("prepared")},
                 "source": case["source"], "result": case["result"]}
 
     def patient(self, share_id: str) -> dict:

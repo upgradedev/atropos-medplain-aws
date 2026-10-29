@@ -1,4 +1,4 @@
-import type { Bootstrap, Role, Session } from "./types";
+import type { Bootstrap, Overview, Role, Session } from "./types";
 const KEY = "medplain.session.v2";
 export class ApiError extends Error {
   constructor(
@@ -69,20 +69,36 @@ export async function api<T>(
     signal?.removeEventListener("abort", abort);
   }
 }
-export async function newSession(): Promise<Bootstrap> {
-  const created = await api<Session & { session_token: string }>(
-    "/session",
-    {},
-  );
+export async function newSession(preparedDemo = true): Promise<Bootstrap> {
+  const created = await api<Session & { session_token: string }>("/session", {
+    prepared_demo: preparedDemo,
+  });
   saveToken(created.session_token);
   return api<Bootstrap>("/bootstrap");
 }
+export async function loadExamples(): Promise<Bootstrap> {
+  await api<Bootstrap>("/session/demo", {});
+  return api<Bootstrap>("/bootstrap");
+}
 async function readBoot(): Promise<Bootstrap> {
-  if (!memoryToken && !token()) return newSession();
+  const explicitEmpty =
+    new URLSearchParams(location.search).get("collection") === "empty";
+  if (!memoryToken && !token()) return newSession(!explicitEmpty);
   try {
-    return await api<Bootstrap>("/bootstrap");
+    const data = await api<Bootstrap>("/bootstrap");
+    if (
+      !explicitEmpty &&
+      data.collection &&
+      !data.collection.initialized &&
+      ["operator", "admin"].includes(data.session.role)
+    ) {
+      const snapshot = await api<Overview>("/overview?workspace=all");
+      if (snapshot.counts.total === 0) return loadExamples();
+    }
+    return data;
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) return newSession();
+    if (error instanceof ApiError && error.status === 401)
+      return newSession(!explicitEmpty);
     throw error;
   }
 }

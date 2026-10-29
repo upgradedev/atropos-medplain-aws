@@ -12,6 +12,8 @@ type PatientPayload = Pick<CaseDetail, "source" | "result"> & {
     | "source_hash"
     | "artifact_hash"
     | "updated_at"
+    | "origin"
+    | "prepared"
   >;
 };
 export default function Patient({ share }: { share: string }) {
@@ -60,6 +62,27 @@ export default function Patient({ share }: { share: string }) {
       ) : (
         <article className="card patient-document">
           <div className="eyebrow">SYNTHETIC EXAMPLE ONLY</div>
+          {data.case.origin === "prepared_demo" ? (
+            <p
+              className="prepared-notice"
+              data-testid="prepared-patient-notice"
+            >
+              Prepared synthetic example. This released artifact was prepared
+              with an offline fixture model; it is not a fresh Bedrock run.
+            </p>
+          ) : data.case.origin === "live_run" ? (
+            <p className="run-origin-note">
+              {data.result.model_mode === "bedrock"
+                ? "Released from a new Amazon Bedrock verification run."
+                : data.result.model_mode === "fixture"
+                  ? "Released from a new offline fixture verification run."
+                  : "Released from a new verification run; its model mode was not recorded."}
+            </p>
+          ) : (
+            <p className="run-origin-note">
+              The origin of this legacy artifact was not recorded.
+            </p>
+          )}
           <h1>
             {data.case.packet_title ||
               data.source?.title ||

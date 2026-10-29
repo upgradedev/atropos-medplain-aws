@@ -94,6 +94,32 @@ class DeliveryBoundaries(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "destination"):
                     stage(source, root / "outside-generated-console")
 
+    def test_prepared_collection_bytes_survive_packaging_and_tampering_fails(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "web/dist"
+            source.mkdir(parents=True)
+            (source / "index.html").write_text('<script src="/console/app.js"></script>')
+            (source / "app.js").write_text("console.log('fixture');")
+            destination = root / "src/medplain/static/console"
+            prepared = root / "src/medplain/data/prepared_demo.json"
+            prepared.parent.mkdir(parents=True)
+            prepared.write_text('{"packaging_fixture": true}')
+            archive = root / "release.zip"
+            with working_directory(root):
+                stage(source, destination)
+                for changed in (False, True):
+                    with zipfile.ZipFile(archive, "w") as package:
+                        for name in ("index.html", "app.js"):
+                            package.write(destination / name, "medplain/static/console/" + name)
+                        package.writestr("medplain/data/prepared_demo.json",
+                                         b"changed collection" if changed else prepared.read_bytes())
+                    if changed:
+                        with self.assertRaisesRegex(ValueError, "prepared collection differs"):
+                            verify_archive(archive, destination)
+                    else:
+                        self.assertTrue(verify_archive(archive, destination)["verified_prepared_collection"])
+
 
 if __name__ == "__main__":
     unittest.main()

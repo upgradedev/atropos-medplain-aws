@@ -85,6 +85,21 @@ class MemoryStore:
             self.rows[(pk, outbox["sk"])] = copy.deepcopy(outbox)
             self.rows[(pk, idem["sk"])] = copy.deepcopy(idem)
 
+    def seed(self, pk: str, cases: list[dict], shares: list[dict], collection: dict):
+        """Commit a complete example collection once, without jobs or allowance writes."""
+        with self.lock:
+            session = self.get(pk, "SESSION")
+            if (session is None or session["case_count"] != 0
+                    or session.get("collection", {}).get("seed_version") is not None
+                    or any(self.get(pk, "CASE#" + case["id"]) for case in cases)
+                    or any(self.get("SHARE#" + share["id"], "VIEW") for share in shares)):
+                raise Conflict()
+            session.update(case_count=len(cases), collection=copy.deepcopy(collection))
+            staged = {(pk, "SESSION"): session}
+            staged.update({(pk, "CASE#" + case["id"]): copy.deepcopy(case) for case in cases})
+            staged.update({("SHARE#" + share["id"], "VIEW"): copy.deepcopy(share) for share in shares})
+            self.rows.update(staged)
+
     def replace(self, pk: str, case: dict, expected_version: int,
                 outbox: dict | None = None, share: dict | None = None):
         with self.lock:
@@ -140,6 +155,8 @@ class DynamoStore:
                       "entity": "OUTBOX" if sk.startswith("OUTBOX#") else sk.split("#")[0]}
         if sk == "SESSION":
             attributes["case_count"] = row["case_count"]
+            if "collection" in row:
+                attributes["collection"] = json.dumps(row["collection"], separators=(",", ":"))
         return self._attrs(attributes)
 
     def _call(self, method, **kwargs) -> Any:
@@ -167,6 +184,8 @@ class DynamoStore:
             row["sent_at"] = int(item["sent_at"]["N"])
         if "case_count" in item:
             row["case_count"] = int(item["case_count"]["N"])
+        if "collection" in item:
+            row["collection"] = json.loads(item["collection"]["S"])
         return row
 
     def put_new(self, pk: str, sk: str, row: dict):
@@ -228,6 +247,21 @@ class DynamoStore:
         if share:
             writes.append(self._put("SHARE#" + share["id"], "VIEW", share))
         self._transaction(writes, allowance=outbox is not None)
+
+    def seed(self, pk: str, cases: list[dict], shares: list[dict], collection: dict):
+        # Role changes only replace payload. Authoritative count/collection
+        # attributes survive a concurrent role write carrying an older payload.
+        self._transaction([
+            {"Update": {"TableName": self.table, "Key": self._attrs({"PK": pk, "SK": "SESSION"}),
+                        "UpdateExpression": "SET case_count = :count, #collection = :collection, #seeded = :yes",
+                        "ConditionExpression": "#ttl > :now AND case_count = :zero AND attribute_not_exists(#seeded)",
+                        "ExpressionAttributeNames": {"#ttl": "ttl", "#collection": "collection", "#seeded": "seeded"},
+                        "ExpressionAttributeValues": self._attrs({":count": len(cases), ":zero": 0,
+                            ":collection": json.dumps(collection, separators=(",", ":")),
+                            ":yes": True, ":now": int(time.time())})}},
+            *[self._put(pk, "CASE#" + case["id"], case) for case in cases],
+            *[self._put("SHARE#" + share["id"], "VIEW", share) for share in shares],
+        ])
 
     def _allowance_write(self):
         pk, limit, ttl = daily_allowance()

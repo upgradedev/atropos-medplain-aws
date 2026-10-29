@@ -42,7 +42,12 @@ def verify_archive(archive_path: Path, console: Path) -> dict:
             packaged = archive.read("medplain/static/console/" + name)
             if hashlib.sha256(packaged).hexdigest() != digest:
                 raise ValueError(f"packaged console asset differs from CI build: {name}")
-    return {"archive": archive_path.name, "verified_console_assets": len(manifest["files"])}
+        prepared = Path("src/medplain/data/prepared_demo.json")
+        if prepared.is_file():
+            if archive.read("medplain/data/prepared_demo.json") != prepared.read_bytes():
+                raise ValueError("packaged prepared collection differs from the validated CI data")
+    return {"archive": archive_path.name, "verified_console_assets": len(manifest["files"]),
+            "verified_prepared_collection": prepared.is_file()}
 
 
 if __name__ == "__main__":
