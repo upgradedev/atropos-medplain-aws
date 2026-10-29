@@ -130,6 +130,27 @@ def start_empty_session(page, url: str, output: Path, expect) -> None:
     page.screenshot(path=str(output / "explicit-empty-session.png"), full_page=True)
 
 
+def check_nonempty_seed_control(page, url: str, facility_id: str, output: Path, expect) -> None:
+    client = session_client(page, url)
+    before = client.call("/api/ops/cases?workspace=all&limit=20")
+    assert before["total"] == 1, "the regression must use the real case from this journey"
+    empty_desk = next(item["id"] for item in client.call("/api/ops/bootstrap")["facilities"]
+                      if item["id"] != facility_id)
+    page.get_by_label("Workspace", exact=True).select_option(empty_desk)
+    expect(page.get_by_role("heading", name="No matching cases", exact=True)).to_be_visible()
+    assert client.call(f"/api/ops/cases?workspace={empty_desk}&limit=20")["total"] == 0
+    page.get_by_test_id("nav-settings").click()
+    expect(page.get_by_role("heading", name="Workspace settings", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("load-demo-examples")).to_be_disabled()
+    expect(page.get_by_test_id("load-demo-examples-reason")).to_contain_text(re.compile(r"empty session", re.I))
+    expect(page.get_by_test_id("open-populated-demo")).to_be_enabled()
+    after = client.call("/api/ops/cases?workspace=all&limit=20")
+    assert after["total"] == before["total"] and {row["id"] for row in after["items"]} == {
+        row["id"] for row in before["items"]}, "an empty desk filter must not replace or reseed the owned live case"
+    page.screenshot(path=str(output / "nonempty-session-empty-desk-seed-control.png"), full_page=True)
+    page.get_by_label("Workspace", exact=True).select_option("all")
+
+
 def change_role(page, role: str, expect) -> None:
     page.get_by_role("button", name="Open user menu").click()
     with page.expect_response(lambda response: response.url.endswith("/api/ops/session/role") and response.request.method == "POST") as changed:
@@ -239,6 +260,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     expect(page.get_by_role("dialog", name="Case details", exact=True)).to_be_visible()
     page.get_by_role("dialog", name="Case details").get_by_role("button", name="Close dialog", exact=True).click()
     change_role(page, "operator", expect)
+    check_nonempty_seed_control(page, url, detail["facility_id"], output, expect)
     page.set_viewport_size({"width": 375, "height": 812})
     page.goto(url.rstrip("/") + "/console/overview", wait_until="networkidle")
     primary = page.get_by_role("button", name="New case", exact=True)
@@ -271,7 +293,8 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
             "correction_count": detail["correction_count"], "artifact_hash": detail["artifact_hash"],
             "released_exact_hashes": True, "anonymous_patient_view": True,
             "workflow_and_facility_maps": True, "mobile_width": 375, "api_error_recovery": True,
-            "prepared_collection": prepared, "native_options": native_options, "explicit_empty_reload": True}
+            "prepared_collection": prepared, "native_options": native_options, "explicit_empty_reload": True,
+            "nonempty_session_seed_control": True}
 
 
 def check(url: str, output: Path) -> dict:
