@@ -1,68 +1,617 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api, key, message } from './api';
-import { Badge, Dialog, Download, Hash, Icon, State } from './ui';
-import { clock, duration, isActive, label, type CaseDetail, type Explanation, type Role } from './types';
-const TABS = ['Source', 'Explanation', 'Safety', 'Agents', 'Receipt'] as const;
-type Tab = typeof TABS[number];
+import { useCallback, useEffect, useState } from "react";
+import { api, key, message } from "./api";
+import { Badge, Dialog, Download, Hash, Icon, State } from "./ui";
+import {
+  clock,
+  duration,
+  isActive,
+  label,
+  type CaseDetail,
+  type Explanation,
+  type Role,
+} from "./types";
+const TABS = ["Source", "Explanation", "Safety", "Agents", "Receipt"] as const;
+type Tab = (typeof TABS)[number];
 
 export function ExplanationView({ explanation }: { explanation: Explanation }) {
-  return <div className="explanation"><p className="explanation-summary">{explanation.summary}</p><h3>Your medicines</h3>{explanation.medications.map(med => <article className="medicine" key={med.medication_id || med.name}><div><strong>{med.name}</strong><Badge status={med.status}/></div><p className="dose">{med.dose} {med.unit} · {med.frequency}</p><p>{med.text}</p></article>)}<h3>Your lab results</h3>{explanation.labs.map(lab => <article className="medicine" key={lab.lab_id || lab.name}><strong>{lab.name}</strong><p className="dose">{lab.value} {lab.unit} <span className="muted">Reference {lab.low} to {lab.high}</span></p><p>{lab.text}</p></article>)}<h3>Follow-up</h3><ul>{explanation.follow_up.map(item => <li key={item}>{item}</li>)}</ul><h3>When to ask for help</h3><ul>{explanation.red_flags.map(item => <li key={item}>{item}</li>)}</ul></div>;
+  return (
+    <div className="explanation">
+      <p className="explanation-summary">{explanation.summary}</p>
+      <h3>Your medicines</h3>
+      {explanation.medications.map((med) => (
+        <article className="medicine" key={med.medication_id || med.name}>
+          <div>
+            <strong>{med.name}</strong>
+            <Badge status={med.status} />
+          </div>
+          <p className="dose">
+            {med.dose} {med.unit} · {med.frequency}
+          </p>
+          <p>{med.text}</p>
+        </article>
+      ))}
+      <h3>Your lab results</h3>
+      {explanation.labs.map((lab) => (
+        <article className="medicine" key={lab.lab_id || lab.name}>
+          <strong>{lab.name}</strong>
+          <p className="dose">
+            {lab.value} {lab.unit}{" "}
+            <span className="muted">
+              Reference {lab.low} to {lab.high}
+            </span>
+          </p>
+          <p>{lab.text}</p>
+        </article>
+      ))}
+      <h3>Follow-up</h3>
+      <ul>
+        {explanation.follow_up.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+      <h3>When to ask for help</h3>
+      <ul>
+        {explanation.red_flags.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
-export default function CaseDrawer({ id, role, close, changed, toast }: { id: string; role: Role; close: () => void; changed: () => void; toast: (text: string, error?: boolean) => void }) {
+export default function CaseDrawer({
+  id,
+  role,
+  close,
+  changed,
+  toast,
+}: {
+  id: string;
+  role: Role;
+  close: () => void;
+  changed: () => void;
+  toast: (text: string, error?: boolean) => void;
+}) {
   const [data, setData] = useState<CaseDetail | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
-  const [tab, setTab] = useState<Tab>('Source');
+  const [tab, setTab] = useState<Tab>("Source");
   const [busy, setBusy] = useState(false);
-  const [comment, setComment] = useState('');
-  const [verified, setVerified] = useState('');
+  const [comment, setComment] = useState("");
+  const [verified, setVerified] = useState("");
   const [pollPaused, setPollPaused] = useState(false);
   useEffect(() => {
-    let active = true; let timer = 0; let reads = 0;
+    let active = true;
+    let timer = 0;
+    let reads = 0;
     const controller = new AbortController();
-    setLoading(true); setError(''); setPollPaused(false);
+    setLoading(true);
+    setError("");
+    setPollPaused(false);
     const read = async () => {
-      try { const current = await api<CaseDetail>(`/cases/${encodeURIComponent(id)}`, undefined, controller.signal); if (!active) return; setData(current); setError(''); if (isActive(current.status) && reads++ < 120) timer = window.setTimeout(read, 2000); else if (isActive(current.status)) setPollPaused(true); else changed(); }
-      catch (reason) { if (active) setError(message(reason)); }
-      finally { if (active) setLoading(false); }
+      try {
+        const current = await api<CaseDetail>(
+          `/cases/${encodeURIComponent(id)}`,
+          undefined,
+          controller.signal,
+        );
+        if (!active) return;
+        setData(current);
+        setError("");
+        if (isActive(current.status) && reads++ < 120)
+          timer = window.setTimeout(read, 2000);
+        else if (isActive(current.status)) setPollPaused(true);
+        else changed();
+      } catch (reason) {
+        if (active) setError(message(reason));
+      } finally {
+        if (active) setLoading(false);
+      }
     };
     void read();
-    return () => { active = false; window.clearTimeout(timer); controller.abort(); };
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [id, revision, changed]);
-  const refresh = () => setRevision(value => value + 1);
+  const refresh = () => setRevision((value) => value + 1);
   const mutate = async (path: string, body: unknown, success: string) => {
     setBusy(true);
-    try { await api(`/cases/${encodeURIComponent(id)}/${path}`, body); toast(success); refresh(); changed(); }
-    catch (reason) { toast(`${message(reason)} Read current case facts before resubmitting.`, true); refresh(); }
-    finally { setBusy(false); }
+    try {
+      await api(`/cases/${encodeURIComponent(id)}/${path}`, body);
+      toast(success);
+      refresh();
+      changed();
+    } catch (reason) {
+      toast(
+        `${message(reason)} Read current case facts before resubmitting.`,
+        true,
+      );
+      refresh();
+    } finally {
+      setBusy(false);
+    }
   };
   const verify = async () => {
     if (!data?.result?.receipts.length) return;
-    setBusy(true); setVerified('');
-    const controller = new AbortController(); const timer = window.setTimeout(() => controller.abort(), 25000);
-    try { const response = await fetch('/api/receipts/verify', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ receipts: data.result.receipts }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload.detail || 'Receipt verification failed'); const valid = payload.valid ?? payload.verified; setVerified(valid ? 'The server verified every link in this receipt chain.' : 'Receipt verification failed. Do not rely on this chain.'); toast(valid ? 'Receipt chain verified' : 'Receipt verification failed', !valid); }
-    catch (reason) { setVerified(message(reason)); toast(message(reason), true); }
-    finally { window.clearTimeout(timer); setBusy(false); }
+    setBusy(true);
+    setVerified("");
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 25000);
+    try {
+      const response = await fetch("/api/receipts/verify", {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receipts: data.result.receipts }),
+      });
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(payload.detail || "Receipt verification failed");
+      const valid = payload.valid ?? payload.verified;
+      setVerified(
+        valid
+          ? "The server verified every link in this receipt chain."
+          : "Receipt verification failed. Do not rely on this chain.",
+      );
+      toast(
+        valid ? "Receipt chain verified" : "Receipt verification failed",
+        !valid,
+      );
+    } catch (reason) {
+      setVerified(message(reason));
+      toast(message(reason), true);
+    } finally {
+      window.clearTimeout(timer);
+      setBusy(false);
+    }
   };
-  const canReview = role === 'reviewer' || role === 'admin';
-  const canRetry = role === 'operator' || role === 'admin';
-  const reviewReason = !data ? 'Read the case first.' : busy ? 'An action is in progress.' : !canReview ? 'Switch to the reviewer or admin synthetic demo role to decide.' : data.status !== 'review_required' ? 'Only a case awaiting review can be released or rejected.' : !data.artifact_hash ? 'A verified artifact hash is required.' : !comment.trim() ? 'Add a short review comment to enable a decision.' : '';
-  const retryReason = !data ? 'Read the case first.' : busy ? 'An action is in progress.' : !canRetry ? 'Only the operator or admin demo role can retry a case.' : !['failed', 'rejected'].includes(data.status) ? 'Retry is available after failure or rejection.' : data.generation >= 3 ? 'This case has reached the three-generation limit.' : '';
-  return <Dialog title="Case details" wide onClose={close}><div className="drawer-meta">{data ? <><Badge status={data.status}/><span className="mono">{data.id}</span><span>v{data.version} · generation {data.generation}</span></> : <span>Reading case</span>}<button className="icon-button" onClick={refresh} aria-label="Refresh case" disabled={loading}><Icon name="refresh"/></button>{loading ? <span className="muted" role="status">Reading latest facts</span> : null}</div>
-    {error ? <div className="inline-alert" role="alert">{error} {data ? 'Previous snapshot retained, actions require a fresh read.' : ''}<button className="text-button" onClick={refresh}>Retry read</button></div> : null}
-    {loading && !data ? <State kind="loading" title="Reading case and audit evidence"/> : !data ? <State kind="error" title="Case unavailable" retry={refresh}>{error}</State> : <><div className="drawer-title"><h3>{data.packet_title}</h3><p>Created {clock(data.created_at)} · {duration(data.duration_ms)} · {data.correction_count} corrections</p></div>{pollPaused ? <div className="inline-alert">Automatic polling paused after four minutes. The job may still be running.<button className="text-button" onClick={refresh}>Resume reading</button></div> : isActive(data.status) ? <div className="progress-banner" role="status"><span className="live-dot pulse"/>Worker {data.status}. Reading the actual case every two seconds.</div> : null}
-    <div className="tabs" role="tablist" aria-label="Case evidence tabs">{TABS.map((item, index) => <button key={item} id={`tab-${item}`} role="tab" aria-selected={tab === item} aria-controls="case-tab-panel" tabIndex={tab === item ? 0 : -1} onClick={() => setTab(item)} onKeyDown={event => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { const next = TABS[(index + (event.key === 'ArrowRight' ? 1 : -1) + TABS.length) % TABS.length]; setTab(next); document.getElementById(`tab-${next}`)?.focus(); } }}>{item}{item === 'Receipt' && data.result ? <span>{data.result.receipts.length}</span> : null}</button>)}</div>
-    <div className="drawer-content" id="case-tab-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
-      {tab === 'Source' ? <><div className="eyebrow">SYNTHETIC DISCHARGE PACKET</div><pre className="source-text">{data.source?.source_text || 'The source is unavailable.'}</pre><Hash title="Source SHA-256" value={data.source_hash}/><details><summary>Inspect constrained FHIR bundle</summary><pre>{JSON.stringify(data.source?.fhir, null, 2)}</pre></details></> : null}
-      {tab === 'Explanation' ? data.result?.explanation ? <><div className={`notice ${data.status === 'released' ? 'notice-success' : ''}`}>{data.status === 'released' ? 'Released patient artifact. Source fidelity passed.' : 'Internal preview only. Patient sharing is withheld until an authorized review releases this exact artifact.'}</div><ExplanationView explanation={data.result.explanation}/></> : <State kind={isActive(data.status) ? 'loading' : 'empty'} title="No publishable explanation">Unchecked drafts are never shown as patient instructions.</State> : null}
-      {tab === 'Safety' ? <><div className="section-heading"><h3>Atropos deterministic safety gate</h3><Badge status={data.result?.status || 'pending'}/></div><p className="muted">Medication identity, dose, mg/mcg/mL, frequency, stop status, labs and constrained patient text must match the source.</p>{data.result?.receipts.length ? data.result.receipts.map(receipt => <article className={`receipt-card ${receipt.verdict}`} key={receipt.hash}><div><strong>Candidate {receipt.sequence}</strong><Badge status={receipt.verdict}/></div>{receipt.discrepancies.length ? <ul>{receipt.discrepancies.map(value => <li key={value}>{value}</li>)}</ul> : <p>Every supported source fact and constrained text matched.</p>}</article>) : <State kind="empty" title="No gate receipt yet">The gate emits a receipt when it evaluates a candidate.</State>}{data.result?.interactions.length ? <><h3>Curated interaction evidence</h3>{data.result.interactions.map((interaction, i) => <article className="notice" key={i}><strong>{interaction.title}</strong><p>{interaction.message}</p><p className="muted">{interaction.source} · {interaction.scope}</p></article>)}</> : null}{data.error ? <div className="inline-alert">{data.error}</div> : null}</> : null}
-      {tab === 'Agents' ? <><div className="section-heading"><h3>Recorded execution</h3><span className="subtle-tag">{data.result?.model_mode || 'Not completed'}</span></div><p className="muted">{data.result?.runtime?.orchestrator || 'Strands Graph'} · {data.result?.runtime?.graph_status || data.status}</p>{data.result?.trace.length ? <ol className="timeline">{data.result.trace.map((item, index) => <li key={index}><span className="timeline-dot"/><div><strong>{item.agent || item.node || 'Strands Graph'}</strong><Badge status={item.status}/><p>{item.message}</p></div></li>)}</ol> : <p className="muted">Agent trace appears when the worker completes. No illustrative events are added.</p>}<h3>Durable case events</h3>{data.events?.length ? <ol className="timeline">{data.events.map(event => <li key={event.id}><span className="timeline-dot"/><div><small>{clock(event.at)}</small><strong>{label(event.type)}</strong><p>{event.message}</p></div></li>)}</ol> : <State kind="empty" title="No case events recorded"/>}<details><summary>Recorded SDK runtime evidence</summary><pre>{JSON.stringify(data.result?.runtime || {}, null, 2)}</pre></details></> : null}
-      {tab === 'Receipt' ? <><h3>Content-bound verification receipt</h3><p className="muted">Unsigned SHA-256 chain. Retain the final hash separately to detect replacement or truncation. This is not an authenticity or clinical certification claim.</p><Hash title="Source hash" value={data.source_hash}/><Hash title="Accepted artifact hash" value={data.artifact_hash}/>{data.result?.receipts.map(receipt => <div className="receipt-card" key={receipt.hash}><div><strong>Link {receipt.sequence}</strong><Badge status={receipt.verdict}/></div><Hash title="Previous hash" value={receipt.previous_hash}/><Hash title="Link hash" value={receipt.hash}/></div>)}{data.result?.receipts.length ? <div className="action-row"><Download value={data.result.receipts} name={`medplain-${data.id}-receipts.json`}>Download receipts</Download><button className="button secondary" disabled={busy} onClick={() => void verify()}>{busy ? 'Verifying chain...' : 'Verify chain'}</button></div> : <State kind="empty" title="No receipt chain yet"/>}{verified ? <p role="status">{verified}</p> : null}</> : null}
-    </div>
-    <section className="review-panel"><h3>Release control</h3><p>Decisions bind the exact version, source hash and artifact hash. A failed safety gate cannot be overridden.</p>{data.status === 'review_required' ? <><label>Review comment<textarea value={comment} maxLength={500} onChange={event => setComment(event.target.value)} placeholder="Record why this source-matched artifact can be released, or why it should be rejected."/></label><div className="action-row"><button className="button" data-testid="release-case" disabled={Boolean(reviewReason) || Boolean(error)} onClick={() => void mutate('review', { decision: 'release', expected_version: data.version, source_hash: data.source_hash, artifact_hash: data.artifact_hash, comment: comment.trim() }, 'Patient artifact released')}>Release patient artifact</button><button className="button danger" disabled={Boolean(reviewReason) || Boolean(error)} onClick={() => void mutate('review', { decision: 'reject', expected_version: data.version, source_hash: data.source_hash, artifact_hash: data.artifact_hash, comment: comment.trim() }, 'Case rejected')}>Reject artifact</button></div><p className="control-reason">{error ? 'Read fresh case facts before deciding.' : reviewReason || 'This decision applies only to the displayed hashes and version.'}</p></> : <p className="muted">{data.status === 'released' ? 'This artifact is released.' : 'No reviewable artifact is available in this state.'}</p>}
-    {['failed', 'rejected'].includes(data.status) ? <><button className="button secondary" disabled={Boolean(retryReason) || Boolean(error)} onClick={() => void mutate('retry', { expected_version: data.version, idempotency_key: key() }, 'Retry queued')} data-testid="retry-case">Retry case</button><p className="control-reason">{error ? 'Read fresh case facts before retrying.' : retryReason || 'Starts a new bounded generation with the same synthetic source.'}</p></> : null}
-    {data.status === 'released' && data.patient_url ? <a className="button patient-link" href={data.patient_url} target="_blank" rel="noreferrer">Open patient view<Icon name="arrow"/></a> : <p className="control-reason">A patient link exists only after release.</p>}</section></>}
-  </Dialog>;
+  const canReview = role === "reviewer" || role === "admin";
+  const canRetry = role === "operator" || role === "admin";
+  const reviewReason = !data
+    ? "Read the case first."
+    : busy
+      ? "An action is in progress."
+      : !canReview
+        ? "Switch to the reviewer or admin synthetic demo role to decide."
+        : data.status !== "review_required"
+          ? "Only a case awaiting review can be released or rejected."
+          : !data.artifact_hash
+            ? "A verified artifact hash is required."
+            : !comment.trim()
+              ? "Add a short review comment to enable a decision."
+              : "";
+  const retryReason = !data
+    ? "Read the case first."
+    : busy
+      ? "An action is in progress."
+      : !canRetry
+        ? "Only the operator or admin demo role can retry a case."
+        : !["failed", "rejected"].includes(data.status)
+          ? "Retry is available after failure or rejection."
+          : data.generation >= 3
+            ? "This case has reached the three-generation limit."
+            : "";
+  return (
+    <Dialog title="Case details" wide onClose={close}>
+      <div className="drawer-meta">
+        {data ? (
+          <>
+            <Badge status={data.status} />
+            <span className="mono">{data.id}</span>
+            <span>
+              v{data.version} · generation {data.generation}
+            </span>
+          </>
+        ) : (
+          <span>Reading case</span>
+        )}
+        <button
+          className="icon-button"
+          onClick={refresh}
+          aria-label="Refresh case"
+          disabled={loading}
+        >
+          <Icon name="refresh" />
+        </button>
+        {loading ? (
+          <span className="muted" role="status">
+            Reading latest facts
+          </span>
+        ) : null}
+      </div>
+      {error ? (
+        <div className="inline-alert" role="alert">
+          {error}{" "}
+          {data
+            ? "Previous snapshot retained, actions require a fresh read."
+            : ""}
+          <button className="text-button" onClick={refresh}>
+            Retry read
+          </button>
+        </div>
+      ) : null}
+      {loading && !data ? (
+        <State kind="loading" title="Reading case and audit evidence" />
+      ) : !data ? (
+        <State kind="error" title="Case unavailable" retry={refresh}>
+          {error}
+        </State>
+      ) : (
+        <>
+          <div className="drawer-title">
+            <h3>{data.packet_title}</h3>
+            <p>
+              Created {clock(data.created_at)} · {duration(data.duration_ms)} ·{" "}
+              {data.correction_count} corrections
+            </p>
+          </div>
+          {pollPaused ? (
+            <div className="inline-alert">
+              Automatic polling paused after four minutes. The job may still be
+              running.
+              <button className="text-button" onClick={refresh}>
+                Resume reading
+              </button>
+            </div>
+          ) : isActive(data.status) ? (
+            <div className="progress-banner" role="status">
+              <span className="live-dot pulse" />
+              Worker {data.status}. Reading the actual case every two seconds.
+            </div>
+          ) : null}
+          <div className="tabs" role="tablist" aria-label="Case evidence tabs">
+            {TABS.map((item, index) => (
+              <button
+                key={item}
+                id={`tab-${item}`}
+                role="tab"
+                aria-selected={tab === item}
+                aria-controls="case-tab-panel"
+                tabIndex={tab === item ? 0 : -1}
+                onClick={() => setTab(item)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+                    const next =
+                      TABS[
+                        (index +
+                          (event.key === "ArrowRight" ? 1 : -1) +
+                          TABS.length) %
+                          TABS.length
+                      ];
+                    setTab(next);
+                    document.getElementById(`tab-${next}`)?.focus();
+                  }
+                }}
+              >
+                {item}
+                {item === "Receipt" && data.result ? (
+                  <span>{data.result.receipts.length}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+          <div
+            className="drawer-content"
+            id="case-tab-panel"
+            role="tabpanel"
+            aria-labelledby={`tab-${tab}`}
+          >
+            {tab === "Source" ? (
+              <>
+                <div className="eyebrow">SYNTHETIC DISCHARGE PACKET</div>
+                <pre className="source-text">
+                  {data.source?.source_text || "The source is unavailable."}
+                </pre>
+                <Hash title="Source SHA-256" value={data.source_hash} />
+                <details>
+                  <summary>Inspect constrained FHIR bundle</summary>
+                  <pre>{JSON.stringify(data.source?.fhir, null, 2)}</pre>
+                </details>
+              </>
+            ) : null}
+            {tab === "Explanation" ? (
+              data.result?.explanation ? (
+                <>
+                  <div
+                    className={`notice ${data.status === "released" ? "notice-success" : ""}`}
+                  >
+                    {data.status === "released"
+                      ? "Released patient artifact. Source fidelity passed."
+                      : "Internal preview only. Patient sharing is withheld until an authorized review releases this exact artifact."}
+                  </div>
+                  <ExplanationView explanation={data.result.explanation} />
+                </>
+              ) : (
+                <State
+                  kind={isActive(data.status) ? "loading" : "empty"}
+                  title="No publishable explanation"
+                >
+                  Unchecked drafts are never shown as patient instructions.
+                </State>
+              )
+            ) : null}
+            {tab === "Safety" ? (
+              <>
+                <div className="section-heading">
+                  <h3>Atropos deterministic safety gate</h3>
+                  <Badge status={data.result?.status || "pending"} />
+                </div>
+                <p className="muted">
+                  Medication identity, dose, mg/mcg/mL, frequency, stop status,
+                  labs and constrained patient text must match the source.
+                </p>
+                {data.result?.receipts.length ? (
+                  data.result.receipts.map((receipt) => (
+                    <article
+                      className={`receipt-card ${receipt.verdict}`}
+                      key={receipt.hash}
+                    >
+                      <div>
+                        <strong>Candidate {receipt.sequence}</strong>
+                        <Badge status={receipt.verdict} />
+                      </div>
+                      {receipt.discrepancies.length ? (
+                        <ul>
+                          {receipt.discrepancies.map((value) => (
+                            <li key={value}>{value}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>
+                          Every supported source fact and constrained text
+                          matched.
+                        </p>
+                      )}
+                    </article>
+                  ))
+                ) : (
+                  <State kind="empty" title="No gate receipt yet">
+                    The gate emits a receipt when it evaluates a candidate.
+                  </State>
+                )}
+                {data.result?.interactions.length ? (
+                  <>
+                    <h3>Curated interaction evidence</h3>
+                    {data.result.interactions.map((interaction, i) => (
+                      <article className="notice" key={i}>
+                        <strong>{interaction.title}</strong>
+                        <p>{interaction.message}</p>
+                        <p className="muted">
+                          {interaction.source} · {interaction.scope}
+                        </p>
+                      </article>
+                    ))}
+                  </>
+                ) : null}
+                {data.error ? (
+                  <div className="inline-alert">{data.error}</div>
+                ) : null}
+              </>
+            ) : null}
+            {tab === "Agents" ? (
+              <>
+                <div className="section-heading">
+                  <h3>Recorded execution</h3>
+                  <span className="subtle-tag">
+                    {data.result?.model_mode || "Not completed"}
+                  </span>
+                </div>
+                <p className="muted">
+                  {data.result?.runtime?.orchestrator || "Strands Graph"} ·{" "}
+                  {data.result?.runtime?.graph_status || data.status}
+                </p>
+                {data.result?.trace.length ? (
+                  <ol className="timeline">
+                    {data.result.trace.map((item, index) => (
+                      <li key={index}>
+                        <span className="timeline-dot" />
+                        <div>
+                          <strong>
+                            {item.agent || item.node || "Strands Graph"}
+                          </strong>
+                          <Badge status={item.status} />
+                          <p>{item.message}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="muted">
+                    Agent trace appears when the worker completes. No
+                    illustrative events are added.
+                  </p>
+                )}
+                <h3>Durable case events</h3>
+                {data.events?.length ? (
+                  <ol className="timeline">
+                    {data.events.map((event) => (
+                      <li key={event.id}>
+                        <span className="timeline-dot" />
+                        <div>
+                          <small>{clock(event.at)}</small>
+                          <strong>{label(event.type)}</strong>
+                          <p>{event.message}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <State kind="empty" title="No case events recorded" />
+                )}
+                <details>
+                  <summary>Recorded SDK runtime evidence</summary>
+                  <pre>
+                    {JSON.stringify(data.result?.runtime || {}, null, 2)}
+                  </pre>
+                </details>
+              </>
+            ) : null}
+            {tab === "Receipt" ? (
+              <>
+                <h3>Content-bound verification receipt</h3>
+                <p className="muted">
+                  Unsigned SHA-256 chain. Retain the final hash separately to
+                  detect replacement or truncation. This is not an authenticity
+                  or clinical certification claim.
+                </p>
+                <Hash title="Source hash" value={data.source_hash} />
+                <Hash
+                  title="Accepted artifact hash"
+                  value={data.artifact_hash}
+                />
+                {data.result?.receipts.map((receipt) => (
+                  <div className="receipt-card" key={receipt.hash}>
+                    <div>
+                      <strong>Link {receipt.sequence}</strong>
+                      <Badge status={receipt.verdict} />
+                    </div>
+                    <Hash title="Previous hash" value={receipt.previous_hash} />
+                    <Hash title="Link hash" value={receipt.hash} />
+                  </div>
+                ))}
+                {data.result?.receipts.length ? (
+                  <div className="action-row">
+                    <Download
+                      value={data.result.receipts}
+                      name={`medplain-${data.id}-receipts.json`}
+                    >
+                      Download receipts
+                    </Download>
+                    <button
+                      className="button secondary"
+                      disabled={busy}
+                      onClick={() => void verify()}
+                    >
+                      {busy ? "Verifying chain..." : "Verify chain"}
+                    </button>
+                  </div>
+                ) : (
+                  <State kind="empty" title="No receipt chain yet" />
+                )}
+                {verified ? <p role="status">{verified}</p> : null}
+              </>
+            ) : null}
+          </div>
+          <section className="review-panel">
+            <h3>Release control</h3>
+            <p>
+              Decisions bind the exact version, source hash and artifact hash. A
+              failed safety gate cannot be overridden.
+            </p>
+            {data.status === "review_required" ? (
+              <>
+                <label>
+                  Review comment
+                  <textarea
+                    value={comment}
+                    maxLength={500}
+                    onChange={(event) => setComment(event.target.value)}
+                    placeholder="Record why this source-matched artifact can be released, or why it should be rejected."
+                  />
+                </label>
+                <div className="action-row">
+                  <button
+                    className="button"
+                    data-testid="release-case"
+                    disabled={Boolean(reviewReason) || Boolean(error)}
+                    onClick={() =>
+                      void mutate(
+                        "review",
+                        {
+                          decision: "release",
+                          expected_version: data.version,
+                          source_hash: data.source_hash,
+                          artifact_hash: data.artifact_hash,
+                          comment: comment.trim(),
+                        },
+                        "Patient artifact released",
+                      )
+                    }
+                  >
+                    Release patient artifact
+                  </button>
+                  <button
+                    className="button danger"
+                    disabled={Boolean(reviewReason) || Boolean(error)}
+                    onClick={() =>
+                      void mutate(
+                        "review",
+                        {
+                          decision: "reject",
+                          expected_version: data.version,
+                          source_hash: data.source_hash,
+                          artifact_hash: data.artifact_hash,
+                          comment: comment.trim(),
+                        },
+                        "Case rejected",
+                      )
+                    }
+                  >
+                    Reject artifact
+                  </button>
+                </div>
+                <p className="control-reason">
+                  {error
+                    ? "Read fresh case facts before deciding."
+                    : reviewReason ||
+                      "This decision applies only to the displayed hashes and version."}
+                </p>
+              </>
+            ) : (
+              <p className="muted">
+                {data.status === "released"
+                  ? "This artifact is released."
+                  : "No reviewable artifact is available in this state."}
+              </p>
+            )}
+            {["failed", "rejected"].includes(data.status) ? (
+              <>
+                <button
+                  className="button secondary"
+                  disabled={Boolean(retryReason) || Boolean(error)}
+                  onClick={() =>
+                    void mutate(
+                      "retry",
+                      {
+                        expected_version: data.version,
+                        idempotency_key: key(),
+                      },
+                      "Retry queued",
+                    )
+                  }
+                  data-testid="retry-case"
+                >
+                  Retry case
+                </button>
+                <p className="control-reason">
+                  {error
+                    ? "Read fresh case facts before retrying."
+                    : retryReason ||
+                      "Starts a new bounded generation with the same synthetic source."}
+                </p>
+              </>
+            ) : null}
+            {data.status === "released" && data.patient_url ? (
+              <a
+                className="button patient-link"
+                href={data.patient_url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open patient view
+                <Icon name="arrow" />
+              </a>
+            ) : (
+              <p className="control-reason">
+                A patient link exists only after release.
+              </p>
+            )}
+          </section>
+        </>
+      )}
+    </Dialog>
+  );
 }
