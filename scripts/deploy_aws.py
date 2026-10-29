@@ -18,6 +18,67 @@ from aws_request import request
 
 
 PROJECT = "AtroposMedPlain"
+STAGING_EXPIRY_DAYS = 1
+
+
+def staging_plan(account: str, region: str, commit: str, digest: str, bucket: str | None = None) -> dict:
+    """Bind the private staging location to one account, region and artifact."""
+    if not re.fullmatch(r"[0-9]{12}", account):
+        raise ValueError("account must be a twelve-digit AWS account ID")
+    if not re.fullmatch(r"[a-z]{2}(?:-[a-z]+)+-[0-9]", region):
+        raise ValueError("region must be a concrete AWS region")
+    if not re.fullmatch(r"[0-9a-f]{40}", commit) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise ValueError("staging requires a full source commit and package SHA-256")
+    prefix = f"atropos-medplain-deploy-{account}-{region}"
+    selected = bucket or prefix
+    if len(selected) > 63 or not re.fullmatch(re.escape(prefix) + r"(?:-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?", selected):
+        raise ValueError("staging bucket must use this project's account and region prefix")
+    return {
+        "staging_bucket": selected, "staging_key": f"releases/{commit}/{digest}.zip",
+        "staging_expiry_days": STAGING_EXPIRY_DAYS, "staging_encryption": "AES256",
+    }
+
+
+def stage_package(args: argparse.Namespace, plan: dict, digest: str) -> None:
+    """Require ownership before enforcing a private, short-lived upload bucket."""
+    bucket = plan["staging_bucket"]
+    owner = ("--expected-bucket-owner", args.account)
+    exists = cli(args, "s3api", "head-bucket", "--bucket", bucket, *owner, missing="(404)")
+    if exists is None:
+        command = ["s3api", "create-bucket", "--bucket", bucket, "--object-ownership", "BucketOwnerEnforced"]
+        if args.region != "us-east-1":
+            command.extend(["--create-bucket-configuration", json.dumps({"LocationConstraint": args.region})])
+        cli(args, *command)
+        cli(args, "s3api", "put-bucket-tagging", "--bucket", bucket, *owner,
+            "--tagging", json.dumps({"TagSet": [{"Key": "Project", "Value": PROJECT}]}))
+    else:
+        tags = cli(args, "s3api", "get-bucket-tagging", "--bucket", bucket, *owner, missing="NoSuchTagSet")
+        if tags is None or not any(tag.get("Key") == "Project" and tag.get("Value") == PROJECT for tag in tags.get("TagSet", [])):
+            raise ValueError("existing staging bucket lacks MedPlain ownership tag")
+    cli(args, "s3api", "put-public-access-block", "--bucket", bucket, *owner,
+        "--public-access-block-configuration", json.dumps({
+            "BlockPublicAcls": True, "IgnorePublicAcls": True,
+            "BlockPublicPolicy": True, "RestrictPublicBuckets": True,
+        }))
+    cli(args, "s3api", "put-bucket-encryption", "--bucket", bucket, *owner,
+        "--server-side-encryption-configuration", json.dumps({
+            "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}],
+        }))
+    cli(args, "s3api", "put-bucket-lifecycle-configuration", "--bucket", bucket, *owner,
+        "--lifecycle-configuration", json.dumps({"Rules": [{
+            "ID": "medplain-staging-expiry", "Status": "Enabled", "Filter": {"Prefix": "releases/"},
+            "Expiration": {"Days": STAGING_EXPIRY_DAYS},
+            "NoncurrentVersionExpiration": {"NoncurrentDays": STAGING_EXPIRY_DAYS},
+            "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": STAGING_EXPIRY_DAYS},
+        }]}))
+    cli(args, "s3", "cp", str(args.package.resolve()), f"s3://{bucket}/{plan['staging_key']}",
+        "--sse", "AES256", "--metadata", f"sha256={digest},commit={args.commit}", "--only-show-errors")
+    uploaded = cli(args, "s3api", "head-object", "--bucket", bucket, "--key", plan["staging_key"], *owner)
+    if (uploaded.get("ContentLength") != args.package.stat().st_size
+            or uploaded.get("ServerSideEncryption") != "AES256"
+            or uploaded.get("Metadata", {}).get("sha256") != digest
+            or uploaded.get("Metadata", {}).get("commit") != args.commit):
+        raise ValueError("staging object metadata differs from the verified package")
 
 
 def cli(args: argparse.Namespace, *command: str, missing: str | None = None) -> dict | None:
@@ -53,9 +114,11 @@ def deploy(args: argparse.Namespace) -> dict:
         "commit": args.commit, "package_sha256": digest,
         "public_url": True, "reserved_concurrency": 2, "timeout_seconds": 180,
         "log_retention_days": 7,
+        **staging_plan(args.account, args.region, args.commit, digest, getattr(args, "staging_bucket", None)),
     }
     if not args.apply:
         return {"status": "plan", **plan}
+    stage_package(args, plan, digest)
     role = cli(args, "iam", "get-role", "--role-name", role_name, missing="NoSuchEntity")
     if role is not None and not any(t["Key"] == "Project" and t["Value"] == PROJECT for t in role["Role"].get("Tags", [])):
         raise ValueError("existing role lacks MedPlain ownership tag")
@@ -81,7 +144,7 @@ def deploy(args: argparse.Namespace) -> dict:
             try:
                 cli(args, "lambda", "create-function", "--function-name", args.function,
                     "--runtime", "python3.12", "--handler", "medplain.api.handler",
-                    "--role", role["Role"]["Arn"], "--zip-file", f"fileb://{args.package.resolve()}",
+                    "--role", role["Role"]["Arn"], "--code", json.dumps({"S3Bucket": plan["staging_bucket"], "S3Key": plan["staging_key"]}),
                     "--timeout", "180", "--memory-size", "768", "--environment", environment,
                     "--tags", f"Project={PROJECT}")
                 break
@@ -90,7 +153,8 @@ def deploy(args: argparse.Namespace) -> dict:
                     raise
                 time.sleep(5)
     else:
-        cli(args, "lambda", "update-function-code", "--function-name", args.function, "--zip-file", f"fileb://{args.package.resolve()}")
+        cli(args, "lambda", "update-function-code", "--function-name", args.function,
+            "--s3-bucket", plan["staging_bucket"], "--s3-key", plan["staging_key"])
         cli(args, "lambda", "wait", "function-updated", "--function-name", args.function)
         cli(args, "lambda", "update-function-configuration", "--function-name", args.function, "--environment", environment, "--timeout", "180", "--memory-size", "768")
         cli(args, "lambda", "wait", "function-updated", "--function-name", args.function)
@@ -126,6 +190,7 @@ if __name__ == "__main__":
     parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--function", default="atropos-medplain")
     parser.add_argument("--package", type=Path, required=True)
+    parser.add_argument("--staging-bucket", help="Optional dedicated bucket with the default account and region prefix")
     parser.add_argument("--commit", required=True)
     parser.add_argument("--model-mode", choices=["bedrock", "fixture"], default="bedrock")
     parser.add_argument("--model-id", default="amazon.nova-micro-v1:0")
