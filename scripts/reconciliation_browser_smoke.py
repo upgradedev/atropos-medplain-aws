@@ -291,11 +291,50 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     finally:
         patient_context.close()
     assert client.call("/api/ops/cases?limit=20")["total"] == 2
+    # These are explicitly injected publication states, not measured model results.
+    page.route("**/api/reconciliation-evaluations/live", lambda route: route.fulfill(status=200, json={
+        "status": "not_measured", "source_commit": boot["runtime"]["commit"],
+        "reason": "CI interface-state injection: no actual Bedrock measurement is published."}), times=1)
+    page.goto(base + "/console/settings", wait_until="networkidle")
+    panel = page.get_by_test_id("reconciliation-evaluation-panel")
+    offline = panel.get_by_test_id("reconciliation-fixture-evidence")
+    expect(offline.get_by_role("table")).to_be_visible()
+    expect(offline).to_contain_text("fixture planner replays the deterministic baseline")
+    live_panel = panel.get_by_test_id("reconciliation-live-evidence")
+    expect(live_panel).to_contain_text("Not measured for this source")
+    expect(live_panel.get_by_role("table")).to_have_count(0)
+    page.screenshot(path=str(output / "reconciliation-evidence-not-measured-mobile.png"), full_page=True)
+    injected_manifest = {
+        "status": "published", "profile": PROFILE, "mode": "bedrock", "source_commit": boot["runtime"]["commit"],
+        "report_sha256": "a" * 64, "corpus_sha256": "b" * 64, "ruler_sha256": "c" * 64,
+        "manifest_sha256": "d" * 64,
+        "report_url": "https://github.com/upgradedev/atropos-medplain-aws/releases/download/ci-interface-fixture/not-a-measurement.json",
+        "arms": {"strands": {"case_count": 2, "verified_count": 1, "runtime_error_count": 1},
+                 "baseline": {"case_count": 2, "verified_count": 2, "runtime_error_count": 0}},
+    }
+    page.route("**/api/reconciliation-evaluations/live", lambda route: route.fulfill(status=200, json=injected_manifest), times=1)
+    page.reload(wait_until="networkidle")
+    panel = page.get_by_test_id("reconciliation-evaluation-panel")
+    live_panel = panel.get_by_test_id("reconciliation-live-evidence")
+    expect(live_panel.get_by_role("table")).to_be_visible()
+    verified_row = live_panel.get_by_role("row", name="Verified clarification cards 1 2", exact=True)
+    expect(verified_row).to_be_visible()
+    expect(live_panel.get_by_role("row", name="Runtime errors 1 0", exact=True)).to_be_visible()
+    expect(live_panel.get_by_role("row", name="Workflow refusals Not reported Not reported", exact=True)).to_be_visible()
+    expect(live_panel.get_by_role("link", name="Inspect full published Bedrock JSON report", exact=True)).to_have_attribute("href", injected_manifest["report_url"])
+    assert not page.evaluate("document.documentElement.scrollWidth > innerWidth")
+    page.screenshot(path=str(output / "reconciliation-evidence-injected-published-mobile.png"), full_page=True)
+    page.route("**/api/reconciliation-evaluations/live", lambda route: route.fulfill(status=200, json={**injected_manifest, "source_commit": "f" * 40}), times=1)
+    page.reload(wait_until="networkidle")
+    live_panel = page.get_by_test_id("reconciliation-live-evidence")
+    expect(live_panel.get_by_role("heading", name="Bedrock comparison unavailable", exact=True)).to_be_visible()
+    expect(live_panel.get_by_role("table")).to_have_count(0)
     return {"source_case": proof, "revision_case": revision_proof, "mobile_width": 375,
             "source_quote_bytes_independently_checked": True, "source_and_question_languages_separate": True,
             "exact_hash_review": True, "patient_regimen_always_withheld": True,
             "revision_creates_new_case_parent_unchanged": True, "lost_response_one_idempotent_job": True,
             "injected_errors": [413], "voice_test": "Simulated local device voice, explicit user start/pause/resume/stop and unmount cancellation; no native speech-quality claim.",
+            "evaluation_panel_test": "Explicit HTTP interface-state injections: not measured, published two-case counts with missing metrics, and stale-source rejection. Injected counts are not model results.",
             "pinned_reference_snapshot_sha256": examples["reference_material"]["snapshot_sha256"]}
 
 

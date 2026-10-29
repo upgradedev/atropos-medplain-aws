@@ -35,6 +35,7 @@ import Patient from "./Patient";
 import NewCase from "./NewCase";
 import type { ReconciliationSeed } from "./ReconciliationForm";
 import EvaluationPanel from "./EvaluationPanel";
+import ReconciliationEvaluationPanel from "./ReconciliationEvaluationPanel";
 const Maps = lazy(() => import("./Maps"));
 const PAGES = ["overview", "cases", "queues", "maps", "settings"] as const;
 type Page = (typeof PAGES)[number];
@@ -1084,6 +1085,7 @@ function Console() {
                   </a>
                 </section>
                 <EvaluationPanel />
+                <ReconciliationEvaluationPanel expectedCommit={bootstrap.runtime.commit} />
               </div>
             </>
           ) : null}
