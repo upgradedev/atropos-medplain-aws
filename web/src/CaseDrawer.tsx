@@ -330,9 +330,7 @@ export default function CaseDrawer({
             role="tabpanel"
             aria-labelledby={`tab-${tab}`}
           >
-            {tab === "Source" ? (
-              <SourceEvidence data={data} />
-            ) : null}
+            {tab === "Source" ? <SourceEvidence data={data} /> : null}
             {tab === "Explanation" ? (
               data.result?.explanation ? (
                 <>

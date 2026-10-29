@@ -1693,7 +1693,11 @@ tbody tr:hover {
 .intake-editor textarea {
   min-height: 245px;
   width: 100%;
-  font: 12px/1.8 ui-monospace, SFMono-Regular, Consolas, monospace;
+  font:
+    12px/1.8 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
   tab-size: 2;
 }
 .intake-editor textarea[aria-invalid="true"] {
@@ -1702,7 +1706,9 @@ tbody tr:hover {
 .intake-counter {
   margin-top: -7px;
   color: var(--muted);
-  font: 10px/1.6 ui-monospace, monospace;
+  font:
+    10px/1.6 ui-monospace,
+    monospace;
 }
 .source-provenance {
   margin-bottom: 22px;

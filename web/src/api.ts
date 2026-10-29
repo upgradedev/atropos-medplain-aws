@@ -35,13 +35,17 @@ function validationMessage(detail: unknown): string | undefined {
   };
   const issues = detail.slice(0, 3).map((issue: unknown) => {
     const value = issue as { loc?: unknown[]; type?: string };
-    const field = Array.isArray(value?.loc) ? value.loc[value.loc.length - 1] : undefined;
-    const label = typeof field === "string" ? labels[field] || "Request" : "Request";
+    const field = Array.isArray(value?.loc)
+      ? value.loc[value.loc.length - 1]
+      : undefined;
+    const label =
+      typeof field === "string" ? labels[field] || "Request" : "Request";
     if (field === "synthetic_confirmed")
       return "Confirm that the note is wholly invented and contains no real patient information.";
     if (value?.type === "extra_forbidden")
       return "The request contains unsupported fields. Use the displayed input format.";
-    if (value?.type === "string_too_long") return `${label} exceeds the supported length.`;
+    if (value?.type === "string_too_long")
+      return `${label} exceeds the supported length.`;
     if (value?.type === "missing") return `${label} is required.`;
     return `${label} must use the supported value or format.`;
   });
@@ -74,7 +78,8 @@ export async function api<T>(
       throw new ApiError(
         typeof data?.detail === "string"
           ? data.detail
-          : validationMessage(data?.detail) || `Service request failed (HTTP ${response.status}).`,
+          : validationMessage(data?.detail) ||
+            `Service request failed (HTTP ${response.status}).`,
         response.status,
       );
     return data as T;

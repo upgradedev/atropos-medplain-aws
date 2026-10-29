@@ -154,7 +154,11 @@ export default function NewCase({
           Choose a sample or enter a new synthetic note. Each new case runs the
           actual Strands Graph, tools and lifecycle safety gate.
         </p>
-        <fieldset className="intake-mode" disabled={busy} aria-describedby="new-case-reason">
+        <fieldset
+          className="intake-mode"
+          disabled={busy}
+          aria-describedby="new-case-reason"
+        >
           <legend>Source type</legend>
           <label>
             <input
@@ -186,35 +190,35 @@ export default function NewCase({
         </fieldset>
         {mode === "sample" ? (
           <>
-        <label>
-          Discharge packet
-          <select
-            aria-label="Discharge packet"
-            value={packet}
-            disabled={busy}
-            onChange={(event) => {
-              const next = bootstrap.packets.find(
-                (item) => item.id === event.target.value,
-              );
-              setPacket(event.target.value);
-              setStress(Boolean(next?.stress_available));
-              edited();
-            }}
-          >
-            {bootstrap.packets.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="packet-preview">
-          <Icon name="cases" />
-          <div>
-            <strong>{selected?.title}</strong>
-            <p>{selected?.summary}</p>
-          </div>
-        </div>
+            <label>
+              Discharge packet
+              <select
+                aria-label="Discharge packet"
+                value={packet}
+                disabled={busy}
+                onChange={(event) => {
+                  const next = bootstrap.packets.find(
+                    (item) => item.id === event.target.value,
+                  );
+                  setPacket(event.target.value);
+                  setStress(Boolean(next?.stress_available));
+                  edited();
+                }}
+              >
+                {bootstrap.packets.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="packet-preview">
+              <Icon name="cases" />
+              <div>
+                <strong>{selected?.title}</strong>
+                <p>{selected?.summary}</p>
+              </div>
+            </div>
           </>
         ) : (
           <section className="intake-editor" aria-label="Synthetic note intake">
@@ -233,7 +237,9 @@ export default function NewCase({
                   {templateError}
                 </State>
               ) : (
-                <p className="muted" role="status">Loading supported intake format...</p>
+                <p className="muted" role="status">
+                  Loading supported intake format...
+                </p>
               )
             ) : (
               <>
@@ -249,29 +255,44 @@ export default function NewCase({
                       edited();
                     }}
                   >
-                    {source ? "Replace with synthetic template" : "Load editable template"}
+                    {source
+                      ? "Replace with synthetic template"
+                      : "Load editable template"}
                   </button>
-                  <span className="muted">Edit the template to create a new source.</span>
+                  <span className="muted">
+                    Edit the template to create a new source.
+                  </span>
                 </div>
                 <details className="intake-format">
                   <summary>Supported note format and limits</summary>
                   <ul>
-                    {template.format_hints.map((hint) => <li key={hint}>{hint}</li>)}
+                    {template.format_hints.map((hint) => (
+                      <li key={hint}>{hint}</li>
+                    ))}
                   </ul>
                   <p>
-                    Up to {template.limits.max_medications} medicines, {template.limits.max_labs} labs,
-                    {" "}{template.limits.max_lines} lines and {template.limits.max_source_chars.toLocaleString()} characters.
-                    Unknown or ambiguous lines are refused before a model runs.
+                    Up to {template.limits.max_medications} medicines,{" "}
+                    {template.limits.max_labs} labs, {template.limits.max_lines}{" "}
+                    lines and{" "}
+                    {template.limits.max_source_chars.toLocaleString()}{" "}
+                    characters. Unknown or ambiguous lines are refused before a
+                    model runs.
                   </p>
                 </details>
               </>
             )}
-            <label htmlFor="synthetic-source-note">Synthetic discharge note</label>
+            <label htmlFor="synthetic-source-note">
+              Synthetic discharge note
+            </label>
             <textarea
               id="synthetic-source-note"
               data-testid="intake-source-text"
               aria-describedby="intake-source-limits new-case-reason"
-              aria-invalid={Boolean(template && (sourceLength > template.limits.max_source_chars || lineCount > template.limits.max_lines))}
+              aria-invalid={Boolean(
+                template &&
+                  (sourceLength > template.limits.max_source_chars ||
+                    lineCount > template.limits.max_lines),
+              )}
               value={source}
               disabled={busy}
               spellCheck={false}
@@ -284,13 +305,25 @@ export default function NewCase({
               }}
             />
             <p id="intake-source-limits" className="intake-counter">
-              {sourceLength.toLocaleString()}{template ? ` / ${template.limits.max_source_chars.toLocaleString()}` : ""} characters
-              {" · "}{lineCount}{template ? ` / ${template.limits.max_lines}` : ""} lines
+              {sourceLength.toLocaleString()}
+              {template
+                ? ` / ${template.limits.max_source_chars.toLocaleString()}`
+                : ""}{" "}
+              characters
+              {" · "}
+              {lineCount}
+              {template ? ` / ${template.limits.max_lines}` : ""} lines
             </p>
             <details className="intake-preview">
               <summary>Preview exact submitted source</summary>
-              <pre data-testid="intake-source-preview">{source || "No note entered yet."}</pre>
-              <p className="muted">This text is captured with its own SHA-256. Deterministic format validation precedes the parser Agent's independent extraction check.</p>
+              <pre data-testid="intake-source-preview">
+                {source || "No note entered yet."}
+              </pre>
+              <p className="muted">
+                This text is captured with its own SHA-256. Deterministic format
+                validation precedes the parser Agent's independent extraction
+                check.
+              </p>
             </details>
             <label className="check-field">
               <input
@@ -304,11 +337,20 @@ export default function NewCase({
                 }}
               />
               <span>
-                <strong>I confirm this note is invented and contains no real patient information.</strong>
-                <span>{template?.privacy_notice || "Synthetic-only confirmation does not detect or remove personal information."}</span>
+                <strong>
+                  I confirm this note is invented and contains no real patient
+                  information.
+                </strong>
+                <span>
+                  {template?.privacy_notice ||
+                    "Synthetic-only confirmation does not detect or remove personal information."}
+                </span>
               </span>
             </label>
-            <p className="muted">Text intake only. PDF upload, arbitrary FHIR and real clinical records are not supported.</p>
+            <p className="muted">
+              Text intake only. PDF upload, arbitrary FHIR and real clinical
+              records are not supported.
+            </p>
           </section>
         )}
         <label>
@@ -331,30 +373,30 @@ export default function NewCase({
         </label>
         {mode === "sample" ? (
           <>
-        <label className="check-field">
-          <input
-            type="checkbox"
-            checked={stress}
-            disabled={busy || !selected?.stress_available}
-            onChange={(event) => {
-              setStress(event.target.checked);
-              edited();
-            }}
-          />
-          <span>
-            <strong>Deliberate dosage mutation stress test</strong>
-            <span>
-              Inject a changed candidate dose. The gate must refuse it and route
-              a correction. The source remains unchanged.
-            </span>
-          </span>
-        </label>
-        {!selected?.stress_available ? (
-          <p className="control-reason">
-            The dosage mutation stress test is available only for the designated
-            stress packet. Select that packet to enable it.
-          </p>
-        ) : null}
+            <label className="check-field">
+              <input
+                type="checkbox"
+                checked={stress}
+                disabled={busy || !selected?.stress_available}
+                onChange={(event) => {
+                  setStress(event.target.checked);
+                  edited();
+                }}
+              />
+              <span>
+                <strong>Deliberate dosage mutation stress test</strong>
+                <span>
+                  Inject a changed candidate dose. The gate must refuse it and
+                  route a correction. The source remains unchanged.
+                </span>
+              </span>
+            </label>
+            {!selected?.stress_available ? (
+              <p className="control-reason">
+                The dosage mutation stress test is available only for the
+                designated stress packet. Select that packet to enable it.
+              </p>
+            ) : null}
           </>
         ) : null}
         {error ? (
@@ -372,7 +414,12 @@ export default function NewCase({
           <Icon name={busy ? "refresh" : "shield"} />
           {busy ? "Creating case..." : "Start verification"}
         </button>
-        <p className="control-reason" id="new-case-reason" data-testid="new-case-reason" aria-live="polite">
+        <p
+          className="control-reason"
+          id="new-case-reason"
+          data-testid="new-case-reason"
+          aria-live="polite"
+        >
           {reason ||
             (mode === "import"
               ? "Captures this synthetic note and queues one real verification job. The parser Agent must match the independently validated source before an explanation can publish."

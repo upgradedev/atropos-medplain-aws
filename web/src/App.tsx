@@ -1061,8 +1061,8 @@ function Console() {
                   </dl>
                   <h3>Bounded demonstration</h3>
                   <p className="muted">
-                    Choose a supplied packet or import a new synthetic note in the
-                    supported text format. PDF upload and arbitrary FHIR
+                    Choose a supplied packet or import a new synthetic note in
+                    the supported text format. PDF upload and arbitrary FHIR
                     ingestion are not available.
                   </p>
                   <button className="button secondary" disabled>

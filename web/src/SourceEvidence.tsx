@@ -4,12 +4,15 @@ import { Hash } from "./ui";
 
 export default function SourceEvidence({ data }: { data: CaseDetail }) {
   const imported = data.source_kind === "imported_note" || Boolean(data.intake);
-  const parserVerified = data.result?.intake_validation?.parser_verified === true;
+  const parserVerified =
+    data.result?.intake_validation?.parser_verified === true;
   return (
     <>
       <section className="source-provenance" data-testid="source-provenance">
         <div className="eyebrow">SOURCE PROVENANCE</div>
-        <h3>{imported ? "Imported synthetic note" : "Captured synthetic packet"}</h3>
+        <h3>
+          {imported ? "Imported synthetic note" : "Captured synthetic packet"}
+        </h3>
         <p>
           {imported
             ? "The original note and its deterministic normalization are retained separately. A queued case does not prove successful agent extraction."
@@ -35,8 +38,14 @@ export default function SourceEvidence({ data }: { data: CaseDetail }) {
             <pre className="source-text" data-testid="original-source-note">
               {data.intake.source_text}
             </pre>
-            <Hash title="Submitted note SHA-256" value={data.intake.source_sha256} />
-            <Hash title="Independent extraction ledger SHA-256" value={data.intake.ledger_sha256} />
+            <Hash
+              title="Submitted note SHA-256"
+              value={data.intake.source_sha256}
+            />
+            <Hash
+              title="Independent extraction ledger SHA-256"
+              value={data.intake.ledger_sha256}
+            />
             <h3>Deterministic normalization</h3>
             <p className="muted">
               Accepted input fields normalized before the model runs. This view
