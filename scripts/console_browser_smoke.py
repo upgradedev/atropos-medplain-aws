@@ -16,6 +16,117 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from browser_smoke import wait_for_server
+from demo_collection_smoke import audit_prepared_collection
+from ops_live_smoke import Client
+
+
+def contrast_ratio(foreground: str, background: str) -> float:
+    """Measure explicitly computed native-option colors, including alpha refusal."""
+    def luminance(color):
+        assert color.startswith(("rgb(", "rgba(", "color(srgb")), "native option colors must resolve to RGB"
+        values = [float(value) for value in re.findall(r"[\d.]+", color)]
+        assert len(values) in {3, 4}, "native option colors must resolve to RGB"
+        assert len(values) != 4 or values[3] == 1, "native option colors must be opaque"
+        scale = 1 if color.startswith("color(srgb") else 255
+        channels = [value / scale for value in values[:3]]
+        assert all(0 <= value <= 1 for value in channels)
+        linear = [value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+                  for value in channels]
+        return sum(channel * weight for channel, weight in zip(linear, [0.2126, 0.7152, 0.0722], strict=True))
+
+    left, right = sorted([luminance(foreground), luminance(background)])
+    return (right + 0.05) / (left + 0.05)
+
+
+def session_client(page, url: str) -> Client:
+    client = Client(url)
+    client.token = page.evaluate("localStorage.getItem('medplain.session.v2')")
+    assert client.token, "the browser must receive its own anonymous session"
+    return client
+
+
+def exercise_prepared_collection(page, url: str, output: Path, expect) -> dict:
+    expect(page.get_by_test_id("prepared-demo-notice")).to_be_visible()
+    proof = audit_prepared_collection(session_client(page, url))
+    expect(page.locator(".kpi").filter(has_text="Cases in session").locator("strong")).to_have_text("12")
+    expect(page.get_by_test_id("outcomes-chart")).to_be_visible()
+    expect(page.get_by_test_id("desk-load-chart")).to_be_visible()
+    page.screenshot(path=str(output / "prepared-overview-desktop.png"), full_page=True)
+    page.get_by_test_id("nav-cases").click()
+    expect(page.get_by_test_id("case-origin").first).to_contain_text("Prepared")
+    expect(page.get_by_role("button", name="Next page", exact=True)).to_be_enabled()
+    page.get_by_role("button", name="Next page", exact=True).click()
+    expect(page.get_by_text("Page 2", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Next page", exact=True)).to_be_disabled()
+    page.screenshot(path=str(output / "prepared-cases-page-2.png"), full_page=True)
+    page.set_viewport_size({"width": 375, "height": 812})
+    page.goto(url.rstrip("/") + "/console/overview", wait_until="networkidle")
+    expect(page.get_by_test_id("prepared-demo-notice")).to_be_visible()
+    expect(page.get_by_test_id("outcomes-chart")).to_be_visible()
+    expect(page.get_by_test_id("desk-load-chart")).to_be_visible()
+    assert not page.evaluate("document.documentElement.scrollWidth > innerWidth"), "prepared overview overflows at 375px"
+    page.screenshot(path=str(output / "prepared-overview-mobile-375.png"), full_page=True)
+    return proof
+
+
+def exercise_native_options(page, url: str, output: Path, expect) -> list[dict]:
+    proof = []
+    for width in [1440, 375]:
+        page.set_viewport_size({"width": width, "height": 1000 if width == 1440 else 812})
+        for theme in ["dark", "light"]:
+            page.goto(url.rstrip("/") + "/console/settings", wait_until="networkidle")
+            page.get_by_label("Theme", exact=True).select_option(theme)
+            expect(page.locator("html")).to_have_attribute("data-theme", theme)
+            styles = page.locator("select:visible").evaluate_all("""elements => elements.flatMap(select =>
+              Array.from(select.options).map(option => ({
+                label: select.getAttribute('aria-label') || select.name || 'native select',
+                colorScheme: getComputedStyle(select).colorScheme,
+                foreground: getComputedStyle(option).color,
+                background: getComputedStyle(option).backgroundColor
+              })))""")
+            assert styles, "native selects must be present in settings"
+            ratios = []
+            for style in styles:
+                assert style["colorScheme"] == theme, "native menu must use the selected theme's color scheme"
+                ratios.append(contrast_ratio(style["foreground"], style["background"]))
+            assert min(ratios) >= 4.5, "native option foreground and background must remain readable"
+            workspace = page.get_by_label("Workspace", exact=True)
+            workspace.click()  # Open the real native popup before capturing it.
+            filename = f"native-popup-{theme}-{width}.png"
+            page.screenshot(path=str(output / filename))
+            page.keyboard.press("Home")
+            page.keyboard.press("ArrowDown")
+            page.keyboard.press("Enter")
+            expect(workspace).to_have_value("demo-athens")
+            workspace.click()
+            page.keyboard.press("Home")
+            page.keyboard.press("Enter")
+            expect(workspace).to_have_value("all")
+            assert not page.evaluate("document.documentElement.scrollWidth > innerWidth")
+            proof.append({"width": width, "theme": theme, "minimum_computed_contrast": round(min(ratios), 3),
+                          "native_popup_screenshot": filename, "keyboard_selection": True,
+                          "scope": "CI Chromium native interaction and computed colors; Windows appearance needs its own visual check."})
+    page.set_viewport_size({"width": 1440, "height": 1000})
+    page.goto(url.rstrip("/") + "/console/settings", wait_until="networkidle")
+    page.get_by_label("Theme", exact=True).select_option("dark")
+    return proof
+
+
+def start_empty_session(page, url: str, output: Path, expect) -> None:
+    page.goto(url.rstrip("/") + "/console/settings", wait_until="networkidle")
+    with page.expect_response(lambda res: res.url.endswith("/api/ops/session") and res.request.method == "POST") as created:
+        page.get_by_test_id("start-empty-session").click()
+    assert created.value.status == 201 and created.value.request.post_data_json == {"prepared_demo": False}
+    expect(page.get_by_role("heading", name="Operations overview", exact=True)).to_be_visible()
+    client = session_client(page, url)
+    boot = client.call("/api/ops/bootstrap")
+    assert boot["collection"]["mode"] == "empty" and boot["collection"]["initialized"] is True
+    assert client.call("/api/ops/cases?limit=20")["total"] == 0
+    page.reload(wait_until="networkidle")
+    expect(page.get_by_role("heading", name="Operations overview", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="See the safety gate stop a changed dose.", exact=True)).to_be_visible()
+    assert session_client(page, url).call("/api/ops/cases?limit=20")["total"] == 0, "explicit empty sessions must survive reload without auto-seeding"
+    page.screenshot(path=str(output / "explicit-empty-session.png"), full_page=True)
 
 
 def change_role(page, role: str, expect) -> None:
@@ -31,6 +142,9 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     response = page.goto(url.rstrip("/") + "/", wait_until="networkidle")
     assert response and response.status == 200
     expect(page.get_by_role("heading", name="Operations overview", exact=True)).to_be_visible(timeout=30_000)
+    prepared = exercise_prepared_collection(page, url, output, expect)
+    native_options = exercise_native_options(page, url, output, expect)
+    start_empty_session(page, url, output, expect)
     expect(page.get_by_role("button", name="New case", exact=True)).to_be_enabled()
     page.screenshot(path=str(output / "overview-desktop.png"), full_page=True)
     page.get_by_role("button", name="New case", exact=True).click()
@@ -49,6 +163,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     read = page.request.get(url.rstrip("/") + f"/api/ops/cases/{case_id}", headers={"X-Medplain-Session": session_token})
     assert read.status == 200
     detail = read.json()
+    assert detail["origin"] == "live_run", "the real stress journey must not use a prepared result"
     assert detail["result"]["status"] == "verified" and detail["correction_count"] > 0
     assert any(receipt["verdict"] == "refused" for receipt in detail["result"]["receipts"])
     if urlparse(url).hostname not in {"127.0.0.1", "localhost", "::1"}:
@@ -154,7 +269,8 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     return {"url": url, "case_id": case_id, "model_mode": detail["result"]["model_mode"],
             "correction_count": detail["correction_count"], "artifact_hash": detail["artifact_hash"],
             "released_exact_hashes": True, "anonymous_patient_view": True,
-            "workflow_and_facility_maps": True, "mobile_width": 375, "api_error_recovery": True}
+            "workflow_and_facility_maps": True, "mobile_width": 375, "api_error_recovery": True,
+            "prepared_collection": prepared, "native_options": native_options, "explicit_empty_reload": True}
 
 
 def check(url: str, output: Path) -> dict:
