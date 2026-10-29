@@ -132,7 +132,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     expect(submit).to_be_disabled()
     expect(form.locator("#reconciliation-submit-reason")).to_contain_text("Nothing is silently truncated")
     source.fill(chosen["dossier"]["documents"][0]["text"])
-    form.get_by_label("Deliberate source citation mutation drill", exact=True).check()
+    form.get_by_label("Deliberate dosage or citation mutation drill", exact=True).check()
     expect(confirmation).not_to_be_checked()
     references = form.get_by_test_id("reference-panel")
     references.locator("summary").first.click()
