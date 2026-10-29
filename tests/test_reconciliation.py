@@ -193,6 +193,13 @@ def test_real_greek_and_emoji_are_valid_quoted_utf8():
     assert rows[1]["citation"]["quote"] == "Ο φροντιστής έχει μια ερώτηση 🙂"
 
 
+@pytest.mark.parametrize("raw", [None, [], {"documents": [None]}, {"documents": "not a document list"},
+                                  {"caregiver_concerns": ["not a string"]}])
+def test_utf8_preflight_does_not_coerce_invalid_input_containers(raw):
+    with pytest.raises(ValueError):
+        validate_dossier(raw)
+
+
 @pytest.mark.parametrize("mutation", ["quote", "dose", "unit", "frequency", "action", "phase", "condition", "logic", "authority", "floor", "extra_advice", "regimen"])
 def test_gate_rejects_coherent_clinical_or_provenance_mutations(mutation):
     source = copy.deepcopy(examples()[3 if mutation in {"condition", "logic", "authority"} else 2 if mutation == "phase" else 0]["dossier"])

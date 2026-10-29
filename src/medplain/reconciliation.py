@@ -81,6 +81,21 @@ def _valid_time(value: str | None) -> None:
 
 def validate_dossier(raw: dict) -> dict:
     """Validate bounds, not truth or author authority; preserve original text."""
+    # Pydantic versions may reject surrogates during JSON-mode dumping. Check
+    # actual raw strings first so the safe error reason is deterministic,
+    # without coercing malformed document/concern containers into valid input.
+    raw_texts = []
+    if isinstance(raw, dict):
+        if isinstance(raw.get("caregiver_concerns"), str):
+            raw_texts.append(raw["caregiver_concerns"])
+        if isinstance(raw.get("documents"), list):
+            raw_texts.extend(doc["text"] for doc in raw["documents"]
+                             if isinstance(doc, dict) and isinstance(doc.get("text"), str))
+    try:
+        for text in raw_texts:
+            text.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ValueError("Source documents and caregiver concerns must be valid UTF-8 text") from exc
     try:
         dossier = Dossier.model_validate(raw).model_dump(mode="json")
     except (TypeError, ValueError) as exc:
