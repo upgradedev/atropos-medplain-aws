@@ -1,6 +1,5 @@
 """Anonymous synthetic-only console and constrained discharge demonstration."""
 
-import json
 import logging
 import os
 from pathlib import Path
@@ -27,10 +26,9 @@ app = FastAPI(title="Atropos MedPlain", version=__version__, docs_url=None, redo
 
 
 def deployed_commit() -> str:
-    if os.environ.get("MEDPLAIN_COMMIT"):
-        return os.environ["MEDPLAIN_COMMIT"]
-    build_file = Path(__file__).parent / "_build.json"
-    return json.loads(build_file.read_text())["commit"] if build_file.exists() else "development"
+    from medplain.ops_domain import commit
+
+    return commit()
 
 
 @app.middleware("http")
