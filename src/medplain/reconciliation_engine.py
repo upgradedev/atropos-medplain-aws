@@ -7,6 +7,7 @@ import json
 import os
 import secrets
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 from strands import Agent, tool
 from strands.hooks import (
@@ -138,6 +139,34 @@ def resolve_publication(context: Context, plan: dict) -> dict:
     return artifact
 
 
+def inject_stress(artifact: dict) -> str:
+    """Mutate a real clinical predicate/dose after immutable resolution only."""
+    for row in artifact["source_statements"]:
+        clinical = row["clinical"]
+        condition = clinical["condition_text"]
+        if condition and any(token in clinical["logic_tokens"] for token in ["<", ">", "<=", ">="]):
+            for original, changed in [("<=", ">="), (">=", "<="), ("<", ">"), (">", "<")]:
+                if original in clinical["logic_tokens"]:
+                    clinical["condition_text"] = condition.replace(original, changed, 1)
+                    clinical["logic_tokens"][clinical["logic_tokens"].index(original)] = changed
+                    row["citation"]["quote"] = row["citation"]["quote"].replace(condition, clinical["condition_text"], 1)
+                    return "Drill: a hold comparator changed after artifact resolution and before publication."
+    for row in artifact["source_statements"]:
+        clinical = row["clinical"]
+        doses = clinical["taper_phases"] or clinical["medications"]
+        if doses:
+            dose = doses[0]
+            original = dose["dose"]
+            dose["dose"] = format(Decimal(original) * 10, "f")
+            row["citation"]["quote"] = row["citation"]["quote"].replace(
+                original + " " + dose["unit"], dose["dose"] + " " + dose["unit"], 1)
+            if original in clinical["numeric_literals"]:
+                clinical["numeric_literals"][clinical["numeric_literals"].index(original)] = dose["dose"]
+            return "Drill: a source-bound dose changed by a factor of ten before publication."
+    artifact["source_statements"][0]["citation"]["quote"] += " [mutated draft]"
+    return "Drill: an original source quote changed before publication."
+
+
 class ReconciliationHook(HookProvider):
     def __init__(self, context: Context, role: str):
         self.context, self.role = context, role
@@ -229,10 +258,9 @@ class ReconciliationHook(HookProvider):
             if context.stress and context.attempts == 1:
                 # Corrupt actual source-bound content after resolution, before
                 # the full gate. The original private snapshot stays immutable.
-                row = candidate["source_statements"][0]
-                row["citation"]["quote"] += " [mutated draft]"
+                message = inject_stress(candidate)
                 context.trace.append({"agent": "AdversarialStressInjector", "status": "injected",
-                                      "message": "Drill: an original source quote was changed before publication."})
+                                      "message": message})
             context.candidate = candidate
             context.errors = gate_errors(context.dossier, candidate, context.selection)
             receipt = append_receipt(context.receipts, context.dossier, context.session_id, candidate, context.errors)

@@ -180,6 +180,14 @@ def test_durable_validator_independently_checks_saved_result(mutation):
         validate_reconciliation_result(source, result)
 
 
+def test_rehashed_baseline_cannot_claim_observed_sdk_execution():
+    source = dossier()
+    result = deterministic_baseline(source)
+    result["model_mode"] = "fixture"
+    with pytest.raises(ValueError):
+        validate_reconciliation_result(source, result)
+
+
 @pytest.mark.parametrize("case", ["foreign", "duplicate", "wrong_precondition", "advice"])
 def test_model_selection_has_no_free_clinical_fields_or_invalid_citations(case):
     source = dossier()

@@ -9,7 +9,7 @@ from medplain.fixture_model import FixtureModel
 from medplain.gate import canonical_hash, verify_receipts
 from medplain import reconciliation_engine as engine
 from medplain.reconciliation import (
-    baseline_selection, build_artifact, examples, run_reconciliation, validate_reconciliation_result,
+    baseline_selection, build_artifact, examples, gate_errors, run_reconciliation, validate_reconciliation_result,
 )
 
 
@@ -43,6 +43,28 @@ def test_stress_refuses_changed_source_quote_then_real_graph_rebuilds():
         names = {row["tool"] for row in result["runtime"]["tools_executed"] if row["invocation_index"] == index and row["success"]}
         assert names == set(engine.REQUIRED_TOOLS[role])
     validate_reconciliation_result(source, result, "stress-generation-2")
+
+
+@pytest.mark.parametrize("index,field", [(3, "comparator"), (2, "taper"), (0, "dose")])
+def test_stress_changes_clinical_meaning_coherently_and_gate_rejects_it(index, field):
+    source = copy.deepcopy(examples()[index]["dossier"])
+    saved_source = copy.deepcopy(source)
+    selected = baseline_selection(source)
+    artifact = build_artifact(source, selected)
+    before = copy.deepcopy(artifact)
+    engine.inject_stress(artifact)
+    assert source == saved_source
+    assert gate_errors(source, artifact, selected)
+    if field == "comparator":
+        before_row, after_row = before["source_statements"][1], artifact["source_statements"][1]
+        assert before_row["clinical"]["numeric_literals"] == after_row["clinical"]["numeric_literals"]
+        assert "< 100" in before_row["citation"]["quote"]
+        assert "> 100" in after_row["citation"]["quote"]
+        assert after_row["clinical"]["logic_tokens"] == [">", "AND", "="]
+    else:
+        key = "taper_phases" if field == "taper" else "medications"
+        assert artifact["source_statements"][0]["clinical"][key][0]["dose"] in {"200", "100"}
+        assert artifact["source_statements"][0]["citation"]["quote"] != before["source_statements"][0]["citation"]["quote"]
 
 
 @pytest.mark.parametrize("mutation", ["quote", "phase", "hold_comparator", "stop_action", "floor_omission", "extra_advice"])
