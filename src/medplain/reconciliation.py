@@ -155,23 +155,29 @@ def _clinical(text: str, kind: str) -> dict:
         # Phase doses must not masquerade as simultaneous fixed-dose orders.
         meds = []
     hold = re.search(r"\b(?:hold|withhold)\s+(.+?)\s+(?:while|until|if|unless)\s+(.+?)(?:;|$)", text, re.I)
-    restart = re.search(r"\brestart\s+(.+)$", text, re.I)
+    # A narrative mention such as "no restart question" is not an authority
+    # clause. Only retain the bounded affirmative, conditional source form.
+    restart = re.search(r"(?:^|;)\s*restart\s+((?:only\s+)?(?:after|when|if|once|with)\s+[^;]+)$", text, re.I)
     pending = re.search(r"\b(?:pending test|pending result|result pending)\s*:\s*([^;]+)", text, re.I)
     owner = re.search(r"\b(?:owner|responsible clinician)\s*:\s*([^;]+)", text, re.I)
     follow = re.search(r"\b(?:follow-up|follow up|due)\s*:\s*([^;]+)", text, re.I)
+    modifier_text = re.sub(r"\bdo not take\b", "", text, flags=re.I)
+    unsupported_modifier = bool(
+        (meds or phases) and not hold and re.search(
+            r"\b(?:except|unless|as needed|PRN|only|not|never|no longer|skip|alternate|every other|draft|proposal|proposed|pending approval|awaiting|unconfirmed)\b",
+            modifier_text, re.I))
     return {
         "medications": meds, "taper_phases": phases,
         "taper_medicine": taper_name[1] if taper_name and phases else None,
         "terminal_action": "stop" if phases and re.search(r"\bthen stop\.?$", text, re.I) else None,
         "hold_medicine": hold[1] if hold else None,
         "condition_text": hold[2] if hold else None,
-        "logic_tokens": re.findall(r"<=|>=|!=|<|>|=|\bAND\b|\bOR\b|\bNOT\b|\bunless\b|\bonly if\b", text),
+        "logic_tokens": re.findall(r"<=|>=|!=|<|>|=|\bAND\b|\bOR\b|\bNOT\b|\bunless\b|\bonly if\b", text, re.I),
         "restart_authority": restart[1] if restart else None,
         "pending_test": pending[1] if pending else None,
         "owner": owner[1] if owner else None, "follow_up": follow[1] if follow else None,
         "numeric_literals": re.findall(r"(?<![A-Za-z0-9])\d+(?:\.\d+)?", text),
-        "uncertain": (not bool(meds or phases or hold or pending or owner or follow) or uncertain_action
-                      or bool(meds and not hold and re.search(r"\b(?:except|unless|as needed|PRN|only if|do not stop|do not hold|not approved|not confirmed|unconfirmed)\b", text, re.I))),
+        "uncertain": not bool(meds or phases or hold or pending or owner or follow) or uncertain_action or unsupported_modifier,
     }
 
 

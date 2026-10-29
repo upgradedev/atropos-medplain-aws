@@ -63,6 +63,45 @@ def test_partial_known_regimen_keeps_unsupported_modifier_uncertain():
     assert source_statements(source)[1]["clinical"]["uncertain"] is True
 
 
+@pytest.mark.parametrize("suffix", ["but only on Mondays", "not daily", "except on clinic days", "awaiting approval"])
+def test_partial_regimen_never_claims_complete_understanding_of_modifiers(suffix):
+    source = dossier(second=f"Take Aspirin 81 mg by mouth QD, {suffix}.")
+    row = source_statements(source)[1]
+    assert row["clinical"]["uncertain"] is True
+    assert row["citation"]["quote"] == source["documents"][1]["text"]
+
+
+def test_draft_intentional_change_does_not_suppress_conflict_floor():
+    source = copy.deepcopy(examples()[1]["dossier"])
+    source["documents"][2]["text"] += " This is only a proposal."
+    issues = structural_issues(source_statements(source))
+    assert any(row["code"] == "dose_schedule_conflict" for row in issues)
+    assert not any(row["code"] == "documented_intentional_change" for row in issues)
+
+
+def test_lowercase_logic_tokens_preserve_literal_case_and_order():
+    source = dossier(second="Hold Aspirin while pressure < 100 mmHg and dizziness = present or fatigue = present; restart only after clinician confirmation.")
+    row = source_statements(source)[1]
+    assert row["clinical"]["logic_tokens"] == ["<", "and", "=", "or", "="]
+    assert row["clinical"]["condition_text"] == "pressure < 100 mmHg and dizziness = present or fatigue = present"
+
+
+def test_negated_narrative_restart_mention_is_not_restart_authority():
+    text = "No pause or restart question is being raised; the caregiver can explain the unchanged written plan."
+    source = dossier(second=text)
+    source["documents"][1]["kind"] = "caregiver_note"
+    row = source_statements(source)[1]
+    assert row["clinical"]["restart_authority"] is None
+    assert row["clinical"]["uncertain"] is True
+    assert row["citation"]["quote"] == text
+
+
+@pytest.mark.parametrize("prefix", ["Do not restart", "No restart", "We discussed a restart question"])
+def test_non_affirmative_restart_forms_remain_unresolved_quotes(prefix):
+    source = dossier(second=f"{prefix} after the clinic calls.")
+    assert source_statements(source)[1]["clinical"]["restart_authority"] is None
+
+
 @pytest.mark.parametrize("anticoagulant,other,label", [
     ("Warfarin", "Ibuprofen", "dailymed-warfarin"), ("Warfarin", "Naproxen", "dailymed-warfarin"),
     ("Apixaban", "Ibuprofen", "dailymed-apixaban"), ("Apixaban", "Naproxen", "dailymed-apixaban"),
