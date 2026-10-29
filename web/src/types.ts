@@ -82,7 +82,12 @@ export interface SourceIntake {
   source_sha256: string;
   ledger_sha256: string;
 }
-export type DocumentKind = "home_list" | "discharge" | "addendum" | "caregiver_note" | "lab_report";
+export type DocumentKind =
+  | "home_list"
+  | "discharge"
+  | "addendum"
+  | "caregiver_note"
+  | "lab_report";
 export interface ReconciliationDocument {
   document_id: string;
   kind: DocumentKind;
@@ -99,13 +104,46 @@ export interface ReconciliationDossier {
 }
 export interface ReconciliationExamples {
   profile: string;
-  examples: { id: string; title: string; description: string; dossier: ReconciliationDossier }[];
+  examples: {
+    id: string;
+    title: string;
+    description: string;
+    dossier: ReconciliationDossier;
+  }[];
   limits?: Record<string, number>;
   reference_material?: ReferenceMaterial;
 }
 export interface ReferenceMaterial {
-  references: { version: string; observed_on: string; status: string; scope: string; cards: { id: string; publisher: string; title: string; url: string; section: string; excerpt: string; use: string }[] };
-  identity_snapshot: { version: string; status: string; scope: string; attribution: string; records: { lookup_name: string; url: string; retrieved_at: string; status: "available" | "no_result" | "unavailable"; rxnorm_ids: string[]; response_sha256: string | null; error_type?: string }[] };
+  references: {
+    version: string;
+    observed_on: string;
+    status: string;
+    scope: string;
+    cards: {
+      id: string;
+      publisher: string;
+      title: string;
+      url: string;
+      section: string;
+      excerpt: string;
+      use: string;
+    }[];
+  };
+  identity_snapshot: {
+    version: string;
+    status: string;
+    scope: string;
+    attribution: string;
+    records: {
+      lookup_name: string;
+      url: string;
+      retrieved_at: string;
+      status: "available" | "no_result" | "unavailable";
+      rxnorm_ids: string[];
+      response_sha256: string | null;
+      error_type?: string;
+    }[];
+  };
   interaction_service: string;
   scope: string;
   snapshot_sha256: string;
@@ -156,9 +194,17 @@ export interface ClarificationArtifact {
   structural_issues: StructuralIssue[];
   proposed_questions: ContextQuestion[];
   teachback: ContextQuestion[];
-  references?: { snapshot_sha256: string; scope: string; reference_ids: string[]; interaction_service: string; identity_snapshot_status: string };
+  references?: {
+    snapshot_sha256: string;
+    scope: string;
+    reference_ids: string[];
+    interaction_service: string;
+    identity_snapshot_status: string;
+  };
 }
-export function isReconciliationDossier(value: Packet | ReconciliationDossier): value is ReconciliationDossier {
+export function isReconciliationDossier(
+  value: Packet | ReconciliationDossier,
+): value is ReconciliationDossier {
   return "profile" in value && value.profile === "medplain-reconciliation-v1";
 }
 export interface CaseSummary {
