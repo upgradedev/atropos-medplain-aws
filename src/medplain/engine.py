@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from strands import Agent, tool
 from strands.models import BedrockModel
 from strands.multiagent import GraphBuilder
@@ -21,10 +21,10 @@ from medplain.clinical import (
     render_explanation,
 )
 from medplain.fixture_model import FixtureModel
-from medplain.gate import ReceiptChain
+from medplain.gate import ReceiptChain, canonical_hash
 from medplain.hooks import MAX_CANDIDATES, ClinicalSafetyGateHook
 from medplain.required_tool_model import RequiredToolModel
-from medplain.schemas import ClinicalPacket, PatientExplanation
+from medplain.schemas import ClinicalPacket, Medication, MedicationInstruction, PatientExplanation
 
 PARSER = "LabAndDischargeParserAgent"
 VERIFIER = "DrugAndContraindicationVerifierAgent"
@@ -68,11 +68,31 @@ class ParsedClinicalRecord(BaseModel):
 
 
 class MedicationVerification(BaseModel):
-    """Deterministic dosage parity and bounded interaction lookup evidence."""
+    """Content-bound references to clinical tool evidence, with no model-authored findings."""
 
     model_config = ConfigDict(extra="forbid")
     packet_id: str
+    medication_evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    interaction_evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class MedicationParityEvidence(BaseModel):
+    """Full typed deterministic parity evidence hashed before model access."""
+
+    model_config = ConfigDict(extra="forbid")
+    packet_id: str
+    source_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_medications: list[Medication]
+    candidate_medications: list[MedicationInstruction]
     medication_discrepancies: list[str]
+
+
+class InteractionLookupEvidence(BaseModel):
+    """Full typed interaction lookup evidence tied to the exact source packet."""
+
+    model_config = ConfigDict(extra="forbid")
+    packet_id: str
+    source_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     interactions: list[InteractionEvidence]
 
 
@@ -121,19 +141,33 @@ def _tools(context: RequestContext) -> dict[str, list[Any]]:
             raise ValueError("The parser must verify the packet first")
         candidate = context.candidate or build_explanation(context.parsed)
         discrepancies = check_medication_parity(context.parsed, candidate)
+        evidence = MedicationParityEvidence(
+            packet_id=context.packet.packet_id,
+            source_hash=canonical_hash(context.parsed.model_dump(mode="json")),
+            source_medications=context.parsed.medications,
+            candidate_medications=candidate.medications,
+            medication_discrepancies=discrepancies,
+        ).model_dump(mode="json")
+        evidence_hash = canonical_hash(evidence)
         result = context.expected_results.setdefault(VERIFIER, {"packet_id": context.packet.packet_id})
-        result["medication_discrepancies"] = discrepancies
-        return {"packet_id": context.packet.packet_id, "medication_discrepancies": discrepancies}
+        result["medication_evidence_sha256"] = evidence_hash
+        return {**evidence, "medication_evidence_sha256": evidence_hash}
 
     @tool
     def drug_interaction_checker() -> dict[str, Any]:
         """Look up only the curated synthetic medication pairs; unknown pairs are not cleared."""
         if context.parsed is None:
             raise ValueError("The parser must verify the packet first")
-        context.interactions = check_interactions(context.parsed)
+        evidence = InteractionLookupEvidence(
+            packet_id=context.packet.packet_id,
+            source_hash=canonical_hash(context.parsed.model_dump(mode="json")),
+            interactions=check_interactions(context.parsed),
+        ).model_dump(mode="json")
+        context.interactions = evidence["interactions"]
+        evidence_hash = canonical_hash(evidence)
         result = context.expected_results.setdefault(VERIFIER, {"packet_id": context.packet.packet_id})
-        result["interactions"] = context.interactions
-        return {"packet_id": context.packet.packet_id, "interactions": context.interactions}
+        result["interaction_evidence_sha256"] = evidence_hash
+        return {**evidence, "interaction_evidence_sha256": evidence_hash}
 
     @tool
     def grounded_explanation_builder() -> dict[str, Any]:
@@ -189,10 +223,11 @@ def _make_graph(context: RequestContext, model_mode: str) -> Any:
         PARSER: "Call lab_reference_range_evaluator, then return its exact result as ParsedClinicalRecord.",
         VERIFIER: (
             "Call medication_dosage_frequency_parity_checker and drug_interaction_checker. "
-            "Both tools return the authoritative packet_id. Copy that exact packet_id and combine the exact "
-            "medication_discrepancies and interactions fields as MedicationVerification. "
-            "Keep every nested interaction field, value, URL and array item exactly as supplied. "
-            "Do not replace source prescriptions or invent an interaction. A discrepancy routes to correction."
+            "Return ONLY packet_id, medication_evidence_sha256, and interaction_evidence_sha256 as "
+            "MedicationVerification. Copy each exact 64-character evidence hash from its named tool field. "
+            "These hashes reference deterministic evidence; do not calculate new hashes or reinterpret findings. "
+            "An interaction review flag is NOT a medication parity discrepancy. Do not restate, classify or "
+            "summarize clinical data in your output. The deterministic evidence remains authoritative."
         ),
         EXPLAINER: (
             "Call grounded_explanation_builder. Return its exact source-derived artifact as PatientExplanation. "
@@ -301,6 +336,7 @@ def run_packet(
             "hook_invocations": context.hook_invocations,
             "structured_output_repairs": context.structured_output_repairs,
             "tool_call_repairs": context.tool_call_repairs,
+            "verification_evidence_refs": dict(context.expected_results.get(VERIFIER, {})),
             "session_state": context.session_state,
         },
     }
