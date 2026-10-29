@@ -5,6 +5,8 @@ import "./styles.css";
 import { ReadingPreferences } from "./ReadingControls";
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ReadingPreferences><App /></ReadingPreferences>
+    <ReadingPreferences>
+      <App />
+    </ReadingPreferences>
   </React.StrictMode>,
 );

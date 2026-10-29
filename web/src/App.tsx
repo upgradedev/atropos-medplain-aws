@@ -97,7 +97,8 @@ function Console() {
     cursor: "",
   });
   const [createOpen, setCreateOpen] = useState(false);
-  const [reconciliationSeed, setReconciliationSeed] = useState<ReconciliationSeed | null>(null);
+  const [reconciliationSeed, setReconciliationSeed] =
+    useState<ReconciliationSeed | null>(null);
   const [stressDefault, setStressDefault] = useState(false);
   const [sessionBusy, setSessionBusy] = useState(false);
   const [tour, setTour] = useState(false);
@@ -353,7 +354,10 @@ function Console() {
     setStressDefault(stress);
     setCreateOpen(true);
   };
-  const closeCreate = useCallback(() => { setCreateOpen(false); setReconciliationSeed(null); }, []);
+  const closeCreate = useCallback(() => {
+    setCreateOpen(false);
+    setReconciliationSeed(null);
+  }, []);
   const drill = (status: string) => {
     const valid = STATUSES.includes(status as (typeof STATUSES)[number])
       ? status

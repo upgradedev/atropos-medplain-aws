@@ -4,7 +4,13 @@ import { Hash } from "./ui";
 import { ReconciliationSources } from "./ReconciliationView";
 
 export default function SourceEvidence({ data }: { data: CaseDetail }) {
-  if (isReconciliationDossier(data.source)) return <><ReconciliationSources dossier={data.source} /><Hash title="Complete source packet SHA-256" value={data.source_hash} /></>;
+  if (isReconciliationDossier(data.source))
+    return (
+      <>
+        <ReconciliationSources dossier={data.source} />
+        <Hash title="Complete source packet SHA-256" value={data.source_hash} />
+      </>
+    );
   const imported = data.source_kind === "imported_note" || Boolean(data.intake);
   const parserVerified =
     data.result?.intake_validation?.parser_verified === true;
