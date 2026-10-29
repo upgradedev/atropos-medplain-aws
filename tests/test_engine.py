@@ -291,7 +291,7 @@ def test_missing_tool_repair_budget_is_separate_and_fails_closed():
 
 
 def test_verifier_returns_only_exact_references_to_typed_deterministic_evidence():
-    packet = get_packets()[0]
+    packet = next(packet for packet in get_packets() if packet.packet_id == "heart-medicine-review")
     context = RequestContext(packet, "bound-evidence", False, ReceiptChain("bound-evidence", packet))
     tools = engine._tools(context)
     tools[PARSER][0]()
