@@ -11,11 +11,15 @@ import copy
 import hashlib
 import json
 import time
+from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from live_smoke import canonical, verify_chain
+
+FREQUENCIES = {"QD": "once a day", "BID": "twice a day", "TID": "three times a day", "QHS": "at bedtime"}
 
 
 class Client:
@@ -58,10 +62,72 @@ def wait_case(client: Client, case_id: str, max_seconds: int = 240) -> dict:
     raise AssertionError("persisted job did not reach a terminal processing state within its bound")
 
 
+def validate_source_facts(source: dict, result: dict):
+    """Independently reconstruct the published, bounded patient text contract.
+
+    This uses only Python's standard library. Hash agreement alone cannot prove
+    that a coherent but incorrect explanation preserved the source facts. Keep
+    this independent of the application's renderer and publication validator.
+    """
+    try:
+        medications = []
+        source_medications = source["medications"]
+        source_labs = source["labs"]
+        if len({med["id"] for med in source_medications}) != len(source_medications):
+            raise ValueError("Duplicate source medication IDs")
+        if len({lab["id"] for lab in source_labs}) != len(source_labs):
+            raise ValueError("Duplicate source lab IDs")
+        for med in source_medications:
+            if med["unit"] not in {"mg", "mcg", "mL"} or med["status"] not in {"active", "stopped"}:
+                raise ValueError("Unsupported source medication profile")
+            action = "STOP" if med["status"] == "stopped" else "Take"
+            medications.append({
+                "medication_id": med["id"], "name": med["name"], "dose": med["dose"],
+                "unit": med["unit"], "frequency": med["frequency"], "status": med["status"],
+                "text": (f"{action} {med['name']}: {med['dose']} {med['unit']}, "
+                         f"{FREQUENCIES[med['frequency']]} ({med['frequency']}). {med['instruction']}"),
+            })
+        labs = []
+        for lab in source_labs:
+            value, low, high = (Decimal(lab[field]) for field in ["value", "low", "high"])
+            if not all(number.is_finite() for number in [value, low, high]) or low > high:
+                raise ValueError("Unsupported source lab range")
+            status = "low" if value < low else "high" if value > high else "within range"
+            labs.append({
+                "lab_id": lab["id"], "name": lab["name"], "value": lab["value"], "unit": lab["unit"],
+                "low": lab["low"], "high": lab["high"], "status": status,
+                "text": (f"{lab['plain_label']}: {lab['value']} {lab['unit']}. "
+                         f"The source lab's reference range is {lab['low']} to {lab['high']} {lab['unit']}. "
+                         f"This result is {status}. Your care team can explain what it means for you."),
+            })
+        expected = {"summary": source["summary"], "medications": medications, "labs": labs,
+                    "follow_up": source["follow_up"], "red_flags": source["red_flags"]}
+        expected_text = "\n\n".join([
+            source["summary"], *[med["text"] for med in medications], *[lab["text"] for lab in labs],
+            "Follow-up\n" + "\n".join(source["follow_up"]),
+            "When to get help\n" + "\n".join(source["red_flags"]),
+        ])
+        if result["explanation"] != expected or result["explanation_text"] != expected_text:
+            raise ValueError("Patient facts or text differ from the source")
+    except (KeyError, TypeError, ValueError, InvalidOperation):
+        raise AssertionError("patient facts or constrained text differ from the captured source profile") from None
+
+
+def validate_worker_commit(result: dict, expected_commit: str):
+    if result.get("commit") != expected_commit:
+        raise AssertionError("worker commit differs from the deployed console and submitted source")
+
+
+def next_page_path(cursor: str) -> str:
+    return "/api/ops/cases?" + urlencode({"workspace": "all", "limit": 1, "sort": "created_at",
+                                         "direction": "asc", "cursor": cursor})
+
+
 def validate_artifact(case: dict):
     result = case["result"]
     if not result or result["status"] != "verified":
         raise AssertionError("case has no verified result")
+    validate_source_facts(case["source"], result)
     receipts = result["receipts"]
     if not verify_chain(receipts) or receipts[-1]["verdict"] != "verified":
         raise AssertionError("persisted receipt chain is invalid")
@@ -119,6 +185,7 @@ def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) ->
         if case["status"] not in {"review_required", "released"}:
             raise AssertionError(f"{packet['id']}: durable processing failed instead of producing verified evidence")
         result = validate_artifact(case)
+        validate_worker_commit(result, health["commit"])
         if not allow_fixture and result["model_mode"] != "bedrock":
             raise AssertionError("worker used an inference fallback")
         if payload["stress"]:
@@ -169,7 +236,7 @@ def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) ->
     page = client.call("/api/ops/cases?workspace=all&limit=1&sort=created_at&direction=asc")
     if page["total"] != 3 or len(page["items"]) != 1 or not page["next_cursor"]:
         raise AssertionError("server pagination did not preserve the full cohort size")
-    second = client.call("/api/ops/cases?workspace=all&limit=1&sort=created_at&direction=asc&cursor=" + page["next_cursor"])
+    second = client.call(next_page_path(page["next_cursor"]))
     if second["items"][0]["id"] == page["items"][0]["id"]:
         raise AssertionError("server pagination repeated the previous case")
     return {
