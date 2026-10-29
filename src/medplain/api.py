@@ -1,6 +1,5 @@
-"""Anonymous synthetic-only demo. No upload, patient record storage or login."""
+"""Anonymous synthetic-only console and constrained discharge demonstration."""
 
-import json
 import logging
 import os
 from pathlib import Path
@@ -14,22 +13,22 @@ from mangum import Mangum
 from starlette.concurrency import run_in_threadpool
 
 from medplain import __version__
-from medplain.clinical import render_explanation
 from medplain.fixtures import get_packet, get_packets
-from medplain.gate import SafetyGate, canonical_hash, verify_receipts
-from medplain.schemas import ExplainRequest, PatientExplanation, ReceiptVerificationRequest
+from medplain.gate import verify_receipts
+from medplain.ops_validation import validate_result
+from medplain.schemas import ExplainRequest, ReceiptVerificationRequest
 
 logger = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
+CONSOLE = STATIC / "console"
 ACTIVE = BoundedSemaphore(2)
 app = FastAPI(title="Atropos MedPlain", version=__version__, docs_url=None, redoc_url=None)
 
 
 def deployed_commit() -> str:
-    if os.environ.get("MEDPLAIN_COMMIT"):
-        return os.environ["MEDPLAIN_COMMIT"]
-    build_file = Path(__file__).parent / "_build.json"
-    return json.loads(build_file.read_text())["commit"] if build_file.exists() else "development"
+    from medplain.ops_domain import commit
+
+    return commit()
 
 
 @app.middleware("http")
@@ -56,8 +55,8 @@ async def public_boundary(request: Request, call_next):
         "Referrer-Policy": "no-referrer",
         "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
         "Content-Security-Policy": (
-            "default-src 'self'; script-src 'self'; style-src 'self'; "
-            "img-src 'self' data:; connect-src 'self'; object-src 'none'; "
+            "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; "
+            "img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self'; object-src 'none'; "
             "base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
         ),
     })
@@ -66,6 +65,12 @@ async def public_boundary(request: Request, call_next):
 
 @app.get("/")
 def home():
+    return FileResponse(CONSOLE / "index.html" if (CONSOLE / "index.html").is_file() else STATIC / "index.html")
+
+
+@app.get("/demo")
+def packet_demo():
+    """Keep the independently exercised V1 packet journey reachable."""
     return FileResponse(STATIC / "index.html")
 
 
@@ -75,7 +80,10 @@ def health():
         "status": "ok", "version": __version__, "commit": deployed_commit(),
         "model_mode": os.getenv("MEDPLAIN_MODEL_MODE", "fixture"),
         "model_id": os.getenv("MEDPLAIN_BEDROCK_MODEL_ID", "amazon.nova-micro-v1:0"),
-        "data": "synthetic packets only", "session_storage": "request-scoped memory",
+        "data": "synthetic packets only",
+        "session_storage": "DynamoDB with TTL" if os.getenv("MEDPLAIN_OPS_TABLE") else "local synthetic memory",
+        "transport_mode": "DynamoDB Streams to SQS" if os.getenv("MEDPLAIN_OPS_TABLE") else "local background task",
+        "surface": "operations-console" if (CONSOLE / "index.html").is_file() else "packet-viewer",
         "scope": "Source fidelity in a constrained demo profile; not clinical validation.",
     }
 
@@ -114,22 +122,7 @@ async def explain(body: ExplainRequest):
             run_packet, packet, session_id, model_mode=mode,
             stress=packet.adversarial if body.stress is None else body.stress,
         )
-        if result.get("status") not in {"verified", "refused"} or result.get("session_id") != session_id:
-            raise ValueError("Workflow result does not belong to this request")
-        if result["status"] == "verified":
-            candidate = PatientExplanation.model_validate(result["explanation"])
-            verdict = SafetyGate(packet).validate(candidate)
-            artifact_hash = canonical_hash({"structured": candidate.model_dump(),
-                                            "text": render_explanation(candidate)})
-            if (not verdict.passed or not verify_receipts(result["receipts"])
-                    or result["receipts"][-1]["verdict"] != "verified"
-                    or result["receipts"][-1]["artifact_hash"] != artifact_hash
-                    or result["receipts"][-1]["source_hash"] != canonical_hash(packet.model_dump())
-                    or result["receipts"][-1]["session_id"] != session_id
-                    or result["explanation_text"] != render_explanation(candidate)):
-                raise ValueError("Publication receipt or clinical artifact mismatch")
-        elif result.get("explanation") is not None or result.get("explanation_text") is not None:
-            raise ValueError("A refused result attempted to publish an explanation")
+        validate_result(packet, result, session_id)
         result["commit"] = deployed_commit()
         return result
     except Exception:
@@ -152,5 +145,22 @@ def receipt_verify(body: ReceiptVerificationRequest):
 
 if STATIC.exists():
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+# The operations domain owns its API. Static routes remain separate from all
+# commands, so a client-side URL can never shadow an API or worker endpoint.
+from medplain.ops_api import router as operations_router  # noqa: E402
+
+app.include_router(operations_router)
+
+if (CONSOLE / "assets").is_dir():
+    app.mount("/console/assets", StaticFiles(directory=CONSOLE / "assets"), name="console-assets")
+
+
+@app.get("/console")
+@app.get("/console/{client_path:path}")
+def console(client_path: str = ""):
+    if not (CONSOLE / "index.html").is_file():
+        raise HTTPException(503, "The operations console bundle is unavailable. The packet demo is at /demo.")
+    return FileResponse(CONSOLE / "index.html")
 
 handler = Mangum(app, lifespan="off")

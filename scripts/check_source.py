@@ -17,8 +17,11 @@ PATTERNS = (
 
 def check() -> list[str]:
     errors = []
-    files = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
-    for name in filter(None, files):
+    files = set(filter(None, subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")))
+    generated_console = Path("src/medplain/static/console")
+    if generated_console.is_dir():
+        files.update(path.as_posix() for path in generated_console.rglob("*") if path.is_file())
+    for name in sorted(files):
         path = Path(name)
         if not path.is_file():
             continue
@@ -29,7 +32,7 @@ def check() -> list[str]:
         for label, pattern in PATTERNS:
             if pattern.search(content):
                 errors.append(f"{name}: possible {label}; inspect before publishing")
-        if name == "README.md" or name.startswith("src/medplain/static/"):
+        if name == "README.md" or name.startswith(("src/medplain/static/", "web/")):
             if "\u2014" in content:
                 errors.append(f"{name}: em dash in judge-facing prose")
     return errors

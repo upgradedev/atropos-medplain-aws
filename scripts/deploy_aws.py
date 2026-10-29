@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 from aws_request import request
+from ops_infra import operations_plan, preflight, provision, table_permissions
 
 
 PROJECT = "AtroposMedPlain"
@@ -82,13 +83,14 @@ def stage_package(args: argparse.Namespace, plan: dict, digest: str) -> None:
         raise ValueError("staging object metadata differs from the verified package")
 
 
-def cli(args: argparse.Namespace, *command: str, missing: str | None = None) -> dict | None:
+def cli(args: argparse.Namespace, *command: str, missing: str | tuple[str, ...] | None = None) -> dict | None:
     result = subprocess.run(
         ["aws", "--profile", args.profile, "--region", args.region, *command, "--output", "json"],
         capture_output=True, text=True, check=False,
     )
     if result.returncode:
-        if missing and missing in result.stderr:
+        expected = (missing,) if isinstance(missing, str) else (missing or ())
+        if any(value in result.stderr for value in expected):
             return None
         raise RuntimeError(result.stderr.strip())
     return json.loads(result.stdout) if result.stdout.strip() else {}
@@ -115,11 +117,14 @@ def deploy(args: argparse.Namespace) -> dict:
         "commit": args.commit, "package_sha256": digest,
         "public_url": True, "reserved_concurrency": RESERVED_CONCURRENCY, "timeout_seconds": 180,
         "log_retention_days": 7,
+        "operations": operations_plan(args.account, args.region, args.function, args.model_id),
         **staging_plan(args.account, args.region, args.commit, digest, getattr(args, "staging_bucket", None)),
     }
     if not args.apply:
         return {"status": "plan", **plan}
+    preflight(args, plan, cli)
     stage_package(args, plan, digest)
+    operational = provision(args, plan, cli, request)
     role = cli(args, "iam", "get-role", "--role-name", role_name, missing="NoSuchEntity")
     if role is not None and not any(t["Key"] == "Project" and t["Value"] == PROJECT for t in role["Role"].get("Tags", [])):
         raise ValueError("existing role lacks MedPlain ownership tag")
@@ -130,16 +135,14 @@ def deploy(args: argparse.Namespace) -> dict:
         "Version": "2012-10-17", "Statement": [
             {"Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], "Resource": [f"arn:aws:logs:{args.region}:{args.account}:log-group:/aws/lambda/{args.function}", f"arn:aws:logs:{args.region}:{args.account}:log-group:/aws/lambda/{args.function}:*"]},
             {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], "Resource": f"arn:aws:bedrock:{args.region}::foundation-model/{args.model_id}"},
+            table_permissions(plan),
         ],
     }
     cli(args, "iam", "put-role-policy", "--role-name", role_name, "--policy-name", "medplain-runtime", "--policy-document", json.dumps(policy))
     existing = cli(args, "lambda", "get-function", "--function-name", args.function, missing="ResourceNotFoundException")
     if existing is not None and existing.get("Tags", {}).get("Project") != PROJECT:
         raise ValueError("existing function lacks MedPlain ownership tag")
-    environment = json.dumps({"Variables": {
-        "MEDPLAIN_MODEL_MODE": args.model_mode, "MEDPLAIN_BEDROCK_MODEL_ID": args.model_id,
-        "MEDPLAIN_COMMIT": args.commit, "OTEL_SDK_DISABLED": "true",
-    }})
+    environment = json.dumps({"Variables": operational["environment"]})
     if existing is None:
         for attempt in range(6):
             try:
@@ -182,7 +185,8 @@ def deploy(args: argparse.Namespace) -> dict:
     for permission in permissions:
         if permission["StatementId"] not in present:
             request("lambda", args.region, f"/2015-03-31/functions/{args.function}/policy", method="POST", payload=permission, profile=args.profile)
-    return {"status": "deployed", "url": url_config["FunctionUrl"], **plan}
+    return {"status": "deployed", "url": url_config["FunctionUrl"], **plan,
+            "operations_runtime": {key: value for key, value in operational.items() if key != "environment"}}
 
 
 if __name__ == "__main__":

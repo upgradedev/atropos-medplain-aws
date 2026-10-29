@@ -41,8 +41,9 @@ def check(url: str, output: Path) -> dict:
         page.set_default_timeout(120_000)
         page_errors = []
         page.on("pageerror", lambda error: page_errors.append(str(error)))
-        response = page.goto(url, wait_until="networkidle")
-        assert response and response.status == 200, "anonymous root must return HTTP 200"
+        demo_url = url.rstrip("/") + "/demo"
+        response = page.goto(demo_url, wait_until="networkidle")
+        assert response and response.status == 200, "anonymous legacy demo must return HTTP 200"
         cards = page.locator("#packet-options .packet-card")
         expect(cards).to_have_count(3)
         expect(page.locator("#explain-button")).to_be_enabled()
