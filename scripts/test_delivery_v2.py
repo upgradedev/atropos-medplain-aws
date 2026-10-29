@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import json
 import os
 import tempfile
@@ -12,6 +13,7 @@ import zipfile
 from pathlib import Path
 
 from ops_infra import operations_plan, preflight, require_project, table_permissions
+from package_lambda import package as package_lambda
 from stage_console import stage, verify_archive
 
 
@@ -119,6 +121,35 @@ class DeliveryBoundaries(unittest.TestCase):
                             verify_archive(archive, destination)
                     else:
                         self.assertTrue(verify_archive(archive, destination)["verified_prepared_collection"])
+
+    def test_evaluation_release_requires_exact_report_hash_and_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dependencies = root / "deps"
+            for name in ["strands", "mangum"]:
+                (dependencies / name).mkdir(parents=True)
+            source = root / "src"
+            (source / "medplain/data").mkdir(parents=True)
+            (source / "medplain/api.py").write_text("# packaging fixture\n")
+            output = root / "release.zip"
+            report_path = source / "medplain/data/evaluation_report.json"
+            commit = "a" * 40
+            with self.assertRaisesRegex(ValueError, "requires the Strands evaluation"):
+                package_lambda(dependencies, source, output, commit, require_evaluation_report=True)
+            for stale, tamper in [(True, False), (False, True), (False, False)]:
+                report = {"schema_version": 1, "source_commit": "b" * 40 if stale else commit,
+                          "mode": "fixture", "arms": {}, "cases": []}
+                digest = hashlib.sha256(json.dumps(report, sort_keys=True, separators=(",", ":"),
+                                                   ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+                report["report_sha256"] = "0" * 64 if tamper else digest
+                report_path.write_text(json.dumps(report), encoding="utf-8")
+                if stale or tamper:
+                    with self.assertRaisesRegex(ValueError, "differs from the release source or content hash"):
+                        package_lambda(dependencies, source, output, commit, require_evaluation_report=True)
+                else:
+                    package_lambda(dependencies, source, output, commit, require_evaluation_report=True)
+                    with zipfile.ZipFile(output) as archive:
+                        self.assertEqual(archive.read("medplain/data/evaluation_report.json"), report_path.read_bytes())
 
 
 if __name__ == "__main__":

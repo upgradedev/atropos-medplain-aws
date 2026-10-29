@@ -89,7 +89,7 @@ export function State({
       <h3>{title}</h3>
       {children ? <p>{children}</p> : null}
       {retry ? (
-        <button className="button secondary" onClick={retry}>
+        <button type="button" className="button secondary" onClick={retry}>
           <Icon name="refresh" />
           Retry read
         </button>

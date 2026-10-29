@@ -12,6 +12,7 @@ dependencies = ["strands-agents==1.53.0", "boto3>=1.40,<2", "fastapi>=0.115,<1",
 
 [project.optional-dependencies]
 test = ["pytest>=8,<10", "httpx>=0.28,<1", "pytest-cov>=6,<8", "ruff>=0.12,<1"]
+eval = ["strands-agents-evals==1.7.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

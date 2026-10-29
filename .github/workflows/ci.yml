@@ -69,10 +69,14 @@ jobs:
           python scripts/stage_console.py
           python scripts/check_source.py
       - name: Install CI-only dependencies
-        run: python -m pip install '.[test]' build playwright
+        run: python -m pip install '.[test,eval]' build playwright
       - name: Prepare and validate offline Strands demonstration collection
         run: |
           PYTHONPATH=src python scripts/build_prepared_demo.py --output src/medplain/data/prepared_demo.json --source-commit "$GITHUB_SHA"
+          python scripts/check_source.py
+      - name: Compare actual Strands SDK execution with the deterministic baseline offline
+        run: |
+          PYTHONPATH=src python scripts/evaluate_medplain.py --mode fixture --source-commit "$GITHUB_SHA" --output src/medplain/data/evaluation_report.json
           python scripts/check_source.py
       - name: Lint
         run: ruff check src tests scripts
@@ -91,11 +95,13 @@ jobs:
         run: python scripts/browser_smoke.py --output artifacts/browser
       - name: Execute console case, review, maps and mobile journeys
         run: python scripts/console_browser_smoke.py --output artifacts/console-browser
+      - name: Execute new synthetic note intake and comparison evidence journeys
+        run: python scripts/intake_browser_smoke.py --output artifacts/intake-browser
       - name: Prepare Linux Lambda dependencies
         run: python -m pip install . --target "$RUNNER_TEMP/medplain-runtime" --no-compile
       - name: Assemble Lambda package and SHA-256 manifest
         run: |
-          python scripts/package_lambda.py --dependency-dir "$RUNNER_TEMP/medplain-runtime" --commit "$GITHUB_SHA" --require-console --require-prepared-demo
+          python scripts/package_lambda.py --dependency-dir "$RUNNER_TEMP/medplain-runtime" --commit "$GITHUB_SHA" --require-console --require-prepared-demo --require-evaluation-report
           python scripts/stage_console.py --verify-archive artifacts/medplain-lambda.zip
       - name: Require a live 200 and execute the flagship claim
         if: ${{ inputs.judge_url != '' }}
@@ -117,6 +123,11 @@ jobs:
         env:
           JUDGE_URL: ${{ inputs.judge_url }}
         run: python scripts/console_browser_smoke.py --url "$JUDGE_URL" --output artifacts/live-console-browser
+      - name: Verify deployed synthetic note intake and comparison evidence
+        if: ${{ inputs.judge_url != '' }}
+        env:
+          JUDGE_URL: ${{ inputs.judge_url }}
+        run: python scripts/intake_browser_smoke.py --url "$JUDGE_URL" --output artifacts/live-intake-browser
       - name: Publish build and test evidence
         uses: actions/upload-artifact@v4
         if: always()
@@ -125,5 +136,6 @@ jobs:
           path: |
             artifacts/
             dist/*.whl
+            src/medplain/data/evaluation_report.json
           retention-days: 10
           if-no-files-found: error

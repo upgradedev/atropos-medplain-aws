@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 def package(dependency_dir: Path, source_dir: Path, output: Path, commit: str, require_console: bool = False,
-            require_prepared_demo: bool = False) -> dict:
+            require_prepared_demo: bool = False, require_evaluation_report: bool = False) -> dict:
     if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit):
         raise ValueError("commit must be a full lowercase Git SHA")
     if not (dependency_dir / "strands").is_dir() or not (dependency_dir / "mangum").is_dir():
@@ -23,6 +23,16 @@ def package(dependency_dir: Path, source_dir: Path, output: Path, commit: str, r
     prepared_path = source_dir / "medplain/data/prepared_demo.json"
     if require_prepared_demo and not prepared_path.is_file():
         raise ValueError("the release package requires the prepared demonstration collection")
+    evidence_path = source_dir / "medplain/data/evaluation_report.json"
+    if require_evaluation_report:
+        if not evidence_path.is_file():
+            raise ValueError("the release package requires the Strands evaluation comparison")
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+        payload = {key: value for key, value in evidence.items() if key != "report_sha256"}
+        digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                                          ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+        if evidence.get("source_commit") != commit or evidence.get("report_sha256") != digest:
+            raise ValueError("evaluation report differs from the release source or content hash")
     output.parent.mkdir(parents=True, exist_ok=True)
     metadata = {"commit": commit, "built_at": dt.datetime.now(dt.timezone.utc).isoformat()}
     entries = {}
@@ -48,6 +58,7 @@ if __name__ == "__main__":
     parser.add_argument("--commit", required=True)
     parser.add_argument("--require-console", action="store_true")
     parser.add_argument("--require-prepared-demo", action="store_true")
+    parser.add_argument("--require-evaluation-report", action="store_true")
     args = parser.parse_args()
     print(json.dumps(package(args.dependency_dir, args.source_dir, args.output, args.commit,
-                             args.require_console, args.require_prepared_demo)))
+                             args.require_console, args.require_prepared_demo, args.require_evaluation_report)))

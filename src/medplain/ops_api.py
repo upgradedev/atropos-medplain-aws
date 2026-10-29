@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from medplain.ops_domain import OpsError, OpsService, detail, summary
 from medplain.ops_store import Conflict, MemoryStore, StoreUnavailable, get_store
@@ -66,6 +66,20 @@ class CreateCaseRequest(Contract):
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
+class ImportCaseRequest(Contract):
+    source_text: str = Field(min_length=1, max_length=8000)
+    synthetic_confirmed: Literal[True]
+    facility_id: str = Field(min_length=1, max_length=80)
+    idempotency_key: str = Field(min_length=8, max_length=128)
+
+    @field_validator("synthetic_confirmed", mode="before")
+    @classmethod
+    def explicit_confirmation(cls, value):
+        if value is not True:
+            raise ValueError("Explicitly confirm that the submitted note is wholly invented.")
+        return value
+
+
 class RetryRequest(Contract):
     expected_version: int = Field(ge=1)
     idempotency_key: str = Field(min_length=8, max_length=128)
@@ -115,6 +129,21 @@ def bootstrap(auth: Auth):
 def create_case(body: CreateCaseRequest, background: BackgroundTasks, auth: Auth):
     svc, pk, session = auth
     case, created, job_id = svc.create(pk, session, **body.model_dump())
+    schedule_memory(background, svc, pk, case, created)
+    return {"case": summary(case), "created": created, "job_id": job_id}
+
+
+@router.get("/intake-template")
+def intake_template():
+    from medplain.intake import template
+
+    return template()
+
+
+@router.post("/cases/import", status_code=202)
+def import_case(body: ImportCaseRequest, background: BackgroundTasks, auth: Auth):
+    svc, pk, session = auth
+    case, created, job_id = svc.import_case(pk, session, **body.model_dump())
     schedule_memory(background, svc, pk, case, created)
     return {"case": summary(case), "created": created, "job_id": job_id}
 

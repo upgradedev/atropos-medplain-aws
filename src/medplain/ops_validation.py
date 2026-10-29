@@ -22,7 +22,8 @@ _RECEIPT_FIELDS = {
 }
 
 
-def validate_result(packet: ClinicalPacket, result: dict[str, Any], execution_id: str) -> str | None:
+def validate_result(packet: ClinicalPacket, result: dict[str, Any], execution_id: str,
+                    intake_source: dict | None = None) -> str | None:
     """Return the verified artifact hash, or None for a well-formed refusal.
 
     Raise ValueError for inconsistent persisted evidence, including a valid
@@ -30,9 +31,12 @@ def validate_result(packet: ClinicalPacket, result: dict[str, Any], execution_id
     refusal may have no receipts if execution failed before any candidate was
     evaluated. It must never carry patient content.
     """
+    from medplain.intake import validate_intake_result
+
     if (not isinstance(result, dict) or result.get("status") not in {"verified", "refused"}
             or not execution_id or result.get("session_id") != execution_id):
         raise ValueError("Workflow evidence does not belong to this execution")
+    validate_intake_result(packet, result, intake_source)
     if result.get("model_mode") not in {"fixture", "bedrock"}:
         raise ValueError("Unknown inference mode in workflow evidence")
     receipts = result.get("receipts")

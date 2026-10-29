@@ -86,3 +86,39 @@ class ExplainRequest(Contract):
 
 class ReceiptVerificationRequest(Contract):
     receipts: list[dict[str, Any]] = Field(min_length=1, max_length=20)
+
+
+class SourceSpan(Contract):
+    source_line: int = Field(ge=1, le=25)
+    source_quote: str = Field(min_length=1, max_length=320)
+
+
+class ExtractedMedication(SourceSpan):
+    name: str = Field(min_length=1, max_length=60)
+    dose: str = Field(min_length=1, max_length=12)
+    unit: Literal["mg", "mcg", "mL"]
+    frequency: Literal["QD", "BID", "TID", "QHS"]
+    status: Literal["active", "stopped"]
+
+
+class ExtractedLab(SourceSpan):
+    name: str = Field(min_length=1, max_length=60)
+    value: str = Field(min_length=1, max_length=12)
+    unit: Literal["mmol/L", "mg/dL", "g/dL", "10^9/L", "mL/min", "ratio"]
+    low: str = Field(min_length=1, max_length=12)
+    high: str = Field(min_length=1, max_length=12)
+
+
+class ExtractedStatement(SourceSpan):
+    text: str = Field(min_length=1, max_length=160)
+
+
+class SourceExtraction(Contract):
+    """Model-normalized facts, each bound to a complete line of the original note."""
+
+    source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    patient_alias: str = Field(pattern=r"^Demo-[A-Za-z0-9-]{1,32}$")
+    medications: list[ExtractedMedication] = Field(min_length=1, max_length=6)
+    labs: list[ExtractedLab] = Field(min_length=1, max_length=6)
+    follow_up: list[ExtractedStatement] = Field(min_length=1, max_length=3)
+    red_flags: list[ExtractedStatement] = Field(min_length=1, max_length=3)

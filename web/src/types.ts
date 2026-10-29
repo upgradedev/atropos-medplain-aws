@@ -64,9 +64,29 @@ export interface Bootstrap {
     seed_version: string | null;
   };
 }
+export interface IntakeTemplate {
+  profile: string;
+  source_text: string;
+  limits: {
+    max_source_chars: number;
+    max_lines: number;
+    max_medications: number;
+    max_labs: number;
+  };
+  format_hints: string[];
+  privacy_notice: string;
+}
+export interface SourceIntake {
+  profile: string;
+  source_text: string;
+  source_sha256: string;
+  ledger_sha256: string;
+}
 export interface CaseSummary {
   origin?: CaseOrigin;
   prepared?: PreparedMetadata | null;
+  source_kind?: "imported_note" | "sample";
+  source_sha256?: string | null;
   id: string;
   packet_id: string;
   packet_title: string;
@@ -150,6 +170,10 @@ export interface Result {
   }[];
   model_mode: string;
   correction_count: number;
+  intake_validation?: {
+    parser_verified?: boolean;
+    [key: string]: unknown;
+  } | null;
   runtime: {
     nodes_executed?: string[];
     tools_executed?: string[];
@@ -160,6 +184,7 @@ export interface Result {
 }
 export interface CaseDetail extends CaseSummary {
   source: Packet;
+  intake?: SourceIntake | null;
   result: Result | null;
   events: { id: string; type: string; at: string; message: string }[];
   review: {
