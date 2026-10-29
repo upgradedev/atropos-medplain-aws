@@ -41,7 +41,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     with page.expect_response(lambda res: res.url.endswith("/api/ops/cases") and res.request.method == "POST") as created:
         intake.get_by_test_id("start-verification").click()
     assert created.value.status in {200, 201, 202}
-    case_id = created.value.json()["id"]
+    case_id = created.value.json()["case"]["id"]
     drawer = page.get_by_role("dialog", name="Case details", exact=True)
     expect(drawer).to_be_visible()
     expect(drawer.locator(".drawer-meta .badge")).to_have_text("Review required", timeout=240_000)
