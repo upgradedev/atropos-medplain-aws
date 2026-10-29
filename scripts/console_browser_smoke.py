@@ -57,6 +57,7 @@ def exercise_prepared_collection(page, url: str, output: Path, expect) -> dict:
     expect(page.get_by_role("button", name="Next page", exact=True)).to_be_enabled()
     page.get_by_role("button", name="Next page", exact=True).click()
     expect(page.get_by_text("Page 2", exact=True)).to_be_visible()
+    expect(page.locator('[data-testid="case-origin"]:visible')).to_have_count(2)
     expect(page.get_by_role("button", name="Next page", exact=True)).to_be_disabled()
     page.screenshot(path=str(output / "prepared-cases-page-2.png"), full_page=True)
     page.set_viewport_size({"width": 375, "height": 812})
