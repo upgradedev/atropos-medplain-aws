@@ -61,6 +61,7 @@ class ClinicalSafetyGateHook(HookProvider):
             self.structured_output_repairs = 0
             self.required_tool_repairs = 0
         context = self.context
+        context.completed_tools[self.role] = set()
         context.expected_results.pop(self.role, None)
         context.hook_invocations += 1
         context.nodes_executed.append(self.role)
@@ -89,6 +90,7 @@ class ClinicalSafetyGateHook(HookProvider):
         success = event.result.get("status", "success") == "success"
         if success:
             self.successful_tools.add(name)
+            self.context.completed_tools.setdefault(self.role, set()).add(name)
         self.context.tools_executed.append({"agent": self.role, "tool": name, "success": success})
 
     def after_invocation(self, event: AfterInvocationEvent) -> None:

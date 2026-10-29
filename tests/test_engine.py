@@ -116,7 +116,7 @@ def test_bedrock_configuration_is_explicit_without_network(monkeypatch):
     monkeypatch.setenv("AWS_REGION", "us-east-1")
     packet = get_packets()[0]
     context = RequestContext(packet, "config", False, ReceiptChain("config", packet))
-    assert engine._model("bedrock", context, PARSER, [], PatientExplanation) == "bedrock"
+    assert engine._model("bedrock", context, PARSER, [], PatientExplanation).delegate == "bedrock"
     assert captured["model_id"] == "amazon.nova-micro-v1:0"
     assert captured["region_name"] == "us-east-1"
     assert captured["boto_client_config"].retries["total_max_attempts"] == 1

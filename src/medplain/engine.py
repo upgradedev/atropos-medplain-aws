@@ -23,6 +23,7 @@ from medplain.clinical import (
 from medplain.fixture_model import FixtureModel
 from medplain.gate import ReceiptChain
 from medplain.hooks import MAX_CANDIDATES, ClinicalSafetyGateHook
+from medplain.required_tool_model import RequiredToolModel
 from medplain.schemas import ClinicalPacket, PatientExplanation
 
 PARSER = "LabAndDischargeParserAgent"
@@ -97,6 +98,7 @@ class RequestContext:
     nodes_executed: list[str] = field(default_factory=list)
     interactions: list[dict[str, Any]] = field(default_factory=list)
     session_state: dict[str, Any] = field(default_factory=dict)
+    completed_tools: dict[str, set[str]] = field(default_factory=dict)
 
 
 def _tools(context: RequestContext) -> dict[str, list[Any]]:
@@ -165,12 +167,17 @@ def _model(
     if mode == "bedrock":
         from botocore.config import Config
 
-        return BedrockModel(
+        delegate = BedrockModel(
             model_id=os.environ.get("MEDPLAIN_BEDROCK_MODEL_ID", "amazon.nova-micro-v1:0"),
             region_name=os.environ.get("AWS_REGION", "us-east-1"),
             max_tokens=4096,
             temperature=0.0,
             boto_client_config=Config(connect_timeout=5, read_timeout=45, retries={"total_max_attempts": 1}),
+        )
+        return RequiredToolModel(
+            delegate,
+            lambda: [item.tool_name for item in tools if item.tool_name not in context.completed_tools.get(role, set())],
+            output_model.__name__,
         )
     raise ValueError("model_mode must be fixture or bedrock")
 
