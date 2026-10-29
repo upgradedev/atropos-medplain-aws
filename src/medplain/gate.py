@@ -39,7 +39,7 @@ class SafetyGate:
         for field in ["summary", "follow_up", "red_flags"]:
             if getattr(self.expected, field) != getattr(explanation, field):
                 errors.append(f"Unsupported change to patient {field}")
-        # The hash binds ordering too, so receipts always describe identical pixels/text.
+        # Bind ordering too, so receipts identify the exact structured artifact and text.
         if self.expected.model_dump() != explanation.model_dump() and not errors:
             errors.append("Clinical fact ordering changed")
         return GateVerdict(passed=not errors, discrepancies=errors)
