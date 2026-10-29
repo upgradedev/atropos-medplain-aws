@@ -1129,7 +1129,7 @@ function Console() {
           }}
           failed={(text) => toast(text, true)}
           canCreate={canCreate}
-            count={sessionCaseTotal || 0}
+          count={sessionCaseTotal || 0}
         />
       ) : null}
       {route.caseId ? (
