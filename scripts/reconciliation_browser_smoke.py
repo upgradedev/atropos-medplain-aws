@@ -329,12 +329,45 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     live_panel = page.get_by_test_id("reconciliation-live-evidence")
     expect(live_panel.get_by_role("heading", name="Bedrock comparison unavailable", exact=True)).to_be_visible()
     expect(live_panel.get_by_role("table")).to_have_count(0)
+    # Reuse the verified case; inspecting its architecture must not queue a job.
+    page.goto(base + "/console/maps", wait_until="networkidle")
+    page.get_by_label("Recorded case", exact=True).select_option(case_id)
+    workflow = page.get_by_test_id("workflow-map")
+    expect(workflow).to_have_attribute("data-source-profile", PROFILE)
+    expect(workflow).to_have_attribute("aria-label", re.compile(r"Evidence indexer.*clarification planner"))
+    node_detail = page.locator(".node-detail")
+    expect(node_detail.get_by_role("heading", name="Index original sources", exact=True)).to_be_visible()
+    expect(node_detail.locator(".receipt-card").first).to_be_visible()
+    workflow.get_by_role("button", name="Inspect Plan clarification", exact=True).click()
+    expect(node_detail.get_by_role("heading", name="Plan clarification", exact=True)).to_be_visible()
+    expect(node_detail.get_by_text("CrossDocumentClarificationPlannerAgent", exact=True)).to_be_visible()
+    expect(node_detail.locator(".receipt-card").first).to_be_visible()
+    publisher = workflow.get_by_role("button", name="Inspect Build clarification", exact=True)
+    publisher.focus()
+    publisher.press("Enter")
+    expect(node_detail.get_by_role("heading", name="Build clarification", exact=True)).to_be_visible()
+    gate = workflow.get_by_role("button", name="Inspect Reconciliation gate", exact=True)
+    gate.focus()
+    gate.press("Space")
+    expect(node_detail.get_by_text("AtroposReconciliationSafetyGate", exact=True)).to_be_visible()
+    expect(node_detail.locator(".receipt-card").first).to_be_visible()
+    expect(workflow.get_by_role("button", name="Inspect Parse source", exact=True)).to_have_count(0)
+    assert client.call("/api/ops/cases?limit=20")["total"] == 2
+    page.screenshot(path=str(output / "reconciliation-recorded-workflow-map.png"), full_page=True)
+    page.get_by_label("Recorded case", exact=True).select_option("")
+    expect(workflow).to_have_attribute("data-source-profile", "simple-discharge")
+    expect(node_detail.get_by_role("heading", name="Parse source", exact=True)).to_be_visible()
+    old_gate = workflow.get_by_role("button", name="Inspect Atropos safety gate", exact=True)
+    old_gate.focus()
+    old_gate.press("Enter")
+    expect(node_detail.get_by_role("heading", name="Atropos safety gate", exact=True)).to_be_visible()
     return {"source_case": proof, "revision_case": revision_proof, "mobile_width": 375,
             "source_quote_bytes_independently_checked": True, "source_and_question_languages_separate": True,
             "exact_hash_review": True, "patient_regimen_always_withheld": True,
             "revision_creates_new_case_parent_unchanged": True, "lost_response_one_idempotent_job": True,
             "injected_errors": [413], "voice_test": "Simulated local device voice, explicit user start/pause/resume/stop and unmount cancellation; no native speech-quality claim.",
             "evaluation_panel_test": "Explicit HTTP interface-state injections: not measured, published two-case counts with missing metrics, and stale-source rejection. Injected counts are not model results.",
+            "profile_specific_recorded_workflow": "Existing reconciliation case overlays its actual agents and gate. Click/keyboard selection and profile-change fallback checked; no additional job created.",
             "pinned_reference_snapshot_sha256": examples["reference_material"]["snapshot_sha256"]}
 
 

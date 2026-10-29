@@ -3,7 +3,7 @@ import { api, message } from "./api";
 import { Badge, OriginBadge, PageHeader, State } from "./ui";
 import type { CaseDetail, CaseSummary, Facility } from "./types";
 const FacilityMap = lazy(() => import("./FacilityMap"));
-const NODES = [
+const LEGACY_NODES = [
   {
     id: "LabAndDischargeParserAgent",
     title: "Parse source",
@@ -37,6 +37,40 @@ const NODES = [
     y: 60,
   },
 ];
+const RECONCILIATION_NODES = [
+  {
+    id: "DischargeEvidenceIndexerAgent",
+    title: "Index original sources",
+    subtitle: "Discharge evidence indexer",
+    tool: "Read original documents and bind their source index and hashes",
+    x: 24,
+    y: 60,
+  },
+  {
+    id: "CrossDocumentClarificationPlannerAgent",
+    title: "Plan clarification",
+    subtitle: "Cross-document planner",
+    tool: "Check source constraints and pinned references; select bounded questions",
+    x: 260,
+    y: 60,
+  },
+  {
+    id: "ClarificationCardPublisherAgent",
+    title: "Build clarification",
+    subtitle: "Clarification card publisher",
+    tool: "Build the source-bound clarification card; never authorize a medication regimen",
+    x: 496,
+    y: 60,
+  },
+  {
+    id: "AtroposReconciliationSafetyGate",
+    title: "Reconciliation gate",
+    subtitle: "Lifecycle integrity validator",
+    tool: "Verify source atoms, original citations and allowed questions; emit the receipt chain",
+    x: 732,
+    y: 60,
+  },
+];
 export default function Maps({
   facilities,
   cases,
@@ -56,9 +90,9 @@ export default function Maps({
 }) {
   const [view, setView] = useState("Workflow");
   const [caseId, setCaseId] = useState("");
-  const [detail, setDetail] = useState<CaseDetail | null>(null);
+  const [fetchedDetail, setDetail] = useState<CaseDetail | null>(null);
   const [detailError, setDetailError] = useState("");
-  const [node, setNode] = useState(NODES[0].id);
+  const [node, setNode] = useState(LEGACY_NODES[0].id);
   useEffect(() => {
     if (!caseId) {
       setDetail(null);
@@ -78,12 +112,17 @@ export default function Maps({
       });
     return () => controller.abort();
   }, [caseId, cases]);
-  const selected = NODES.find((item) => item.id === node)!;
+  const detail = fetchedDetail?.id === caseId ? fetchedDetail : null;
+  const selectedCase = cases.find((item) => item.id === caseId);
+  const reconciliation = (detail || selectedCase)?.source_profile === "medplain-reconciliation-v1";
+  const nodes = reconciliation ? RECONCILIATION_NODES : LEGACY_NODES;
+  const selected = nodes.find((item) => item.id === node) || nodes[0];
+  const activeNode = selected.id;
   const trace =
     detail?.result?.trace.filter(
       (item) =>
-        (item.agent || item.node || "").includes(node) ||
-        (node === "AtroposClinicalSafetyGate" &&
+        (item.agent || item.node || "").includes(activeNode) ||
+        (activeNode === "AtroposClinicalSafetyGate" &&
           (item.agent || item.node || "").includes("Atropos")),
     ) || [];
   return (
@@ -174,6 +213,7 @@ export default function Maps({
               </label>
             </div>
             <p className="muted">
+              {reconciliation ? "Multisource reconciliation profile. " : "Simple discharge profile. "}
               Choose a node to inspect its purpose. Choose a case to overlay
               recorded evidence. The diagram describes code structure; it does
               not simulate a live run.
@@ -183,7 +223,9 @@ export default function Maps({
                 viewBox="0 0 980 245"
                 className="workflow"
                 role="group"
-                aria-label="Parser to medication verifier to patient advocate to safety gate. Refusal returns to medication verification."
+                aria-label={reconciliation ? "Evidence indexer to cross-document clarification planner to clarification publisher to reconciliation safety gate. Refusal returns to clarification planning." : "Parser to medication verifier to patient advocate to safety gate. Refusal returns to medication verification."}
+                data-testid="workflow-map"
+                data-source-profile={reconciliation ? "medplain-reconciliation-v1" : "simple-discharge"}
               >
                 <defs>
                   <marker
@@ -210,12 +252,13 @@ export default function Maps({
                 <text x="530" y="229" className="correction-label">
                   Refused candidate: automatic correction handoff
                 </text>
-                {NODES.map((item) => (
+                {nodes.map((item) => (
                   <g
                     key={item.id}
                     role="button"
                     tabIndex={0}
                     aria-label={`Inspect ${item.title}`}
+                    aria-pressed={activeNode === item.id}
                     onClick={() => setNode(item.id)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -223,7 +266,7 @@ export default function Maps({
                         setNode(item.id);
                       }
                     }}
-                    className={`flow-node ${node === item.id ? "selected" : ""}`}
+                    className={`flow-node ${activeNode === item.id ? "selected" : ""}`}
                   >
                     <rect
                       x={item.x}
