@@ -2,7 +2,7 @@
 
 (() => {
   const byId = (id) => document.getElementById(id);
-  const state = { packets: [], selected: null, detail: null, busy: false, loading: true, selection: 0, result: null };
+  const state = { packets: [], selected: null, detail: null, busy: false, loading: true, loadIssue: "", selection: 0, result: null };
   const agentLabels = {
     LabAndDischargeParserAgent: "Lab & discharge parser",
     DrugAndContraindicationVerifierAgent: "Medication verifier",
@@ -27,14 +27,30 @@
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 120000);
     try {
-      const response = await fetch(path, { ...options, signal: controller.signal, headers: { Accept: "application/json", ...(options.headers || {}) } });
-      let payload;
-      try { payload = await response.json(); } catch { throw new Error("The service returned an unreadable response. Please try again."); }
-      if (!response.ok) {
-        const detail = typeof payload.detail === "string" ? payload.detail : payload.message;
-        throw new Error(detail || `The service could not complete this request (HTTP ${response.status}). Please try again.`);
+      const isRead = String(options.method || "GET").toUpperCase() === "GET";
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const response = await fetch(path, { ...options, signal: controller.signal, headers: { Accept: "application/json", ...(options.headers || {}) } });
+        if (response.status === 429) {
+          if (isRead && attempt < 2) {
+            if (path.startsWith("/api/packets") && state.loading) {
+              state.loadIssue = "The demo is busy. Retrying the packet shortly; the button becomes available when it loads.";
+              updateControls();
+            }
+            await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 500 : 1500));
+            continue;
+          }
+          throw new Error("The demo is busy right now. Wait a moment and try again.");
+        }
+        if (response.status === 503) throw new Error("The demo is temporarily unavailable. Please try again shortly.");
+        if (response.status >= 500) throw new Error("The demo could not finish this request. Please try again shortly.");
+        let payload;
+        try { payload = await response.json(); } catch { throw new Error("The service returned an unreadable response. Please try again."); }
+        if (!response.ok) {
+          const detail = typeof payload.detail === "string" ? payload.detail : "";
+          throw new Error(detail || `The service could not complete this request (HTTP ${response.status}). Please try again.`);
+        }
+        return payload;
       }
-      return payload;
     } catch (error) {
       if (error.name === "AbortError") throw new Error("The request timed out. The explanation has not been published. Please try again.");
       if (error instanceof TypeError) throw new Error("The service could not be reached. Check your connection and try again.");
@@ -49,9 +65,9 @@
     byId("button-reason").textContent = state.busy
       ? "The agents are running. This button becomes available when the review finishes."
       : state.loading
-        ? "Loading synthetic packets. The button becomes available when a packet is ready."
+        ? state.loadIssue || "Loading synthetic packets. The button becomes available when a packet is ready."
         : !state.detail
-          ? "A packet is not available yet. Use the loading retry above."
+          ? state.loadIssue ? `${state.loadIssue} Use the loading retry above.` : "A packet is not available yet. Use the loading retry above."
           : "Uses only the synthetic packet shown. No patient upload.";
     byId("stress-toggle").disabled = state.busy;
     if (state.busy) {
@@ -106,6 +122,7 @@
     const selection = ++state.selection;
     state.selected = packetId;
     state.loading = true;
+    state.loadIssue = "";
     state.detail = null;
     resetResults();
     renderPacketButtons();
@@ -130,6 +147,7 @@
     } catch (error) {
       if (selection !== state.selection) return;
       byId("load-error-text").textContent = error.message;
+      state.loadIssue = error.message;
       show("load-error", true);
       byId("source-text").textContent = "This record could not be loaded. Use the retry above.";
       byId("packet-subtitle").textContent = "The selected source record could not be loaded.";
@@ -156,6 +174,7 @@
 
   async function loadPackets() {
     state.loading = true;
+    state.loadIssue = "";
     show("load-error", false);
     updateControls();
     try {
@@ -167,6 +186,7 @@
     } catch (error) {
       state.loading = false;
       byId("load-error-text").textContent = error.message;
+      state.loadIssue = error.message;
       show("load-error", true);
       byId("packet-options").replaceChildren(element("p", "loading-copy", "Synthetic packets are temporarily unavailable."));
       updateControls();
