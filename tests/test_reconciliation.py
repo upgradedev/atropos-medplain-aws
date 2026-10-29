@@ -5,9 +5,10 @@ import copy
 import pytest
 from pydantic import ValidationError
 
+from medplain.gate import canonical_hash
 from medplain.reconciliation import (
     PROFILE, artifact_digest, baseline_selection, build_artifact, deterministic_baseline,
-    examples, gate_errors, source_statements, structural_issues, validate_dossier,
+    examples, gate_errors, render_artifact, source_statements, structural_issues, validate_dossier,
     validate_reconciliation_result, validate_selection,
 )
 from medplain.reconciliation_models import PublicationSelection
@@ -248,6 +249,40 @@ def test_rehashed_baseline_cannot_claim_observed_sdk_execution():
     source = dossier()
     result = deterministic_baseline(source)
     result["model_mode"] = "fixture"
+    with pytest.raises(ValueError):
+        validate_reconciliation_result(source, result)
+
+
+@pytest.mark.parametrize("mutation", ["bool_offset", "bool_sequence", "nan_offset"])
+def test_gate_binds_exact_json_types_and_rejects_nonfinite_numbers(mutation):
+    source = copy.deepcopy(examples()[2]["dossier"])
+    selected = baseline_selection(source)
+    artifact = build_artifact(source, selected)
+    if mutation == "bool_offset":
+        assert artifact["source_statements"][0]["citation"]["byte_start"] == 0
+        artifact["source_statements"][0]["citation"]["byte_start"] = False
+    elif mutation == "bool_sequence":
+        assert artifact["source_statements"][0]["clinical"]["taper_phases"][0]["sequence"] == 1
+        artifact["source_statements"][0]["clinical"]["taper_phases"][0]["sequence"] = True
+    else:
+        artifact["source_statements"][0]["citation"]["byte_start"] = float("nan")
+    assert gate_errors(source, artifact, selected)
+
+
+@pytest.mark.parametrize("mutation", ["bool_offset", "bool_sequence"])
+def test_rehashing_cannot_hide_bool_for_integer_source_tampering(mutation):
+    source = copy.deepcopy(examples()[2]["dossier"])
+    result = deterministic_baseline(source)
+    first = result["artifact"]["source_statements"][0]
+    if mutation == "bool_offset":
+        first["citation"]["byte_start"] = False
+    else:
+        first["clinical"]["taper_phases"][0]["sequence"] = True
+    result["artifact_hash"] = artifact_digest(result["artifact"])
+    result["explanation_text"] = render_artifact(result["artifact"])
+    receipt = result["receipts"][0]
+    receipt["artifact_hash"] = result["artifact_hash"]
+    receipt["hash"] = canonical_hash({key: value for key, value in receipt.items() if key != "hash"})
     with pytest.raises(ValueError):
         validate_reconciliation_result(source, result)
 

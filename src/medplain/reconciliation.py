@@ -443,7 +443,10 @@ def gate_errors(dossier: dict, artifact: dict, selection: dict, *, baseline: boo
     """
     try:
         expected = build_artifact(dossier, selection, baseline=baseline)
-        if artifact != expected:
+        # Python container equality treats True as 1 and False as 0. Compare
+        # canonical JSON content so every source atom's JSON type is bound as
+        # well as its value. canonical_hash also rejects NaN/non-JSON values.
+        if canonical_hash(artifact) != canonical_hash(expected):
             return ["Clarification artifact differs from source citations, clinical atoms, conflict floor or allowed question clauses"]
     except (KeyError, TypeError, ValueError):
         return ["The clarification selection or artifact contract is invalid"]
