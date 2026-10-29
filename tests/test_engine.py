@@ -156,6 +156,7 @@ def test_missing_required_tool_and_missing_structured_output_fail_closed():
     packet = get_packets()[0]
     context = RequestContext(packet, "tool-required", False, ReceiptChain("tool-required", packet))
     hook = ClinicalSafetyGateHook(context, PARSER, ["lab_reference_range_evaluator"])
+    hook.required_tool_repairs = 1
     with pytest.raises(RuntimeError, match="deterministic tools"):
         hook.after_invocation(SimpleNamespace(result=SimpleNamespace(structured_output=None)))
     hook.successful_tools.add("lab_reference_range_evaluator")
@@ -228,6 +229,61 @@ def test_repeated_structured_mismatch_fails_closed_after_one_repair(monkeypatch)
     assert result["runtime"]["structured_output_repairs"] == 1
     assert result["runtime"]["nodes_executed"] == [PARSER, VERIFIER, VERIFIER]
     assert result["receipts"] == []
+
+
+def test_actual_stress_correction_requires_fresh_verifier_tools(monkeypatch):
+    original_model = engine._model
+
+    def skip_on_correction(mode, context, role, tools, output_model):
+        model = original_model(mode, context, role, tools, output_model)
+        if role != VERIFIER:
+            return model
+        original_stream = model.stream
+        original_payload = model._payload
+
+        def payload():
+            if role not in context.expected_results:
+                return {
+                    "packet_id": context.packet.packet_id,
+                    "medication_discrepancies": [],
+                    "interactions": engine.check_interactions(context.packet),
+                }
+            return original_payload()
+
+        async def stream(*args, **kwargs):
+            # Simulate a live model returning a prior structured result on the
+            # correction revisit without fresh tool calls in this invocation.
+            if model._invocation == 2 and model._turn == 0:
+                model._turn = 1
+            async for event in original_stream(*args, **kwargs):
+                yield event
+
+        model._payload = payload
+        model.stream = stream
+        return model
+
+    monkeypatch.setattr(engine, "_model", skip_on_correction)
+    packet = next(packet for packet in get_packets() if packet.adversarial)
+    result = run_packet(packet, "fresh-correction-tools", stress=True)
+    assert result["status"] == "verified", result
+    assert result["correction_count"] == 1
+    assert result["runtime"]["tool_call_repairs"] == 1
+    assert result["runtime"]["nodes_executed"] == [PARSER, VERIFIER, EXPLAINER, VERIFIER, VERIFIER, EXPLAINER]
+    assert [receipt["verdict"] for receipt in result["receipts"]] == ["refused", "verified"]
+    assert len([tool for tool in result["runtime"]["tools_executed"] if tool["agent"] == VERIFIER]) == 4
+
+
+def test_missing_tool_repair_budget_is_separate_and_fails_closed():
+    packet = get_packets()[0]
+    context = RequestContext(packet, "missing-tools", False, ReceiptChain("missing-tools", packet))
+    hook = ClinicalSafetyGateHook(context, VERIFIER, ["medication_dosage_frequency_parity_checker"])
+    first = SimpleNamespace(result=SimpleNamespace(structured_output=None), resume=None)
+    hook.after_invocation(first)
+    assert "Missing fresh calls" in first.resume
+    assert context.tool_call_repairs == 1
+    assert hook.structured_output_repairs == 0
+    with pytest.raises(RuntimeError, match="deterministic tools"):
+        hook.after_invocation(SimpleNamespace(result=SimpleNamespace(structured_output=None), resume=None))
 
 
 def test_fixture_adapter_is_bounded_and_pydantic_validated():

@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 MAX_MODEL_TURNS_PER_NODE = 5
 MAX_CANDIDATES = 2
 MAX_STRUCTURED_OUTPUT_REPAIRS = 1
+MAX_REQUIRED_TOOL_REPAIRS = 1
 
 
 class ClinicalSafetyGateHook(HookProvider):
@@ -42,6 +43,7 @@ class ClinicalSafetyGateHook(HookProvider):
         self.successful_tools: set[str] = set()
         self.model_turns = 0
         self.structured_output_repairs = 0
+        self.required_tool_repairs = 0
         self._repair_pending = False
 
     def register_hooks(self, registry: HookRegistry, **kwargs: Any) -> None:
@@ -57,6 +59,7 @@ class ClinicalSafetyGateHook(HookProvider):
         self._repair_pending = False
         if not is_repair:
             self.structured_output_repairs = 0
+            self.required_tool_repairs = 0
         context = self.context
         context.expected_results.pop(self.role, None)
         context.hook_invocations += 1
@@ -92,8 +95,29 @@ class ClinicalSafetyGateHook(HookProvider):
         result = event.result
         if result is None:
             return
-        if not self.required_tools.issubset(self.successful_tools):
-            raise RuntimeError("Required deterministic tools did not complete; publication refused")
+        missing_tools = self.required_tools - self.successful_tools
+        if missing_tools:
+            diagnostic = ", ".join(sorted(missing_tools))
+            if self.required_tool_repairs < MAX_REQUIRED_TOOL_REPAIRS:
+                self.required_tool_repairs += 1
+                self._repair_pending = True
+                self.context.tool_call_repairs += 1
+                self.context.trace.append({
+                    "agent": self.role,
+                    "status": "repair",
+                    "message": f"Fresh deterministic tool calls were missing: {diagnostic}. Retrying this invocation.",
+                })
+                event.resume = (
+                    "The current invocation did not successfully call all mandatory deterministic tools. "
+                    f"Missing fresh calls: {diagnostic}. You MUST call ALL required tools again now, "
+                    "then return the exact structured result from their current outputs. Prior conversation "
+                    "tool results do not count. Do not immediately return structured output or repeat an old result. "
+                    f"The authoritative packet_id is {self.context.packet.packet_id}."
+                )
+                return
+            raise RuntimeError(
+                f"Required deterministic tools did not complete in this invocation: {diagnostic}; publication refused"
+            )
         output = result.structured_output
         if output is None:
             raise RuntimeError("The Strands node returned no validated structured output")
