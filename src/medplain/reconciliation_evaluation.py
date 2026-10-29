@@ -64,6 +64,14 @@ def digest(value) -> str:
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
+def _same_json(left, right) -> bool:
+    """JSON equality is type-sensitive: booleans are not clinical integers."""
+    try:
+        return canonical(left) == canonical(right)
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 def corpus(path: Path = CORPUS_PATH) -> list[dict]:
     document = json.loads(path.read_text(encoding="utf-8"))
     cases = document.get("cases", [])
@@ -165,8 +173,8 @@ def source_scores(case: dict, artifact: dict | None) -> dict:
     for key, reference in expected.items():
         citation = actual.get(key, {}).get("citation", {})
         citation = citation if isinstance(citation, dict) else {}
-        citations = citations and type(citation.get("line")) is int and citation == reference
-    atoms = coverage and all(actual[key].get("clinical") == gold
+        citations = citations and type(citation.get("line")) is int and _same_json(citation, reference)
+    atoms = coverage and all(_same_json(actual[key].get("clinical"), gold)
                              for key, gold in case["gold"]["clinical_by_statement"].items())
     return {"source_coverage": bool(coverage), "source_citations": bool(citations),
             "supported_atoms_exact": bool(atoms), "expected_source_statements": len(expected),

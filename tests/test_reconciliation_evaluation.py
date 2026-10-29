@@ -109,6 +109,20 @@ def test_generic_padding_wrong_citations_and_unexecuted_negative_do_not_pass(pai
     assert not score["question_focus"]["exact"] and not score["proper_withholding"]
 
 
+def test_boolean_integer_equivalence_never_passes_exact_source_ruler(paired):
+    row = next(row for row in paired["cases"] if row["id"] == "taper-regular")
+    artifact = copy.deepcopy(row["outcomes"]["strands"]["result"]["artifact"])
+    citation = artifact["source_statements"][0]["citation"]
+    assert citation["byte_start"] == 0
+    citation["byte_start"] = False
+    assert not evaluation.source_scores(row["expected"], artifact)["source_citations"]
+    artifact = copy.deepcopy(row["outcomes"]["strands"]["result"]["artifact"])
+    phase = artifact["source_statements"][0]["clinical"]["taper_phases"][0]
+    assert phase["sequence"] == 1
+    phase["sequence"] = True
+    assert not evaluation.source_scores(row["expected"], artifact)["supported_atoms_exact"]
+
+
 @pytest.mark.parametrize("case_id,field", [
     ("dose-different", "dose"), ("dose-different", "unit"), ("dose-different", "frequency"),
     ("stop-new", "action"), ("taper-regular", "start_day"), ("hold-and", "logic_tokens"),
