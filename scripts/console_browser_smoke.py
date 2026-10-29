@@ -187,7 +187,13 @@ if __name__ == "__main__":
             environment = dict(os.environ, MEDPLAIN_MODEL_MODE="fixture", MEDPLAIN_OPS_MEMORY="1", AWS_EC2_METADATA_DISABLED="true", OTEL_SDK_DISABLED="true")
             process = subprocess.Popen([sys.executable, "-m", "uvicorn", "medplain.api:app", "--host", "127.0.0.1", "--port", "8766"], env=environment, stdout=log, stderr=subprocess.STDOUT)
             wait_for_server(url)
-        print(json.dumps(check(url, args.output), indent=2))
+        result = check(url, args.output)
+        if not args.url:
+            from ops_live_smoke import smoke
+
+            instrument = smoke(url, os.getenv("MEDPLAIN_COMMIT"), allow_fixture=True)
+            (args.output / "local-ops.json").write_text(json.dumps(instrument, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(result, indent=2))
     finally:
         if process:
             process.terminate()
