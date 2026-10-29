@@ -16,7 +16,7 @@
       "family": "dose_stop_conflict",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-dose-different",
+        "patient_alias": "Demo-RC01",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -195,7 +195,7 @@
       "family": "dose_stop_conflict",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-stop-new",
+        "patient_alias": "Demo-RC02",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -374,7 +374,7 @@
       "family": "dose_stop_conflict",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-stop-older",
+        "patient_alias": "Demo-RC03",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -474,7 +474,7 @@
       "family": "dose_stop_conflict",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-same-liquid",
+        "patient_alias": "Demo-RC04",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -560,7 +560,7 @@
       "family": "dose_stop_conflict",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-separate-actions",
+        "patient_alias": "Demo-RC05",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -681,7 +681,7 @@
       "family": "intentional_change",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-documented-dose",
+        "patient_alias": "Demo-RC06",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -825,7 +825,7 @@
       "family": "intentional_change",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-documented-stop",
+        "patient_alias": "Demo-RC07",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -969,7 +969,7 @@
       "family": "intentional_change",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-unscoped-rationale",
+        "patient_alias": "Demo-RC08",
         "language": "en",
         "caregiver_concerns": "Which medicine does the statement about a deliberate change refer to?",
         "documents": [
@@ -1134,7 +1134,7 @@
       "family": "intentional_change",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-same-plan-new-time",
+        "patient_alias": "Demo-RC09",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -1253,7 +1253,7 @@
       "family": "intentional_change",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-documented-frequency",
+        "patient_alias": "Demo-RC10",
         "language": "el",
         "caregiver_concerns": "",
         "documents": [
@@ -1476,7 +1476,7 @@
       "family": "taper_phase",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-taper-regular",
+        "patient_alias": "Demo-RC11",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -1578,7 +1578,7 @@
       "family": "taper_phase",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-taper-source-order",
+        "patient_alias": "Demo-RC12",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -1694,7 +1694,7 @@
       "family": "taper_phase",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-taper-overlap",
+        "patient_alias": "Demo-RC13",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -1810,7 +1810,7 @@
       "family": "taper_phase",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-taper-no-terminal",
+        "patient_alias": "Demo-RC14",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -1926,7 +1926,7 @@
       "family": "taper_phase",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-taper-missing-anchor",
+        "patient_alias": "Demo-RC15",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -2044,7 +2044,7 @@
       "family": "hold_restart_logic",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-hold-and",
+        "patient_alias": "Demo-RC16",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -2126,7 +2126,7 @@
       "family": "hold_restart_logic",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-hold-or-caregiver",
+        "patient_alias": "Demo-RC17",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -2222,7 +2222,7 @@
       "family": "hold_restart_logic",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-hold-opposite-symbols",
+        "patient_alias": "Demo-RC18",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -2332,7 +2332,7 @@
       "family": "hold_restart_logic",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-hold-unless",
+        "patient_alias": "Demo-RC19",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -2431,7 +2431,7 @@
       "family": "hold_restart_logic",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-no-hold-instruction",
+        "patient_alias": "Demo-RC20",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -2541,7 +2541,7 @@
       "family": "caregiver_identity_form",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-brand-generic-context",
+        "patient_alias": "Demo-RC21",
         "language": "en",
         "caregiver_concerns": "The old bottle says BrandBlue and the new list uses GenericBlue. Are these the same medicine?",
         "documents": [
@@ -2660,7 +2660,7 @@
       "family": "caregiver_identity_form",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-long-short-context",
+        "patient_alias": "Demo-RC22",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -2784,7 +2784,7 @@
       "family": "caregiver_identity_form",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-different-strength-boxes",
+        "patient_alias": "Demo-RC23",
         "language": "en",
         "caregiver_concerns": "Two boxes have the same name but different strengths. Which label should I show the pharmacist?",
         "documents": [
@@ -2915,7 +2915,7 @@
       "family": "caregiver_identity_form",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-unchanged-teachback",
+        "patient_alias": "Demo-RC24",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -3025,7 +3025,7 @@
       "family": "caregiver_identity_form",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-salt-release-identity",
+        "patient_alias": "Demo-RC25",
         "language": "el",
         "caregiver_concerns": "I call both my heart pill, but one is marked XL and the other is not. Is the formulation confirmed?",
         "documents": [
@@ -3145,7 +3145,7 @@
       "family": "pending_followup_owner",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-pending-owner-gap",
+        "patient_alias": "Demo-RC26",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -3241,7 +3241,7 @@
       "family": "pending_followup_owner",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-pending-assigned",
+        "patient_alias": "Demo-RC27",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -3407,7 +3407,7 @@
       "family": "pending_followup_owner",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-pending-two-owners",
+        "patient_alias": "Demo-RC28",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -3512,7 +3512,7 @@
       "family": "pending_followup_owner",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-pending-who-calls",
+        "patient_alias": "Demo-RC29",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [
@@ -3606,7 +3606,7 @@
       "family": "pending_followup_owner",
       "dossier": {
         "profile": "medplain-reconciliation-v1",
-        "patient_alias": "Demo-historical-not-pending",
+        "patient_alias": "Demo-RC30",
         "language": "en",
         "caregiver_concerns": "",
         "documents": [

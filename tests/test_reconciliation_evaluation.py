@@ -30,8 +30,11 @@ def test_complete_independent_corpus_and_four_pair_scope():
     assert sum(row["gold"]["interaction_control"] == "all_stopped" for row in cases) == 1
     assert any(not row["gold"]["questions"] for row in cases)
     assert any(not row["gold"]["structural_issues"] for row in cases)
-    for row in cases:
+    for index, row in enumerate(cases, start=1):
         assert "gold" not in row["dossier"]
+        # Descriptive case IDs/families stay in evaluator metadata. An alias
+        # such as Demo-pending-owner-gap would leak the expected problem.
+        assert row["dossier"]["patient_alias"] == f"Demo-RC{index:02d}"
         assert 2 <= len(row["dossier"]["documents"]) <= 4
         assert set(row["gold"]["clinical_by_statement"]) == set(evaluation.source_records(row["dossier"]))
 
