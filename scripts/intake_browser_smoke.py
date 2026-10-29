@@ -1,7 +1,8 @@
 """Verify editable synthetic intake through the real SDK worker and public artifact.
 
 CI installs Playwright. Source validation, case creation and patient release use
-real HTTP responses. Explicit 413 and evaluation-read 503 injections prove error
+real HTTP responses. One accepted POST response is deliberately dropped to prove
+idempotent retry. Explicit 413 and evaluation-read 503 injections prove error
 presentation only; they never stand in for a successful agent run.
 """
 
@@ -20,6 +21,7 @@ from urllib.parse import urljoin, urlparse
 
 from browser_smoke import wait_for_server
 from console_browser_smoke import change_role, session_client
+from live_smoke import canonical
 from ops_live_smoke import Client, validate_artifact, validate_worker_commit
 
 
@@ -34,6 +36,46 @@ def unfamiliar_note(template: str) -> tuple[str, str, str]:
     note = note.replace("Demo-River", "Demo-Harbor")
     assert note != template
     return note, medicine, dose
+
+
+def expected_source_evidence(source: str) -> tuple[str, dict]:
+    """Reconstruct original spans and clinical fields without application imports."""
+    assert source.isascii(), "the published intake profile accepts ASCII source bytes only"
+    chunks = source.splitlines(keepends=True)
+    lines = [chunk.rstrip("\r\n") for chunk in chunks]
+    assert lines[0] == "MEDPLAIN SYNTHETIC DISCHARGE V1"
+    assert lines[1].startswith("Synthetic alias: Demo-")
+    expected = {"source_sha256": hashlib.sha256(source.encode()).hexdigest(),
+                "patient_alias": lines[1].split(": ", 1)[1],
+                "medications": [], "labs": [], "follow_up": [], "red_flags": []}
+    frequencies = {"once daily": "QD", "twice daily": "BID", "three times daily": "TID", "at bedtime": "QHS",
+                   "QD": "QD", "BID": "BID", "TID": "TID", "QHS": "QHS"}
+    ledger = []
+    offset = 0
+    for index, (line, chunk) in enumerate(zip(lines, chunks, strict=True), start=1):
+        span = {"source_line": index, "source_quote": line}
+        if index <= 2:
+            kind = "header" if index == 1 else "alias"
+        elif not line:
+            kind = "blank"
+        elif medicine := re.fullmatch(r"(Take|Stop|Do not take) (.+) ([-\d.]+) (mg|mcg|mL) by mouth ([^.]+)\.", line):
+            action, name, dose, unit, frequency = medicine.groups()
+            expected["medications"].append({**span, "name": name, "dose": dose, "unit": unit,
+                                             "frequency": frequencies[frequency],
+                                             "status": "active" if action == "Take" else "stopped"})
+            kind = "medication"
+        elif lab := re.fullmatch(r"Lab (.+): ([-\d.]+) (\S+) \(reference ([-\d.]+) to ([-\d.]+)\)\.", line):
+            name, value, unit, low, high = lab.groups()
+            expected["labs"].append({**span, "name": name, "value": value, "unit": unit, "low": low, "high": high})
+            kind = "lab"
+        elif line.startswith("Follow-up: ") or line.startswith("Get help: "):
+            kind = "follow_up" if line.startswith("Follow-up: ") else "red_flags"
+            expected[kind].append({**span, "text": line.split(": ", 1)[1]})
+        else:
+            raise AssertionError("the intake instrument must consume every original source line")
+        ledger.append({"line": index, "start": offset, "end": offset + len(line), "text": line, "kind": kind})
+        offset += len(chunk)
+    return hashlib.sha256(canonical(ledger)).hexdigest(), expected
 
 
 def exercise(page, browser, url: str, output: Path, expect) -> dict:
@@ -87,12 +129,32 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     expect(intake.get_by_test_id("intake-source-preview")).to_have_text(note)
     confirmation.check()
     page.screenshot(path=str(output / "editable-intake-desktop.png"), full_page=True)
+    first_submission = {}
+
+    def accept_then_drop_response(route):
+        # Forward the actual command to the actual API, then lose its response.
+        actual = route.fetch()
+        assert actual.status == 202
+        first_submission.update(body=route.request.post_data_json, response=actual.json())
+        route.abort("failed")
+
+    page.route("**/api/ops/cases/import", accept_then_drop_response, times=1)
+    submit.click()
+    expect(intake.get_by_test_id("intake-error")).to_contain_text("Check the case register")
+    assert first_submission["response"]["created"] is True
+    assert client.call("/api/ops/cases?limit=20")["total"] == 1
+    confirmation.uncheck()
+    expect(submit).to_be_disabled()
+    confirmation.check()
     with page.expect_response(lambda res: res.url.endswith("/api/ops/cases/import") and res.request.method == "POST") as created:
         submit.click()
     assert created.value.status == 202
     submitted = created.value.request.post_data_json
     assert submitted["source_text"] == note and submitted["synthetic_confirmed"] is True
+    assert submitted == first_submission["body"], "reconfirmation must preserve the original idempotency key"
+    assert created.value.json()["created"] is False, "retrying the accepted command must not create another job"
     case_id = created.value.json()["case"]["id"]
+    assert case_id == first_submission["response"]["case"]["id"]
     drawer = page.get_by_role("dialog", name="Case details", exact=True)
     expect(drawer).to_be_visible()
     expect(drawer.get_by_test_id("source-provenance")).to_contain_text("Imported synthetic note")
@@ -106,7 +168,13 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     raw_hash = hashlib.sha256(note.encode("utf-8")).hexdigest()
     assert detail["source_sha256"] == detail["intake"]["source_sha256"] == raw_hash
     assert detail["intake"]["source_text"] == note
-    assert result["intake_validation"]["parser_verified"] is True
+    ledger_hash, expected_extraction = expected_source_evidence(note)
+    proof = result["intake_validation"]
+    assert proof["parser_verified"] is True and proof["source_sha256"] == raw_hash
+    assert proof["ledger_sha256"] == detail["intake"]["ledger_sha256"] == ledger_hash
+    assert proof["extraction"] == expected_extraction
+    assert proof["extraction_sha256"] == hashlib.sha256(canonical(expected_extraction)).hexdigest()
+    assert detail["source"]["fhir"]["identifier"] == {"system": "urn:medplain:raw-note-sha256", "value": raw_hash}
     assert any(med["name"].casefold() == changed_medicine.casefold() and med["dose"] == changed_dose
                for med in detail["source"]["medications"]), "the edited medicine dose must enter the captured source"
     expected_mode = "fixture" if urlparse(url).hostname in {"127.0.0.1", "localhost", "::1"} else "bedrock"
@@ -133,6 +201,10 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     public_client = Client(url)
     share_id = detail["patient_url"].rstrip("/").split("/")[-1]
     public = public_client.call(f"/api/ops/patient/{share_id}")
+    assert public["source"] == detail["source"]
+    assert all(public["case"][field] == detail[field]
+               for field in ["id", "generation", "source_hash", "artifact_hash"])
+    assert public["source"]["fhir"]["identifier"]["value"] == raw_hash
     validate_artifact({**public["case"], "source": public["source"], "result": public["result"]})
     outsider = Client(url)
     outsider.session()
@@ -187,6 +259,8 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     return {"case_id": case_id, "source_sha256": raw_hash, "artifact_hash": detail["artifact_hash"],
             "model_mode": result["model_mode"], "changed_source_medicine": changed_medicine, "changed_source_dose": changed_dose,
             "parser_verified": True, "real_grammar_rejection": True, "confirmation_resets_on_edit": True,
+            "accepted_lost_response_reconfirmation_keeps_one_job": True,
+            "independent_raw_ledger_and_extraction_binding": True,
             "no_silent_truncation": True, "public_patient_source_fidelity": True, "session_isolation": True,
             "injected_errors": [413, 503], "mobile_width": 375, "evaluation_report_sha256": report["report_sha256"]}
 

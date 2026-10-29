@@ -300,7 +300,7 @@ export default function NewCase({
                 data-testid="confirm-synthetic-note"
                 onChange={(event) => {
                   setConfirmed(event.target.checked);
-                  edited();
+                  setError("");
                 }}
               />
               <span>
