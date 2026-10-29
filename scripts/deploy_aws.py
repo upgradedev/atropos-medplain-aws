@@ -19,6 +19,7 @@ from aws_request import request
 
 PROJECT = "AtroposMedPlain"
 STAGING_EXPIRY_DAYS = 1
+RESERVED_CONCURRENCY = 10
 
 
 def staging_plan(account: str, region: str, commit: str, digest: str, bucket: str | None = None) -> dict:
@@ -112,7 +113,7 @@ def deploy(args: argparse.Namespace) -> dict:
         "account": args.account, "region": args.region, "function": args.function,
         "runtime_role": role_name, "model_mode": args.model_mode, "model_id": args.model_id,
         "commit": args.commit, "package_sha256": digest,
-        "public_url": True, "reserved_concurrency": 2, "timeout_seconds": 180,
+        "public_url": True, "reserved_concurrency": RESERVED_CONCURRENCY, "timeout_seconds": 180,
         "log_retention_days": 7,
         **staging_plan(args.account, args.region, args.commit, digest, getattr(args, "staging_bucket", None)),
     }
@@ -164,7 +165,8 @@ def deploy(args: argparse.Namespace) -> dict:
     if not any(group["logGroupName"] == log_group for group in log_groups.get("logGroups", [])):
         cli(args, "logs", "create-log-group", "--log-group-name", log_group, "--tags", f"Project={PROJECT}")
     cli(args, "logs", "put-retention-policy", "--log-group-name", log_group, "--retention-in-days", "7")
-    cli(args, "lambda", "put-function-concurrency", "--function-name", args.function, "--reserved-concurrent-executions", "2")
+    cli(args, "lambda", "put-function-concurrency", "--function-name", args.function,
+        "--reserved-concurrent-executions", str(RESERVED_CONCURRENCY))
     url_config = cli(args, "lambda", "get-function-url-config", "--function-name", args.function, missing="ResourceNotFoundException")
     if url_config is None:
         url_config = cli(args, "lambda", "create-function-url-config", "--function-name", args.function, "--auth-type", "NONE")
