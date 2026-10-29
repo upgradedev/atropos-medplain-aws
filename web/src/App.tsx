@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { api, boot, changeRole, key, message, newSession } from "./api";
+import { api, boot, changeRole, key, loadExamples, message, newSession } from "./api";
 import {
   clock,
   isActive,
@@ -19,7 +19,7 @@ import {
   type Overview as OverviewData,
   type Role,
 } from "./types";
-import { Badge, Dialog, Icon, PageHeader, State } from "./ui";
+import { Badge, Dialog, Icon, OriginBadge, PageHeader, State } from "./ui";
 import Overview from "./Overview";
 import CasesTable, { type Filters } from "./CasesTable";
 import CaseDrawer from "./CaseDrawer";
@@ -54,7 +54,6 @@ function routeUrl(route: Route) {
   return `/console/${route.page}${params.size ? `?${params}` : ""}`;
 }
 const ROLES: Role[] = ["operator", "reviewer", "auditor", "admin"];
-
 export default function App() {
   const patient = location.pathname.match(/^\/console\/patient\/([^/]+)\/?$/);
   return patient ? (
@@ -63,7 +62,6 @@ export default function App() {
     <Console />
   );
 }
-
 function Console() {
   const [route, setRoute] = useState<Route>(readRoute);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
@@ -280,10 +278,10 @@ function Console() {
       setSessionBusy(false);
     }
   };
-  const resetSession = async () => {
+  const resetSession = async (preparedDemo: boolean) => {
     setSessionBusy(true);
     try {
-      const data = await newSession();
+      const data = await newSession(preparedDemo);
       setBootstrap(data);
       setOverview(null);
       setList(null);
@@ -297,9 +295,20 @@ function Console() {
         status: "",
         caseId: "",
       });
-      toast(
-        "New anonymous synthetic session created. Previous session data is retained until expiry.",
-      );
+      toast(preparedDemo ? "Opened a populated synthetic demo. Prepared examples are labelled; no Bedrock calls were made to populate it." : "Started an empty session. It will stay empty until you create a case or load examples.");
+    } catch (reason) {
+      toast(message(reason), true);
+    } finally {
+      setSessionBusy(false);
+    }
+  };
+  const loadPreparedExamples = async () => {
+    setSessionBusy(true);
+    try {
+      const data = await loadExamples();
+      setBootstrap(data);
+      refresh();
+      toast("Prepared examples loaded without running Bedrock. Loading again does not duplicate them.");
     } catch (reason) {
       toast(message(reason), true);
     } finally {
@@ -572,6 +581,12 @@ function Console() {
           <span className="demo-role">{label(role)} lens</span>
         </div>
         <main id="main" className="page-content">
+          {bootstrap.collection?.mode === "prepared_demo" || (overview?.origin_counts?.prepared_demo || 0) > 0 ? (
+            <section className="prepared-notice collection-notice" data-testid="prepared-demo-notice">
+              <Icon name="cases" />
+              <div><strong>Prepared examples and new verification runs</strong><p>Prepared examples use offline fixture records, not fresh Bedrock runs. Each case shows its origin. {bootstrap.runtime.model_mode === "bedrock" ? "New case runs a new Strands verification using Amazon Bedrock." : "New case runs a new Strands verification using the configured offline fixture model."}</p>{overview?.origin_counts ? <p className="collection-counts">Current view: {overview.origin_counts.prepared_demo} prepared examples · {overview.origin_counts.live_run} new runs{overview.origin_counts.unknown ? ` · ${overview.origin_counts.unknown} with unrecorded origin` : ""}</p> : <p className="collection-counts">Reading the current collection counts.</p>}</div>
+            </section>
+          ) : bootstrap.collection?.initialized ? <section className="empty-collection-note" data-testid="empty-session-notice"><strong>Fresh session without prepared examples</strong><p>Prepared examples will not load automatically. Create a new case, or choose Load examples in Settings.</p></section> : null}
           {active && pollCount.current >= 120 ? (
             <div className="notice" role="status">
               Automatic activity polling has paused after five minutes. Jobs
@@ -688,6 +703,7 @@ function Console() {
               drill={drill}
               create={() => startCreate()}
               canCreate={canCreate}
+              drillDesk={selectDesk}
             />
           ) : null}
           {route.page === "cases" ? (
@@ -795,6 +811,7 @@ function Console() {
                             >
                               <strong>{item.packet_title}</strong>
                               <Badge status={item.status} />
+                                <OriginBadge origin={item.origin} />
                               <span>
                                 {clock(item.updated_at)}
                                 <Icon name="arrow" />
@@ -883,7 +900,7 @@ function Console() {
                       <dd>
                         {bootstrap.limits.daily_jobs ?? "Not configured"} jobs
                         {bootstrap.limits.daily_reset
-                          ? ` � resets ${bootstrap.limits.daily_reset}`
+                          ? ` · resets ${bootstrap.limits.daily_reset}`
                           : ""}
                       </dd>
                     </div>
@@ -898,18 +915,17 @@ function Console() {
                       </dd>
                     </div>
                   </dl>
-                  <button
-                    className="button secondary"
-                    onClick={() => void resetSession()}
-                    disabled={sessionBusy}
-                  >
-                    Start new session
-                  </button>
+                    <div className="action-row session-actions">
+                      <button className="button secondary" data-testid="open-populated-demo" onClick={() => void resetSession(true)} disabled={sessionBusy}>Open populated demo</button>
+                      <button className="button secondary" data-testid="start-empty-session" onClick={() => void resetSession(false)} disabled={sessionBusy}>Start empty session</button>
+                    </div>
                   <p className="control-reason">
                     {sessionBusy
                       ? "A session request is in progress."
-                      : "Creates a fresh empty session. Previous records expire on the server after 24 hours. The daily job limit remains shared across sessions; it is not an AWS spend cap."}
+                        : "These actions create a new session with prepared examples or an explicitly empty collection. Previous records expire after 24 hours. The daily job limit stays shared across sessions; it is not an AWS spend cap."}
                   </p>
+                    <button className="button secondary" data-testid="load-demo-examples" onClick={() => void loadPreparedExamples()} disabled={sessionBusy || !canCreate}>Load examples</button>
+                    <p className="control-reason">{sessionBusy ? "A session request is in progress." : !canCreate ? "Switch to operator or admin to add prepared examples." : "Adds prepared examples once to this session without running Bedrock. Repeating this action does not duplicate them. Existing new runs remain; the session case limit still applies."}</p>
                 </section>
                 <section className="card settings-card">
                   <div className="eyebrow">LIVE RUNTIME CONFIGURATION</div>
@@ -1024,7 +1040,6 @@ function Console() {
     </div>
   );
 }
-
 function NewCase({
   bootstrap,
   stressDefault,
