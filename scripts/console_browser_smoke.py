@@ -101,9 +101,19 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     expect(page.get_by_role("heading", name="Atropos safety gate", exact=True)).to_be_visible()
     page.screenshot(path=str(output / "workflow-map.png"), full_page=True)
     page.get_by_role("tab", name="Facilities", exact=True).click()
-    expect(page.get_by_test_id("facility-map")).to_be_visible()
-    expect(page.locator(".leaflet-interactive")).to_have_count(3)
+    geographic_map = page.get_by_test_id("facility-map")
+    expect(geographic_map).to_be_visible()
+    expect(geographic_map.locator("path.geographic-country[data-country='GRC']")).to_be_visible()
+    expect(geographic_map.locator("path.geographic-country[data-country='GRC']")).to_have_attribute("d", re.compile(r"^M"))
+    expect(geographic_map.locator(".facility-marker")).to_have_count(3)
+    expect(geographic_map.locator("img.leaflet-tile")).to_have_count(0)
+    expect(geographic_map.get_by_text("Natural Earth", exact=True)).to_be_visible()
     page.screenshot(path=str(output / "facility-map.png"), full_page=True)
+    geographic_map.locator(f".facility-marker[data-facility-id='{detail['facility_id']}']").click()
+    expect(geographic_map.locator(".leaflet-popup-content")).to_contain_text("1 cases in current session")
+    geographic_map.get_by_role("button", name="Open desk cases", exact=True).click()
+    expect(page).to_have_url(re.compile(r"workspace=" + re.escape(detail["facility_id"])))
+    expect(page.get_by_role("row", name=f"Open {detail['packet_title']}", exact=True)).to_be_visible()
     page.get_by_test_id("nav-cases").click()
     page.get_by_label("Search all session cases", exact=True).fill("tenfold")
     row = page.get_by_role("row", name=f"Open {detail['packet_title']}", exact=True)
@@ -155,6 +165,9 @@ def check(url: str, output: Path) -> dict:
         browser = playwright.chromium.launch()
         context = browser.new_context(viewport={"width": 1440, "height": 1000}, accept_downloads=True)
         host = urlparse(url).hostname
+        external_requests = []
+        context.on("request", lambda request: external_requests.append(request.url)
+                   if urlparse(request.url).hostname not in {host, None} else None)
         context.route("**/*", lambda route: route.continue_() if urlparse(route.request.url).hostname == host else route.abort())
         page = context.new_page()
         page.set_default_timeout(120_000)
@@ -162,6 +175,7 @@ def check(url: str, output: Path) -> dict:
         page.on("pageerror", lambda error: errors.append(str(error)))
         try:
             result = exercise(page, browser, url, output, expect)
+            assert not external_requests, f"console requested an external dependency: {external_requests}"
             assert not errors, f"console JavaScript errors: {errors}"
             (output / "results.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
             return result
