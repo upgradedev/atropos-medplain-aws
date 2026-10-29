@@ -10,13 +10,15 @@ import zipfile
 from pathlib import Path
 
 
-def package(dependency_dir: Path, source_dir: Path, output: Path, commit: str) -> dict:
+def package(dependency_dir: Path, source_dir: Path, output: Path, commit: str, require_console: bool = False) -> dict:
     if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit):
         raise ValueError("commit must be a full lowercase Git SHA")
     if not (dependency_dir / "strands").is_dir() or not (dependency_dir / "mangum").is_dir():
         raise ValueError("dependency directory must contain the Linux-installed runtime dependencies")
     if not (source_dir / "medplain" / "api.py").is_file():
         raise ValueError("source directory must contain medplain/api.py")
+    if require_console and not (source_dir / "medplain/static/console/_console_manifest.json").is_file():
+        raise ValueError("the release package requires the compiled console manifest")
     output.parent.mkdir(parents=True, exist_ok=True)
     metadata = {"commit": commit, "built_at": dt.datetime.now(dt.timezone.utc).isoformat()}
     entries = {}
@@ -40,5 +42,6 @@ if __name__ == "__main__":
     parser.add_argument("--source-dir", type=Path, default=Path("src"))
     parser.add_argument("--output", type=Path, default=Path("artifacts/medplain-lambda.zip"))
     parser.add_argument("--commit", required=True)
+    parser.add_argument("--require-console", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(package(args.dependency_dir, args.source_dir, args.output, args.commit)))
+    print(json.dumps(package(args.dependency_dir, args.source_dir, args.output, args.commit, args.require_console)))

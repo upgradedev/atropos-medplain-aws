@@ -33,24 +33,54 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Scan tracked source for secrets and prohibited punctuation
         run: python scripts/check_source.py
+      - name: Format console sources for review in CI
+        run: npx --yes prettier@3.5.3 --write 'web/**/*.{ts,tsx,css,js,cjs,json,html}'
+      - name: Publish formatted console sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: console-formatted-${{ github.sha }}
+          path: web/
+          retention-days: 5
+      - name: Install and build the React console in CI
+        run: |
+          if [ ! -f web/package-lock.json ]; then
+            npm install --prefix web --package-lock-only --ignore-scripts
+          fi
+          npm ci --prefix web
+          npm run build --prefix web
+          mkdir -p artifacts
+          cp web/package-lock.json artifacts/frontend-package-lock.json
+          python scripts/stage_console.py
+          python scripts/check_source.py
       - name: Install CI-only dependencies
         run: python -m pip install '.[test]' build playwright
       - name: Lint
         run: ruff check src tests scripts
       - name: Unit and integration tests without network
         run: python scripts/offline_tests.py -q --junitxml=artifacts/tests.xml --cov=medplain --cov-report=term-missing --cov-report=xml:artifacts/coverage.xml
+      - name: Verify infrastructure ownership and recursive frontend packaging
+        run: python scripts/test_delivery_v2.py
       - name: Build standalone wheel
-        run: python -m build --wheel
+        run: |
+          python -m build --wheel
+          python scripts/stage_console.py --verify-archive dist/*.whl
       - name: Install browser in CI only
         run: python -m playwright install --with-deps chromium
       - name: Execute anonymous desktop and 375px journeys
         run: python scripts/browser_smoke.py --output artifacts/browser
+      - name: Execute console case, review, maps and mobile journeys
+        run: python scripts/console_browser_smoke.py --output artifacts/console-browser
       - name: Prepare Linux Lambda dependencies
         run: python -m pip install . --target "$RUNNER_TEMP/medplain-runtime" --no-compile
       - name: Assemble Lambda package and SHA-256 manifest
-        run: python scripts/package_lambda.py --dependency-dir "$RUNNER_TEMP/medplain-runtime" --commit "$GITHUB_SHA"
+        run: |
+          python scripts/package_lambda.py --dependency-dir "$RUNNER_TEMP/medplain-runtime" --commit "$GITHUB_SHA" --require-console
+          python scripts/stage_console.py --verify-archive artifacts/medplain-lambda.zip
       - name: Require a live 200 and execute the flagship claim
         if: ${{ inputs.judge_url != '' }}
         env:
@@ -61,6 +91,16 @@ jobs:
         env:
           JUDGE_URL: ${{ inputs.judge_url }}
         run: python scripts/browser_smoke.py --url "$JUDGE_URL" --output artifacts/live-browser
+      - name: Verify the deployed durable case and review workflow
+        if: ${{ inputs.judge_url != '' }}
+        env:
+          JUDGE_URL: ${{ inputs.judge_url }}
+        run: python scripts/ops_live_smoke.py "$JUDGE_URL" --output artifacts/live-ops.json
+      - name: Verify deployed console desktop and mobile journeys
+        if: ${{ inputs.judge_url != '' }}
+        env:
+          JUDGE_URL: ${{ inputs.judge_url }}
+        run: python scripts/console_browser_smoke.py --url "$JUDGE_URL" --output artifacts/live-console-browser
       - name: Publish build and test evidence
         uses: actions/upload-artifact@v4
         if: always()
