@@ -114,7 +114,8 @@ export default function Maps({
   }, [caseId, cases]);
   const detail = fetchedDetail?.id === caseId ? fetchedDetail : null;
   const selectedCase = cases.find((item) => item.id === caseId);
-  const reconciliation = (detail || selectedCase)?.source_profile === "medplain-reconciliation-v1";
+  const reconciliation =
+    (detail || selectedCase)?.source_profile === "medplain-reconciliation-v1";
   const nodes = reconciliation ? RECONCILIATION_NODES : LEGACY_NODES;
   const selected = nodes.find((item) => item.id === node) || nodes[0];
   const activeNode = selected.id;
@@ -213,7 +214,9 @@ export default function Maps({
               </label>
             </div>
             <p className="muted">
-              {reconciliation ? "Multisource reconciliation profile. " : "Simple discharge profile. "}
+              {reconciliation
+                ? "Multisource reconciliation profile. "
+                : "Simple discharge profile. "}
               Choose a node to inspect its purpose. Choose a case to overlay
               recorded evidence. The diagram describes code structure; it does
               not simulate a live run.
@@ -223,9 +226,17 @@ export default function Maps({
                 viewBox="0 0 980 245"
                 className="workflow"
                 role="group"
-                aria-label={reconciliation ? "Evidence indexer to cross-document clarification planner to clarification publisher to reconciliation safety gate. Refusal returns to clarification planning." : "Parser to medication verifier to patient advocate to safety gate. Refusal returns to medication verification."}
+                aria-label={
+                  reconciliation
+                    ? "Evidence indexer to cross-document clarification planner to clarification publisher to reconciliation safety gate. Refusal returns to clarification planning."
+                    : "Parser to medication verifier to patient advocate to safety gate. Refusal returns to medication verification."
+                }
                 data-testid="workflow-map"
-                data-source-profile={reconciliation ? "medplain-reconciliation-v1" : "simple-discharge"}
+                data-source-profile={
+                  reconciliation
+                    ? "medplain-reconciliation-v1"
+                    : "simple-discharge"
+                }
               >
                 <defs>
                   <marker
