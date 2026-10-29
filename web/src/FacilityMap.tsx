@@ -98,8 +98,8 @@ export default function FacilityMap({
         data-testid="facility-map"
       />
       <p className="map-caption">
-        Bundled Natural Earth country outlines, public domain and generalized
-        at 1:110m. Pan and zoom without an external tile service. Markers show
+        Bundled Natural Earth country outlines, public domain and generalized at
+        1:110m. Pan and zoom without an external tile service. Markers show
         synthetic operations desks in Athens, Thessaloniki and Patras, with
         current-session case counts. They do not represent hospitals, patient
         locations or live care coverage.

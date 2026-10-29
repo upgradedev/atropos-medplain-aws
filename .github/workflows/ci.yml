@@ -40,17 +40,11 @@ jobs:
         run: python scripts/check_source.py
       - name: Check console source formatting
         run: npx --yes prettier@3.5.3 --check 'web/**/*.{ts,tsx,css,js,cjs,json,html}'
-      - name: Prepare failed-check formatter repair artifact in CI
-        if: failure()
-        run: npx --yes prettier@3.5.3 --write web/src/FacilityMap.tsx web/src/data/greece-region.geojson.json
       - name: Publish formatted console sources
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: console-formatted-${{ github.sha }}
-          path: |
-            web/src/FacilityMap.tsx
-            web/src/data/greece-region.geojson.json
+          path: web/
           retention-days: 5
       - name: Install and build the React console in CI
         run: |
