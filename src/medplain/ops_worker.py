@@ -43,7 +43,10 @@ def process_message(message: dict, store=None) -> bool:
         mode = os.getenv("MEDPLAIN_MODEL_MODE", "fixture")
         if mode not in {"fixture", "bedrock"}:
             raise ValueError("No configured agent runtime")
-        result = run_packet(packet, claimed["execution_id"], model_mode=mode, stress=claimed["stress"])
+        kwargs = {"model_mode": mode, "stress": claimed["stress"]}
+        if claimed.get("intake") is not None:
+            kwargs["intake_source"] = claimed["intake"]
+        result = run_packet(packet, claimed["execution_id"], **kwargs)
         result["commit"] = commit()
     except Exception:
         # Never log a provider trace, clinical input, model text or session key.

@@ -59,13 +59,15 @@ def event(kind: str, message: str) -> dict:
 
 def summary(case: dict) -> dict:
     return {**{key: case[key] for key in SUMMARY_KEYS},
-            "origin": case.get("origin", "unknown"), "prepared": case.get("prepared")}
+            "origin": case.get("origin", "unknown"), "prepared": case.get("prepared"),
+            "source_kind": "imported_note" if case.get("intake") is not None else "sample",
+            "source_sha256": case["intake"]["source_sha256"] if case.get("intake") else None}
 
 
 def detail(case: dict) -> dict:
     return {**summary(case), "source": case["source"], "result": case["result"],
             "events": case["events"], "review": case["review"],
-            "prepared_history": case.get("prepared_history", [])}
+            "prepared_history": case.get("prepared_history", []), "intake": case.get("intake")}
 
 
 def outbox_for(case: dict) -> dict:
@@ -197,18 +199,40 @@ class OpsService:
             raise OpsError(404, "This case is unavailable in your synthetic session.")
         return case
 
+    def import_case(self, pk: str, session: dict, source_text: str, synthetic_confirmed: bool,
+                    facility_id: str, idempotency_key: str) -> tuple[dict, bool, str]:
+        from medplain.intake import IntakeError, normalize_source
+
+        self.require(session, {"operator", "admin"})
+        if synthetic_confirmed is not True:
+            raise OpsError(422, "Explicitly confirm that the submitted note is wholly invented.")
+        try:
+            bundle = normalize_source(source_text)
+        except IntakeError as exc:
+            raise OpsError(422, str(exc)) from None
+        return self.create(pk, session, bundle.packet.packet_id, facility_id, False, idempotency_key,
+                           _compiled_packet=bundle.packet, _intake=bundle.intake)
+
     def create(self, pk: str, session: dict, packet_id: str, facility_id: str,
-               stress: bool, idempotency_key: str) -> tuple[dict, bool, str]:
+               stress: bool, idempotency_key: str, *, _compiled_packet: ClinicalPacket | None = None,
+               _intake: dict | None = None) -> tuple[dict, bool, str]:
         self.require(session, {"operator", "admin"})
         if facility_id not in {f["id"] for f in FACILITIES}:
             raise OpsError(422, "Choose one of the synthetic discharge desks.")
         try:
-            packet = parse_packet(get_packet(packet_id))
+            packet = parse_packet(_compiled_packet if _compiled_packet is not None else get_packet(packet_id))
         except KeyError:
             raise OpsError(404, "Choose one of the synthetic sample packets.") from None
         if stress and not packet.adversarial:
             raise OpsError(422, "The deliberate mutation is available on the stress packet only.")
         fingerprint = canonical_hash({"packet_id": packet_id, "facility_id": facility_id, "stress": stress})
+        if _intake is not None:
+            from medplain.intake import validate_intake_source
+
+            validate_intake_source(packet, _intake)
+            fingerprint = canonical_hash({"source_kind": "imported_note", "intake": _intake,
+                                          "source_hash": canonical_hash(packet.model_dump()),
+                                          "facility_id": facility_id})
         idem_sk = "IDEM#CREATE#" + hashlib.sha256(idempotency_key.encode()).hexdigest()
 
         def existing():
@@ -235,6 +259,9 @@ class OpsService:
                 "review": None, "ttl": session["ttl"], "stress": stress, "lease_owner": None,
                 "lease_until": 0, "execution_id": None, "retry_requests": {},
                 "origin": "live_run", "prepared": None}
+        if _intake is not None:
+            case["intake"] = copy.deepcopy(_intake)
+            case["events"].append(event("source_accepted", "Original note and source ledger committed; parser Agent extraction is pending."))
         idem = {"sk": idem_sk, "case_id": case["id"], "fingerprint": fingerprint, "ttl": session["ttl"]}
         try:
             self.store.create(pk, case, outbox_for(case), idem)
@@ -372,7 +399,7 @@ class OpsService:
                 packet = ClinicalPacket.model_validate(current["source"])
                 if canonical_hash(packet.model_dump()) != current["source_hash"]:
                     raise ValueError("Source snapshot changed")
-                artifact_hash = validate_result(packet, result, current["execution_id"])
+                artifact_hash = validate_result(packet, result, current["execution_id"], current.get("intake"))
                 if result.get("interactions") != check_interactions(packet):
                     raise ValueError("Interaction evidence changed")
             except (ValueError, KeyError, TypeError):
@@ -393,7 +420,7 @@ class OpsService:
                                           "message": ("The clinical fidelity gate withheld a changed candidate."
                                                       if receipt["verdict"] == "refused" else
                                                       "The clinical fidelity gate verified the exact patient artifact.")})
-            needs_review = bool(check_interactions(packet) or current["correction_count"] > 0)
+            needs_review = bool(current.get("intake") or check_interactions(packet) or current["correction_count"] > 0)
             current.update(status="review_required" if needs_review else "released", error=None)
             current["events"].append(event(current["status"],
                                            "Verified artifact awaits synthetic reviewer release."
@@ -420,7 +447,7 @@ class OpsService:
         try:
             packet = ClinicalPacket.model_validate(case["source"])
             if (canonical_hash(packet.model_dump()) != source_hash
-                    or validate_result(packet, case["result"], case["execution_id"]) != artifact_hash
+                    or validate_result(packet, case["result"], case["execution_id"], case.get("intake")) != artifact_hash
                     or case["result"].get("interactions") != check_interactions(packet)):
                 raise ValueError()
         except (ValueError, KeyError, TypeError):
@@ -446,7 +473,7 @@ class OpsService:
                 "case": {**{key: case[key] for key in ["id", "packet_title", "facility_id", "status", "generation",
                                                       "source_hash", "artifact_hash", "updated_at"]},
                          "origin": case.get("origin", "unknown"), "prepared": case.get("prepared")},
-                "source": case["source"], "result": case["result"]}
+                "source": case["source"], "result": case["result"], "intake": case.get("intake")}
 
     def patient(self, share_id: str) -> dict:
         from medplain.ops_validation import validate_result
@@ -460,7 +487,7 @@ class OpsService:
             packet = ClinicalPacket.model_validate(share["source"])
             if (share["case"]["status"] != "released"
                     or canonical_hash(packet.model_dump()) != share["case"]["source_hash"]
-                    or validate_result(packet, share["result"], share["execution_id"]) != share["case"]["artifact_hash"]
+                    or validate_result(packet, share["result"], share["execution_id"], share.get("intake")) != share["case"]["artifact_hash"]
                     or share["result"].get("interactions") != check_interactions(packet)):
                 raise ValueError()
         except (ValueError, KeyError, TypeError):

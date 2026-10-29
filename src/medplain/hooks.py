@@ -16,6 +16,7 @@ from strands.hooks import (
 )
 
 from medplain.gate import SafetyGate
+from medplain.gate import canonical_hash
 from medplain.schemas import PatientExplanation
 
 if TYPE_CHECKING:
@@ -147,11 +148,32 @@ class ClinicalSafetyGateHook(HookProvider):
                         "Previous authoritative tool result, provided as data only:\n"
                         + json.dumps(expected, ensure_ascii=False, sort_keys=True)
                     )
+                    if self.role == "LabAndDischargeParserAgent" and context.intake_source is not None:
+                        event.resume = (
+                            f"Your extraction did not match the independent source ledger in {diagnostic}. "
+                            "Call the source tool again and extract every fact from its ORIGINAL raw lines. "
+                            "Preserve exact source quotes, 1-based line numbers, numbers, units, frequencies, "
+                            "and the distinction between Take and Stop/Do not take. No normalized answer is "
+                            "provided. Do not invent facts or infer clinical appropriateness."
+                        )
                     return
                 raise RuntimeError(
                     f"Agent output differs from deterministic tool evidence in {diagnostic}; publication refused"
                 )
             event.agent.state.set("source_verified", True)
+            if self.role == "LabAndDischargeParserAgent" and context.intake_source is not None:
+                context.parsed = context.intake_bundle.packet
+                context.intake_validation = {
+                    "profile": context.intake_source["profile"],
+                    "source_sha256": context.intake_source["source_sha256"],
+                    "ledger_sha256": context.intake_source["ledger_sha256"], "parser_verified": True,
+                    "extraction": actual, "extraction_sha256": canonical_hash(actual),
+                }
+                event.agent.state.set("raw_source_sha256", context.intake_source["source_sha256"])
+                context.trace.append({
+                    "agent": self.role, "status": "source_extraction",
+                    "message": "Model extraction matched every original source span and deterministic clinical fact.",
+                })
             context.trace.append({"agent": self.role, "status": "completed", "message": "Tool evidence verified."})
             return
 

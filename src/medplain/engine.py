@@ -23,8 +23,9 @@ from medplain.clinical import (
 from medplain.fixture_model import FixtureModel
 from medplain.gate import ReceiptChain, canonical_hash
 from medplain.hooks import MAX_CANDIDATES, ClinicalSafetyGateHook
+from medplain.intake import PROFILE, IntakeBundle, validate_intake_source
 from medplain.required_tool_model import RequiredToolModel
-from medplain.schemas import ClinicalPacket, Medication, MedicationInstruction, PatientExplanation
+from medplain.schemas import ClinicalPacket, Medication, MedicationInstruction, PatientExplanation, SourceExtraction
 
 PARSER = "LabAndDischargeParserAgent"
 VERIFIER = "DrugAndContraindicationVerifierAgent"
@@ -119,12 +120,26 @@ class RequestContext:
     interactions: list[dict[str, Any]] = field(default_factory=list)
     session_state: dict[str, Any] = field(default_factory=dict)
     completed_tools: dict[str, set[str]] = field(default_factory=dict)
+    intake_source: dict | None = None
+    intake_bundle: IntakeBundle | None = None
+    intake_validation: dict | None = None
 
 
 def _tools(context: RequestContext) -> dict[str, list[Any]]:
     @tool
     def lab_reference_range_evaluator() -> dict[str, Any]:
-        """Validate the source packet and evaluate each supplied laboratory reference interval."""
+        """Check source intervals; on raw-note intake return numbered source lines for independent extraction."""
+        if context.intake_source is not None:
+            bundle = validate_intake_source(context.packet, context.intake_source)
+            context.intake_bundle = bundle
+            context.expected_results[PARSER] = bundle.expected_extraction.model_dump(mode="json")
+            # Never expose the ledger's normalized facts as a model-copy answer.
+            # The Agent must extract those facts from the original numbered lines.
+            return {
+                "profile": PROFILE, "source_sha256": context.intake_source["source_sha256"],
+                "source_lines": [{"line": row["line"], "text": row["text"]} for row in bundle.ledger],
+                "reference_intervals": "Independent source interval checks completed; extract values from raw lines.",
+            }
         context.parsed = parse_packet(context.packet)
         result = ParsedClinicalRecord(
             packet_id=context.parsed.packet_id,
@@ -218,7 +233,8 @@ def _model(
 
 def _make_graph(context: RequestContext, model_mode: str) -> Any:
     tools_by_role = _tools(context)
-    output_models = {PARSER: ParsedClinicalRecord, VERIFIER: MedicationVerification, EXPLAINER: PatientExplanation}
+    output_models = {PARSER: SourceExtraction if context.intake_source is not None else ParsedClinicalRecord,
+                     VERIFIER: MedicationVerification, EXPLAINER: PatientExplanation}
     instructions = {
         PARSER: "Call lab_reference_range_evaluator, then return its exact result as ParsedClinicalRecord.",
         VERIFIER: (
@@ -236,6 +252,20 @@ def _make_graph(context: RequestContext, model_mode: str) -> Any:
             "Do not add medical advice, diagnoses or unsupported numerical text."
         ),
     }
+    if context.intake_source is not None:
+        instructions[PARSER] = (
+            "Call lab_reference_range_evaluator to read the submitted ORIGINAL numbered raw source lines. "
+            "Extract a SourceExtraction yourself. The tool does not supply normalized records. "
+            "patient_alias is the value after Synthetic alias:. For each Take/Stop/Do not take line extract "
+            "name, dose as the exact source numeric STRING, unit, and frequency. Normalize once daily/QD to QD, "
+            "twice daily/BID to BID, three times daily/TID to TID, at bedtime/QHS to QHS. "
+            "Take means active; Stop and Do not take mean stopped. Extract all Lab lines into name,value,unit,low,high "
+            "with exact numeric STRINGS. For Follow-up and Get help remove their prefix into text. "
+            "Every record must have source_line equal to the supplied 1-based line number and source_quote equal "
+            "to that complete exact original line. Preserve source order in each list. Copy source_sha256. "
+            "Do not add, omit, reinterpret or repair source facts. The independent source ledger will verify "
+            "every line, negation, numeric value, unit, frequency and source quote before later agents may run."
+        )
     builder = GraphBuilder()
     for role in AGENT_NAMES:
         tools = tools_by_role[role]
@@ -283,6 +313,7 @@ def run_packet(
     session_id: str,
     model_mode: str = "fixture",
     stress: bool = False,
+    intake_source: dict | None = None,
 ) -> dict[str, Any]:
     """Execute the actual Strands graph and return only gated patient content.
 
@@ -295,6 +326,14 @@ def run_packet(
     error: str | None = None
     graph_status = "not_started"
     try:
+        if intake_source is not None:
+            context.intake_bundle = validate_intake_source(packet, intake_source)
+            context.intake_source = dict(intake_source)
+            context.intake_validation = {
+                "profile": PROFILE, "source_sha256": intake_source["source_sha256"],
+                "ledger_sha256": intake_source["ledger_sha256"], "parser_verified": False,
+                "extraction": None, "extraction_sha256": None,
+            }
         graph = _make_graph(context, model_mode)
         result = graph(
             "Explain this synthetic discharge packet using only deterministic tool evidence. "
@@ -327,6 +366,7 @@ def run_packet(
         "correction_count": context.correction_count,
         "session_id": session_id,
         "error": error,
+        **({"intake_validation": context.intake_validation} if intake_source is not None else {}),
         "runtime": {
             "sdk_version": importlib.metadata.version("strands-agents"),
             "orchestrator": "strands.multiagent.Graph",
