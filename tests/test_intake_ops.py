@@ -134,3 +134,27 @@ def test_worker_rejects_changed_original_note_before_sdk_and_cannot_publish(monk
     current = svc.get_case(pk, case["id"])
     assert current["status"] == "failed" and current["artifact_hash"] is None
     assert "No patient explanation" in current["error"]
+
+
+@pytest.mark.parametrize("changed_field", ["source_text", "source_sha256", "ledger_sha256"])
+def test_public_read_refuses_tampered_released_share_intake(monkeypatch, changed_field):
+    monkeypatch.setenv("MEDPLAIN_MODEL_MODE", "fixture")
+    svc = OpsService(MemoryStore())
+    pk, session = svc.authenticate(svc.new_session()["session_token"])
+    case = svc.import_case(pk, session, TEMPLATE, True, "demo-athens", "share-provenance-check")[0]
+    assert process_message({"session_key": pk, "case_id": case["id"], "generation": 1}, svc.store)
+    current = svc.get_case(pk, case["id"])
+    session["role"] = "reviewer"
+    released = svc.review(pk, session, current["id"], "release", current["version"], current["source_hash"],
+                          current["artifact_hash"], "Check original synthetic note before public release")
+    share_id = released["patient_url"].rsplit("/", 1)[-1]
+    assert svc.patient(share_id)["result"]["status"] == "verified"
+    stored_intake = svc.store.rows[("SHARE#" + share_id, "VIEW")]["intake"]
+    if changed_field == "source_text":
+        stored_intake[changed_field] = TEMPLATE + "\n"
+    else:
+        stored_intake[changed_field] = "0" * 64
+    with pytest.raises(OpsError) as rejected:
+        svc.patient(share_id)
+    assert rejected.value.status == 409
+    assert "independent integrity check" in rejected.value.message

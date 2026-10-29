@@ -120,7 +120,10 @@ def test_actual_sdk_extraction_then_existing_verifier_and_patient_gate():
         validate_result(bundle.packet, result, "raw-extraction")
 
 
-@pytest.mark.parametrize("mutation", ["dose", "status", "frequency", "unit", "quote", "line", "omission"])
+@pytest.mark.parametrize("mutation", [
+    "dose", "status", "frequency", "unit", "quote", "line", "omission",
+    "lab_value", "lab_unit", "lab_low", "lab_high", "lab_quote", "lab_omission",
+])
 def test_wrong_model_extraction_is_not_replaced_with_ledger_answer(monkeypatch, mutation):
     original = engine._model
     resume_prompts = []
@@ -134,7 +137,21 @@ def test_wrong_model_extraction_is_not_replaced_with_ledger_answer(monkeypatch, 
             def changed():
                 actual = copy.deepcopy(payload())
                 med = actual["medications"][0]
-                if mutation == "dose":
+                if mutation.startswith("lab_"):
+                    lab = actual["labs"][0]
+                    if mutation == "lab_value":
+                        lab["value"] = "149"
+                    elif mutation == "lab_unit":
+                        lab["unit"] = "mg/dL"
+                    elif mutation == "lab_low":
+                        lab["low"] = "130"
+                    elif mutation == "lab_high":
+                        lab["high"] = "150"
+                    elif mutation == "lab_quote":
+                        lab["source_quote"] = "Lab Sodium: 149 mmol/L (reference 135 to 145)."
+                    else:
+                        actual["labs"] = actual["labs"][1:]
+                elif mutation == "dose":
                     med["dose"] = "75"
                 elif mutation == "status":
                     med["status"] = "stopped"
@@ -162,7 +179,13 @@ def test_wrong_model_extraction_is_not_replaced_with_ledger_answer(monkeypatch, 
         return adapter
 
     monkeypatch.setattr(engine, "_model", model)
-    bundle = normalize_source(NOTE)
+    source = NOTE
+    if mutation == "lab_omission":
+        source = source.replace(
+            "Lab Sodium: 139 mmol/L (reference 135 to 145).",
+            "Lab Sodium: 139 mmol/L (reference 135 to 145).\nLab Potassium: 4.1 mmol/L (reference 3.5 to 5.1).",
+        )
+    bundle = normalize_source(source)
     result = engine.run_packet(bundle.packet, "wrong-parser", intake_source=bundle.intake)
     assert result["status"] == "refused", result
     assert result["explanation"] is None
