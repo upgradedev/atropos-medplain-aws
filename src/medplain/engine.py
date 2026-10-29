@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
+import secrets
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -25,7 +26,10 @@ from medplain.gate import ReceiptChain, canonical_hash
 from medplain.hooks import MAX_CANDIDATES, ClinicalSafetyGateHook
 from medplain.intake import PROFILE, IntakeBundle, validate_intake_source
 from medplain.required_tool_model import RequiredToolModel
-from medplain.schemas import ClinicalPacket, Medication, MedicationInstruction, PatientExplanation, SourceSelection
+from medplain.publication import plan_for_binding, publication_artifact_hash, publication_binding
+from medplain.schemas import (
+    ClinicalPacket, Medication, MedicationInstruction, PatientExplanation, PatientPublicationPlan, SourceSelection,
+)
 
 PARSER = "LabAndDischargeParserAgent"
 VERIFIER = "DrugAndContraindicationVerifierAgent"
@@ -125,6 +129,12 @@ class RequestContext:
     intake_validation: dict | None = None
     source_selection: dict | None = None
     source_selection_sha256: str | None = None
+    request_nonce: str = field(default_factory=lambda: secrets.token_hex(16))
+    publication_snapshot: str | None = None
+    publication_snapshot_hash: str | None = None
+    publication_artifact_nonce: str | None = None
+    publication_binding: dict | None = None
+    validated_publication_plan: dict | None = None
 
 
 def _tools(context: RequestContext) -> dict[str, list[Any]]:
@@ -188,10 +198,26 @@ def _tools(context: RequestContext) -> dict[str, list[Any]]:
 
     @tool
     def grounded_explanation_builder() -> dict[str, Any]:
-        """Return the source-derived plain-language artifact, preserving every supported clinical field."""
+        """Store a source-derived immutable patient artifact and return its fresh publication reference only."""
+        context.publication_snapshot = None
+        context.publication_snapshot_hash = None
+        context.publication_artifact_nonce = None
+        context.publication_binding = None
+        context.validated_publication_plan = None
+        context.expected_results.pop(EXPLAINER, None)
         if context.parsed is None or VERIFIER not in context.expected_results:
             raise ValueError("Source parsing and medication verification must complete first")
-        result = build_explanation(context.parsed).model_dump(mode="json")
+        artifact = build_explanation(context.parsed)
+        if not isinstance(artifact, PatientExplanation):
+            raise ValueError("The patient builder returned no typed artifact")
+        context.publication_snapshot = artifact.model_dump_json()
+        context.publication_snapshot_hash = publication_artifact_hash(artifact)
+        context.publication_artifact_nonce = secrets.token_hex(16)
+        context.publication_binding = publication_binding(
+            context.packet, context.session_id, context.request_nonce,
+            context.hook_invocations, context.publication_snapshot_hash, context.publication_artifact_nonce,
+        )
+        result = plan_for_binding(context.publication_binding)
         context.expected_results[EXPLAINER] = result
         return result
 
@@ -237,7 +263,7 @@ def _model(
 def _make_graph(context: RequestContext, model_mode: str) -> Any:
     tools_by_role = _tools(context)
     output_models = {PARSER: SourceSelection if context.intake_source is not None else ParsedClinicalRecord,
-                     VERIFIER: MedicationVerification, EXPLAINER: PatientExplanation}
+                     VERIFIER: MedicationVerification, EXPLAINER: PatientPublicationPlan}
     instructions = {
         PARSER: "Call lab_reference_range_evaluator, then return its exact result as ParsedClinicalRecord.",
         VERIFIER: (
@@ -249,10 +275,11 @@ def _make_graph(context: RequestContext, model_mode: str) -> Any:
             "summarize clinical data in your output. The deterministic evidence remains authoritative."
         ),
         EXPLAINER: (
-            "Call grounded_explanation_builder. Return its exact source-derived artifact as PatientExplanation. "
-            "Keep every supplied field and all wording, values, units, frequencies and stop directives unchanged. "
-            "If a previous draft was refused, rebuild from the authoritative tool result. "
-            "Do not add medical advice, diagnoses or unsupported numerical text."
+            "Call grounded_explanation_builder on EVERY invocation, including a correction. The tool privately "
+            "stores the complete source-derived patient artifact. Return ONLY its packet_id, artifact_ref and "
+            "presentation as PatientPublicationPlan, copying this CURRENT invocation's reference exactly. "
+            "Do not reuse an older reference. Do not return clinical fields, patient text or advice. The hook "
+            "resolves only the fresh referenced tool artifact and the full clinical safety gate still checks it."
         ),
     }
     if context.intake_source is not None:
@@ -384,6 +411,9 @@ def run_packet(
             "tool_call_repairs": context.tool_call_repairs,
             "verification_evidence_refs": dict(context.expected_results.get(VERIFIER, {})),
             "session_state": context.session_state,
+            "publication_plan": context.validated_publication_plan,
+            "publication_plan_sha256": (canonical_hash(context.validated_publication_plan)
+                                         if context.validated_publication_plan is not None else None),
             **({"source_selection": context.source_selection,
                 "source_selection_sha256": context.source_selection_sha256} if intake_source is not None else {}),
         },

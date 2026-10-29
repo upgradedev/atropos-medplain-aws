@@ -64,11 +64,13 @@ Strands is load-bearing: its `Agent` loop executes the registered tools, its Pyd
 |---|---|
 | `LabAndDischargeParserAgent` | Samples: cross-checks manifest, text and FHIR. New notes: proposes cited lines and typed clinical facts; code copies exact quotes, and the full extraction must match the source ledger |
 | `DrugAndContraindicationVerifierAgent` | `medication_dosage_frequency_parity_checker` and `drug_interaction_checker` check dose, unit, frequency, stop status and selected demonstration pairs |
-| `PatientAdvocateExplainerAgent` | `grounded_explanation_builder` produces a constrained `PatientExplanation`; the `AfterInvocationEvent` hook checks it before publication |
+| `PatientAdvocateExplainerAgent` | Calls `grounded_explanation_builder` and returns a typed publication plan for its fresh source-bound artifact. The hook resolves and checks the full `PatientExplanation` before publication |
 
 Each processing generation has a new execution correlation identifier, request context and SDK `agent.state`. DynamoDB retains the captured synthetic source, job version, result, receipt chain and review history. Live agent objects and model conversation state remain inside their worker invocation. No real patient records are accepted.
 
-The verifier's typed result references the deterministic tool evidence by hash. The tools retain the full parity findings and curated interaction records; the model acknowledges their content references rather than rewriting their clinical classifications. The lifecycle hook requires an exact reference match. The patient advocate still returns the full structured explanation, which faces the independent clinical publication gate.
+The verifier's typed result references the deterministic tool evidence by hash. The tools retain the full parity findings and curated interaction records; the model acknowledges their content references rather than rewriting their clinical classifications. The lifecycle hook requires an exact reference match.
+
+The patient advocate returns a strict publication plan, not clinical prose. Its fresh artifact reference binds the current request, source and invocation. The tool retains an immutable source-grounded explanation; the model cannot add clinical fields or free advice to its plan. Only a valid plan and successful fresh tool call allow the hook to resolve that artifact. The unchanged clinical gate then checks the entire explanation, after any deliberate stress injection. Missing, stale or incorrect references withhold publication. A corrupted tool artifact still fails the independent gate; it is never silently repaired.
 
 ```mermaid
 flowchart LR

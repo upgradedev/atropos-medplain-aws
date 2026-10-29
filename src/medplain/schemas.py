@@ -74,6 +74,17 @@ class PatientExplanation(Contract):
     red_flags: list[str]
 
 
+PATIENT_PRESENTATION = "patient-discharge-v1"
+
+
+class PatientPublicationPlan(Contract):
+    """Select only the fresh tool artifact. Clinical content is never model-authored here."""
+
+    packet_id: str = Field(min_length=1, max_length=80, description="Copy the current builder tool's packet_id exactly.")
+    artifact_ref: str = Field(pattern=r"^draft-[0-9a-f]{24}$", description="Copy the CURRENT invocation's artifact_ref exactly; never reuse an earlier reference.")
+    presentation: Literal["patient-discharge-v1"] = Field(description="Copy the current tool's fixed patient presentation identifier.")
+
+
 class GateVerdict(Contract):
     passed: bool
     discrepancies: list[str] = Field(default_factory=list)
