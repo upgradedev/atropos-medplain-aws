@@ -11,7 +11,9 @@ import copy
 import hashlib
 import json
 import time
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -20,6 +22,60 @@ from uuid import uuid4
 from live_smoke import canonical, verify_chain
 
 FREQUENCIES = {"QD": "once a day", "BID": "twice a day", "TID": "three times a day", "QHS": "at bedtime"}
+
+
+class ProgressEvidence:
+    """Bounded synthetic HTTP evidence, never API session headers or tokens."""
+
+    def __init__(self, url: str, output: str | None):
+        self.output = Path(output) if output else None
+        self.document = {"url": url, "status": "running", "stage": "starting", "cases": [],
+                         "case_details": [], "failure": None}
+        self.write()
+
+    def write(self):
+        if self.output is None:
+            return
+        self.document["updated_at"] = datetime.now(timezone.utc).isoformat()
+        self.output.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.output.with_suffix(self.output.suffix + ".tmp")
+        temporary.write_text(json.dumps(self.document, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
+                             encoding="utf-8")
+        temporary.replace(self.output)
+
+    def terminal(self, packet_id: str, case: dict, stage="terminal_received"):
+        raw = canonical(case)
+        snapshot = {"packet_id": packet_id, "case_id": case.get("id"), "stage": stage,
+                    "raw_bytes": len(raw), "raw_sha256": hashlib.sha256(raw).hexdigest(),
+                    "truncated": len(raw) > 128 * 1024}
+        if not snapshot["truncated"]:
+            snapshot["detail"] = copy.deepcopy(case)
+        else:
+            # Preserve a bounded raw prefix plus a separate result fragment so
+            # a large source cannot crowd out the refusal's trace/runtime/error.
+            snapshot["raw_json_prefix"] = raw[:48 * 1024].decode("utf-8", errors="replace")
+            result_raw = canonical(case.get("result"))
+            snapshot["result_json_prefix"] = result_raw[:48 * 1024].decode("utf-8", errors="replace")
+            snapshot["result_raw_bytes"] = len(result_raw)
+            snapshot["result_raw_sha256"] = hashlib.sha256(result_raw).hexdigest()
+            snapshot["result_truncated"] = len(result_raw) > 48 * 1024
+            result = case.get("result") or {}
+            diagnostics = {}
+            for field in ("error", "trace", "runtime"):
+                value = result.get(field)
+                fragment = canonical(value)
+                diagnostics[field] = (copy.deepcopy(value) if len(fragment) <= 16 * 1024 else {
+                    "truncated": True, "raw_bytes": len(fragment),
+                    "raw_sha256": hashlib.sha256(fragment).hexdigest(),
+                    "json_prefix": fragment[:16 * 1024].decode("utf-8", errors="replace"),
+                })
+            snapshot["result_diagnostics"] = diagnostics
+        self.document["stage"] = stage
+        # Exactly three initial terminal cases and, at most, three review reads.
+        if len(self.document["case_details"]) >= 6:
+            raise AssertionError("case evidence exceeded the fixed six-snapshot bound")
+        self.document["case_details"].append(snapshot)
+        self.write()
 
 
 class Client:
@@ -145,12 +201,30 @@ def validate_artifact(case: dict):
     return result
 
 
-def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) -> dict:
+def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False,
+          output: str | None = None) -> dict:
+    evidence = ProgressEvidence(url, output)
+    try:
+        proof = _smoke(url, expected_commit, allow_fixture, evidence)
+    except Exception as exc:
+        evidence.document.update(status="failed", failure={"type": type(exc).__name__, "message": str(exc)[:1000]})
+        evidence.write()
+        raise
+    evidence.document.update(proof, status="passed", stage="complete")
+    evidence.write()
+    return proof
+
+
+def _smoke(url: str, expected_commit: str | None, allow_fixture: bool,
+           evidence: ProgressEvidence) -> dict:
     client = Client(url)
     root = client.call("/")
     if not isinstance(root, bytes) or b"Atropos" not in root:
         raise AssertionError("judge URL must return the Atropos console with HTTP 200")
     health = client.call("/api/health")
+    evidence.document.update(http_status=200, commit=health.get("commit"), model_mode=health.get("model_mode"),
+                             stage="health_received")
+    evidence.write()
     if expected_commit and health["commit"] != expected_commit:
         raise AssertionError("deployed console commit differs from submitted source")
     if health.get("surface") != "operations-console":
@@ -161,6 +235,8 @@ def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) ->
     if client.call("/api/ops/cases?limit=20")["total"] != 0:
         raise AssertionError("live inference proof must begin with an explicitly empty session")
     boot = client.call("/api/ops/bootstrap")
+    evidence.document.update(runtime=boot["runtime"], stage="session_ready")
+    evidence.write()
     if len(boot["facilities"]) != 3 or not all(item["synthetic"] for item in boot["facilities"]):
         raise AssertionError("geographic facilities must be explicit synthetic demonstration points")
     if not allow_fixture and boot["runtime"]["transport_mode"] != "DynamoDB transactional outbox / Streams / SQS":
@@ -173,6 +249,7 @@ def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) ->
     }:
         raise AssertionError("three required packet journeys must be reachable")
     proof = []
+    evidence.document["cases"] = proof
     for index, packet in enumerate(packets):
         client.call("/api/ops/session/role", {"role": "operator"})
         payload = {
@@ -186,6 +263,7 @@ def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) ->
             raise AssertionError("command idempotency created a duplicate case")
         another.call(f"/api/ops/cases/{case_id}", expected=404)
         case = wait_case(client, case_id)
+        evidence.terminal(packet["id"], case)
         if case.get("origin") != "live_run" or case.get("duration_ms") is None:
             raise AssertionError("a fresh worker execution must carry live provenance and a measured duration")
         if case["status"] not in {"review_required", "released"}:
@@ -217,6 +295,7 @@ def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) ->
             client.call(f"/api/ops/cases/{case_id}/review", stale, expected=409)
             client.call(f"/api/ops/cases/{case_id}/review", decision)
             case = client.call(f"/api/ops/cases/{case_id}")
+            evidence.terminal(packet["id"], case, stage="review_result_received")
         if case["status"] != "released" or not case.get("patient_url"):
             raise AssertionError("authorized review did not produce a public patient view")
         share_id = case["patient_url"].rstrip("/").split("/")[-1]
@@ -235,6 +314,8 @@ def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) ->
             "artifact_hash": case["artifact_hash"], "final_receipt_hash": result["receipts"][-1]["hash"],
             "patient_url": case["patient_url"],
         })
+        evidence.document["stage"] = "packet_verified"
+        evidence.write()
         print(f"Verified durable journey: {packet['id']} -> released", flush=True)
     overview = client.call("/api/ops/overview?workspace=all")
     if overview["counts"]["total"] != 3 or overview["counts"]["released"] != 3:
@@ -262,11 +343,6 @@ if __name__ == "__main__":
     parser.add_argument("--allow-fixture", action="store_true")
     parser.add_argument("--output")
     args = parser.parse_args()
-    proof = smoke(args.url, args.expected_commit, args.allow_fixture)
+    proof = smoke(args.url, args.expected_commit, args.allow_fixture, output=args.output)
     rendered = json.dumps(proof, indent=2)
-    if args.output:
-        from pathlib import Path
-        target = Path(args.output)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(rendered + "\n", encoding="utf-8")
     print(rendered)
