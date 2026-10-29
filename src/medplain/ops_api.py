@@ -55,6 +55,10 @@ class RoleRequest(Contract):
     role: Literal["operator", "reviewer", "auditor", "admin"]
 
 
+class SessionRequest(Contract):
+    prepared_demo: bool | None = None
+
+
 class CreateCaseRequest(Contract):
     packet_id: str = Field(min_length=1, max_length=80)
     facility_id: str = Field(min_length=1, max_length=80)
@@ -85,8 +89,14 @@ def schedule_memory(background: BackgroundTasks, svc: OpsService, pk: str, case:
 
 
 @router.post("/session", status_code=201)
-def new_session(svc: Service):
-    return svc.new_session()
+def new_session(svc: Service, body: SessionRequest | None = None):
+    return svc.new_session(body.prepared_demo if body else None)
+
+
+@router.post("/session/demo")
+def seed_demo(auth: Auth):
+    svc, pk, session = auth
+    return svc.seed_demo(pk, session)
 
 
 @router.post("/session/role")
@@ -97,8 +107,8 @@ def set_role(body: RoleRequest, auth: Auth):
 
 @router.get("/bootstrap")
 def bootstrap(auth: Auth):
-    svc, _, session = auth
-    return svc.bootstrap(session)
+    svc, pk, session = auth
+    return svc.bootstrap(session, pk)
 
 
 @router.post("/cases", status_code=202)
