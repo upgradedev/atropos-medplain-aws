@@ -13,6 +13,7 @@ from medplain.ops_domain import commit
 
 router = APIRouter()
 REPORT_PATH = Path(__file__).parent / "data" / "evaluation_report.json"
+RECONCILIATION_REPORT_PATH = Path(__file__).parent / "data" / "reconciliation_report.json"
 
 
 def read_evaluation_report(path: Path = REPORT_PATH) -> dict:
@@ -45,3 +46,27 @@ def read_evaluation_report(path: Path = REPORT_PATH) -> dict:
 @router.get("/api/evaluations")
 def evaluations():
     return read_evaluation_report(REPORT_PATH)
+
+
+@router.get("/api/reconciliation-evaluations")
+def reconciliation_evaluations():
+    report = read_evaluation_report(RECONCILIATION_REPORT_PATH)
+    if report.get("profile") != "medplain-reconciliation-v1" or report.get("mode") != "fixture":
+        raise HTTPException(503, "The source-bound offline reconciliation report is unavailable.")
+    return report
+
+
+@router.get("/api/reconciliation-evaluations/live")
+def live_reconciliation_evaluations():
+    from medplain.live_evaluation import SK, record_key, validate_manifest
+    from medplain.ops_store import StoreUnavailable, get_store
+
+    source = commit()
+    try:
+        record = get_store().get(record_key(source), SK)
+        if record is None:
+            return {"status": "not_measured", "source_commit": source,
+                    "reason": "No actual Bedrock reconciliation measurement has been published for this exact source. No scores are substituted."}
+        return validate_manifest(record["manifest"], source)
+    except (StoreUnavailable, ValueError, TypeError, KeyError):
+        raise HTTPException(503, "Live evaluation evidence is unavailable. No comparison scores are substituted.") from None
