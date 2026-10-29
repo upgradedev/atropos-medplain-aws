@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, key, message } from "./api";
 import { Badge, Dialog, Download, Hash, Icon, OriginBadge, State } from "./ui";
+import SourceEvidence from "./SourceEvidence";
 import {
   clock,
   duration,
@@ -330,17 +331,7 @@ export default function CaseDrawer({
             aria-labelledby={`tab-${tab}`}
           >
             {tab === "Source" ? (
-              <>
-                <div className="eyebrow">SYNTHETIC DISCHARGE PACKET</div>
-                <pre className="source-text">
-                  {data.source?.source_text || "The source is unavailable."}
-                </pre>
-                <Hash title="Source SHA-256" value={data.source_hash} />
-                <details>
-                  <summary>Inspect constrained FHIR bundle</summary>
-                  <pre>{JSON.stringify(data.source?.fhir, null, 2)}</pre>
-                </details>
-              </>
+              <SourceEvidence data={data} />
             ) : null}
             {tab === "Explanation" ? (
               data.result?.explanation ? (

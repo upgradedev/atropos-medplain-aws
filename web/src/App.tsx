@@ -27,11 +27,13 @@ import {
   type Overview as OverviewData,
   type Role,
 } from "./types";
-import { Badge, Dialog, Icon, OriginBadge, PageHeader, State } from "./ui";
+import { Badge, Icon, OriginBadge, PageHeader, State } from "./ui";
 import Overview from "./Overview";
 import CasesTable, { type Filters } from "./CasesTable";
 import CaseDrawer from "./CaseDrawer";
 import Patient from "./Patient";
+import NewCase from "./NewCase";
+import EvaluationPanel from "./EvaluationPanel";
 const Maps = lazy(() => import("./Maps"));
 const PAGES = ["overview", "cases", "queues", "maps", "settings"] as const;
 type Page = (typeof PAGES)[number];
@@ -1059,8 +1061,9 @@ function Console() {
                   </dl>
                   <h3>Bounded demonstration</h3>
                   <p className="muted">
-                    Only the three supplied synthetic packets are accepted. No
-                    PHI upload or arbitrary FHIR ingestion is available.
+                    Choose a supplied packet or import a new synthetic note in the
+                    supported text format. PDF upload and arbitrary FHIR
+                    ingestion are not available.
                   </p>
                   <button className="button secondary" disabled>
                     Connect hospital system
@@ -1073,6 +1076,7 @@ function Console() {
                     Open the original packet demo
                   </a>
                 </section>
+                <EvaluationPanel />
               </div>
             </>
           ) : null}
@@ -1143,175 +1147,5 @@ function Console() {
         />
       ) : null}
     </div>
-  );
-}
-function NewCase({
-  bootstrap,
-  stressDefault,
-  workspace,
-  close,
-  done,
-  failed,
-  canCreate,
-  count,
-}: {
-  bootstrap: Bootstrap;
-  stressDefault: boolean;
-  workspace: string;
-  close: () => void;
-  done: (id: string) => void;
-  failed: (text: string) => void;
-  canCreate: boolean;
-  count: number;
-}) {
-  const initial = stressDefault
-    ? bootstrap.packets.find((item) => item.stress_available) ||
-      bootstrap.packets[0]
-    : bootstrap.packets[0];
-  const [packet, setPacket] = useState(initial?.id || "");
-  const [facility, setFacility] = useState(
-    workspace === "all" ? bootstrap.facilities[0]?.id || "" : workspace,
-  );
-  const [stress, setStress] = useState(
-    Boolean(initial?.stress_available) && stressDefault,
-  );
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const idempotency = useRef(key());
-  const selected = bootstrap.packets.find((item) => item.id === packet);
-  const reason = busy
-    ? "The case request is in progress. Do not resubmit."
-    : !canCreate
-      ? "Switch to the operator or admin demo role to create cases."
-      : count >= bootstrap.limits.max_cases
-        ? `This session has reached its ${bootstrap.limits.max_cases}-case limit. Start a new session in Settings.`
-        : !packet || !facility
-          ? "Select an available packet and synthetic desk."
-          : "";
-  const submit = async () => {
-    if (reason) return;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await api<{
-        case: CaseSummary;
-        created: boolean;
-        job_id: string;
-      }>("/cases", {
-        packet_id: packet,
-        facility_id: facility,
-        stress,
-        idempotency_key: idempotency.current,
-      });
-      done(response.case.id);
-    } catch (cause) {
-      const text = message(cause);
-      setError(
-        `${text} Check the case register before retrying. The same submission identifier is retained.`,
-      );
-      failed(text);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <Dialog title="New verification case" onClose={close}>
-      <div className="new-case-body">
-        <div className="eyebrow">SYNTHETIC INPUT ONLY</div>
-        <p>
-          Choose a preloaded discharge packet. The worker runs the actual
-          Strands Graph, tools and lifecycle safety gate.
-        </p>
-        <label>
-          Discharge packet
-          <select
-            aria-label="Discharge packet"
-            value={packet}
-            disabled={busy}
-            onChange={(event) => {
-              const next = bootstrap.packets.find(
-                (item) => item.id === event.target.value,
-              );
-              setPacket(event.target.value);
-              setStress(Boolean(next?.stress_available));
-              idempotency.current = key();
-            }}
-          >
-            {bootstrap.packets.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="packet-preview">
-          <Icon name="cases" />
-          <div>
-            <strong>{selected?.title}</strong>
-            <p>{selected?.summary}</p>
-          </div>
-        </div>
-        <label>
-          Synthetic operations desk
-          <select
-            aria-label="Synthetic operations desk"
-            value={facility}
-            disabled={busy}
-            onChange={(event) => {
-              setFacility(event.target.value);
-              idempotency.current = key();
-            }}
-          >
-            {bootstrap.facilities.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.city} · {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="check-field">
-          <input
-            type="checkbox"
-            checked={stress}
-            disabled={busy || !selected?.stress_available}
-            onChange={(event) => {
-              setStress(event.target.checked);
-              idempotency.current = key();
-            }}
-          />
-          <span>
-            <strong>Deliberate dosage mutation stress test</strong>
-            <span>
-              Inject a changed candidate dose. The gate must refuse it and route
-              a correction. The source remains unchanged.
-            </span>
-          </span>
-        </label>
-        {!selected?.stress_available ? (
-          <p className="control-reason">
-            The dosage mutation stress test is available only for the designated
-            stress packet. Select that packet to enable it.
-          </p>
-        ) : null}
-        {error ? (
-          <div className="inline-alert" role="alert">
-            {error}
-          </div>
-        ) : null}
-        <button
-          className="button full"
-          disabled={Boolean(reason)}
-          onClick={() => void submit()}
-          data-testid="start-verification"
-        >
-          <Icon name={busy ? "refresh" : "shield"} />
-          {busy ? "Creating case..." : "Start verification"}
-        </button>
-        <p className="control-reason">
-          {reason ||
-            "Creates one real queued job in your anonymous session. No clinical data upload."}
-        </p>
-      </div>
-    </Dialog>
   );
 }
