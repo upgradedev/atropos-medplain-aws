@@ -46,6 +46,13 @@ def test_unknown_packet_and_private_uploads_rejected(client):
                        headers={"content-type": "application/json"}).status_code == 413
 
 
+def test_explicit_stress_checkbox_can_be_turned_off(client):
+    response = client.post("/api/explain", json={"packet_id": "dosage-mutation-stress", "stress": False})
+    assert response.status_code == 200
+    assert response.json()["status"] == "verified"
+    assert response.json()["correction_count"] == 0
+
+
 def test_model_outage_never_publishes_unchecked_text(client, monkeypatch):
     import medplain.engine
 

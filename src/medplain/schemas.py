@@ -81,7 +81,7 @@ class GateVerdict(Contract):
 
 class ExplainRequest(Contract):
     packet_id: str = Field(min_length=1, max_length=80)
-    stress: bool = False
+    stress: bool | None = None
 
 
 class ReceiptVerificationRequest(Contract):

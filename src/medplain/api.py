@@ -111,7 +111,8 @@ async def explain(body: ExplainRequest):
         from medplain.engine import run_packet
 
         result = await run_in_threadpool(
-            run_packet, packet, session_id, model_mode=mode, stress=body.stress or packet.adversarial,
+            run_packet, packet, session_id, model_mode=mode,
+            stress=packet.adversarial if body.stress is None else body.stress,
         )
         if result.get("status") not in {"verified", "refused"} or result.get("session_id") != session_id:
             raise ValueError("Workflow result does not belong to this request")
