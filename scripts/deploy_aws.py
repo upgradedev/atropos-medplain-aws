@@ -51,7 +51,8 @@ def deploy(args: argparse.Namespace) -> dict:
         "account": args.account, "region": args.region, "function": args.function,
         "runtime_role": role_name, "model_mode": args.model_mode, "model_id": args.model_id,
         "commit": args.commit, "package_sha256": digest,
-        "public_url": True, "reserved_concurrency": 2,
+        "public_url": True, "reserved_concurrency": 2, "timeout_seconds": 180,
+        "log_retention_days": 7,
     }
     if not args.apply:
         return {"status": "plan", **plan}
@@ -81,7 +82,7 @@ def deploy(args: argparse.Namespace) -> dict:
                 cli(args, "lambda", "create-function", "--function-name", args.function,
                     "--runtime", "python3.12", "--handler", "medplain.api.handler",
                     "--role", role["Role"]["Arn"], "--zip-file", f"fileb://{args.package.resolve()}",
-                    "--timeout", "90", "--memory-size", "768", "--environment", environment,
+                    "--timeout", "180", "--memory-size", "768", "--environment", environment,
                     "--tags", f"Project={PROJECT}")
                 break
             except RuntimeError as exc:
@@ -91,9 +92,14 @@ def deploy(args: argparse.Namespace) -> dict:
     else:
         cli(args, "lambda", "update-function-code", "--function-name", args.function, "--zip-file", f"fileb://{args.package.resolve()}")
         cli(args, "lambda", "wait", "function-updated", "--function-name", args.function)
-        cli(args, "lambda", "update-function-configuration", "--function-name", args.function, "--environment", environment, "--timeout", "90", "--memory-size", "768")
+        cli(args, "lambda", "update-function-configuration", "--function-name", args.function, "--environment", environment, "--timeout", "180", "--memory-size", "768")
         cli(args, "lambda", "wait", "function-updated", "--function-name", args.function)
     cli(args, "lambda", "wait", "function-active-v2", "--function-name", args.function)
+    log_group = f"/aws/lambda/{args.function}"
+    log_groups = cli(args, "logs", "describe-log-groups", "--log-group-name-prefix", log_group)
+    if not any(group["logGroupName"] == log_group for group in log_groups.get("logGroups", [])):
+        cli(args, "logs", "create-log-group", "--log-group-name", log_group, "--tags", f"Project={PROJECT}")
+    cli(args, "logs", "put-retention-policy", "--log-group-name", log_group, "--retention-in-days", "7")
     cli(args, "lambda", "put-function-concurrency", "--function-name", args.function, "--reserved-concurrent-executions", "2")
     url_config = cli(args, "lambda", "get-function-url-config", "--function-name", args.function, missing="ResourceNotFoundException")
     if url_config is None:
