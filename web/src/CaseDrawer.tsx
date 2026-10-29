@@ -183,7 +183,8 @@ export default function CaseDrawer({
     setTab("Source");
     window.requestAnimationFrame(() => {
       const element = document.getElementById(sourceElementId(sourceId));
-      element?.scrollIntoView({ block: "nearest" }); element?.focus();
+      element?.scrollIntoView({ block: "nearest" });
+      element?.focus();
     });
   };
   const reviewReason = !data
@@ -294,7 +295,16 @@ export default function CaseDrawer({
               {duration(data.duration_ms)} · {data.correction_count} corrections
             </p>
           </div>
-          {reconciliation ? <div className="regimen-withheld" role="status"><strong>Medication regimen withheld</strong><p>This case can produce a source-cited clarification card only. Verification or review never authorizes a new prescription or resolves a conflicting dose.</p></div> : null}
+          {reconciliation ? (
+            <div className="regimen-withheld" role="status">
+              <strong>Medication regimen withheld</strong>
+              <p>
+                This case can produce a source-cited clarification card only.
+                Verification or review never authorizes a new prescription or
+                resolves a conflicting dose.
+              </p>
+            </div>
+          ) : null}
           {pollPaused ? (
             <div className="inline-alert">
               Automatic polling paused after four minutes. The job may still be
@@ -333,7 +343,9 @@ export default function CaseDrawer({
                   }
                 }}
               >
-                {reconciliation && item === "Explanation" ? "Clarification" : item}
+                {reconciliation && item === "Explanation"
+                  ? "Clarification"
+                  : item}
                 {item === "Receipt" && data.result ? (
                   <span>{data.result.receipts.length}</span>
                 ) : null}
@@ -348,11 +360,38 @@ export default function CaseDrawer({
           >
             {tab === "Source" ? <SourceEvidence data={data} /> : null}
             {tab === "Explanation" ? (
-              reconciliation ? data.result?.status === "verified" && data.result.artifact ? <>
-                <div className="notice">{data.status === "released" ? "Released clarification card. Medication decisions remain with the care team." : "Internal clarification preview. Sharing requires review of this exact source, artifact and version."}</div>
-                <ReadingControls text={data.status === "released" ? data.result.explanation_text : null} language={data.result.artifact.language} unavailableReason="Device voice is available only after the clarification card is released." />
-                <ClarificationView artifact={data.result.artifact} onSource={openSource} />
-              </> : <State kind={isActive(data.status) ? "loading" : "empty"} title="No verified clarification card">The medication regimen remains withheld. Unchecked proposals are not shown as patient instructions.</State> : data.result?.explanation ? (
+              reconciliation ? (
+                data.result?.status === "verified" && data.result.artifact ? (
+                  <>
+                    <div className="notice">
+                      {data.status === "released"
+                        ? "Released clarification card. Medication decisions remain with the care team."
+                        : "Internal clarification preview. Sharing requires review of this exact source, artifact and version."}
+                    </div>
+                    <ReadingControls
+                      text={
+                        data.status === "released"
+                          ? data.result.explanation_text
+                          : null
+                      }
+                      language={data.result.artifact.language}
+                      unavailableReason="Device voice is available only after the clarification card is released."
+                    />
+                    <ClarificationView
+                      artifact={data.result.artifact}
+                      onSource={openSource}
+                    />
+                  </>
+                ) : (
+                  <State
+                    kind={isActive(data.status) ? "loading" : "empty"}
+                    title="No verified clarification card"
+                  >
+                    The medication regimen remains withheld. Unchecked proposals
+                    are not shown as patient instructions.
+                  </State>
+                )
+              ) : data.result?.explanation ? (
                 <>
                   <div
                     className={`notice ${data.status === "released" ? "notice-success" : ""}`}
@@ -361,7 +400,13 @@ export default function CaseDrawer({
                       ? "Released patient artifact. Source fidelity passed."
                       : "Internal preview only. Patient sharing is withheld until an authorized review releases this exact artifact."}
                   </div>
-                  <ReadingControls text={data.status === "released" ? data.result.explanation_text : null} />
+                  <ReadingControls
+                    text={
+                      data.status === "released"
+                        ? data.result.explanation_text
+                        : null
+                    }
+                  />
                   <ExplanationView explanation={data.result.explanation} />
                 </>
               ) : (
@@ -376,11 +421,17 @@ export default function CaseDrawer({
             {tab === "Safety" ? (
               <>
                 <div className="section-heading">
-                  <h3>{reconciliation ? "Clarification integrity gate" : "Atropos deterministic safety gate"}</h3>
+                  <h3>
+                    {reconciliation
+                      ? "Clarification integrity gate"
+                      : "Atropos deterministic safety gate"}
+                  </h3>
                   <Badge status={data.result?.status || "pending"} />
                 </div>
                 <p className="muted">
-                  {reconciliation ? "Source quotations, clinical fields, document hashes and question citations must match the captured packet. Verified integrity does not resolve a prescription. The patient regimen is always null." : "Medication identity, dose, mg/mcg/mL, frequency, stop status, labs and constrained patient text must match the source."}
+                  {reconciliation
+                    ? "Source quotations, clinical fields, document hashes and question citations must match the captured packet. Verified integrity does not resolve a prescription. The patient regimen is always null."
+                    : "Medication identity, dose, mg/mcg/mL, frequency, stop status, labs and constrained patient text must match the source."}
                 </p>
                 {reconciliation ? <ReferencePanel /> : null}
                 {data.result?.receipts.length ? (
@@ -547,7 +598,11 @@ export default function CaseDrawer({
             ) : null}
           </div>
           <section className="review-panel">
-            <h3>{reconciliation ? "Clarification release control" : "Release control"}</h3>
+            <h3>
+              {reconciliation
+                ? "Clarification release control"
+                : "Release control"}
+            </h3>
             <p>
               Decisions bind the exact version, source hash and artifact hash. A
               failed safety gate cannot be overridden.
@@ -582,7 +637,9 @@ export default function CaseDrawer({
                       )
                     }
                   >
-                    {reconciliation ? "Release clarification card" : "Release patient artifact"}
+                    {reconciliation
+                      ? "Release clarification card"
+                      : "Release patient artifact"}
                   </button>
                   <button
                     className="button danger"
@@ -601,7 +658,9 @@ export default function CaseDrawer({
                       )
                     }
                   >
-                    {reconciliation ? "Reject clarification card" : "Reject artifact"}
+                    {reconciliation
+                      ? "Reject clarification card"
+                      : "Reject artifact"}
                   </button>
                 </div>
                 <p className="control-reason">
@@ -614,7 +673,9 @@ export default function CaseDrawer({
             ) : (
               <p className="muted">
                 {data.status === "released"
-                  ? reconciliation ? "This clarification card is released. No medication regimen has been authorized." : "This artifact is released."
+                  ? reconciliation
+                    ? "This clarification card is released. No medication regimen has been authorized."
+                    : "This artifact is released."
                   : "No reviewable artifact is available in this state."}
               </p>
             )}
@@ -661,11 +722,45 @@ export default function CaseDrawer({
               </p>
             )}
           </section>
-          {reconciliation && isReconciliationDossier(data.source) && onRevise ? <section className="review-panel">
-            <h3>Clarified source revision</h3><p>Record any care-team clarification in the original source documents, then create a new case and reverify. There is no local resolve switch and the earlier source is not overwritten.</p>
-            <button type="button" className="button secondary" data-testid="revise-reconciliation" disabled={busy || !canRetry || Boolean(error) || isActive(data.status)} onClick={() => onRevise(structuredClone(data.source as ReconciliationDossier), data.id)}>Revise sources and reverify</button>
-            <p className="control-reason">{busy ? "An action is in progress." : !canRetry ? "Switch to the operator or admin demo role to revise sources." : error ? "Read fresh case facts before preparing a revision." : isActive(data.status) ? "Wait for this verification to finish before preparing a source revision." : "Opens the captured documents as a new revision. Submission creates one new case linked to this case."}</p>
-          </section> : null}
+          {reconciliation &&
+          isReconciliationDossier(data.source) &&
+          onRevise ? (
+            <section className="review-panel">
+              <h3>Clarified source revision</h3>
+              <p>
+                Record any care-team clarification in the original source
+                documents, then create a new case and reverify. There is no
+                local resolve switch and the earlier source is not overwritten.
+              </p>
+              <button
+                type="button"
+                className="button secondary"
+                data-testid="revise-reconciliation"
+                disabled={
+                  busy || !canRetry || Boolean(error) || isActive(data.status)
+                }
+                onClick={() =>
+                  onRevise(
+                    structuredClone(data.source as ReconciliationDossier),
+                    data.id,
+                  )
+                }
+              >
+                Revise sources and reverify
+              </button>
+              <p className="control-reason">
+                {busy
+                  ? "An action is in progress."
+                  : !canRetry
+                    ? "Switch to the operator or admin demo role to revise sources."
+                    : error
+                      ? "Read fresh case facts before preparing a revision."
+                      : isActive(data.status)
+                        ? "Wait for this verification to finish before preparing a source revision."
+                        : "Opens the captured documents as a new revision. Submission creates one new case linked to this case."}
+              </p>
+            </section>
+          ) : null}
         </>
       )}
     </Dialog>
