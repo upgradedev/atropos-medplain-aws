@@ -29,7 +29,8 @@ export default function Overview({
   if (loading && !data)
     return (
       <State kind="loading" title="Reading session activity">
-        Reading persisted prepared examples and new runs in this synthetic session.
+        Reading persisted prepared examples and new runs in this synthetic
+        session.
       </State>
     );
   if (!data)
@@ -45,14 +46,18 @@ export default function Overview({
       label: "Cases in session",
       value: data.counts.total,
       status: "",
-      note: data.origin_counts ? `${data.origin_counts.prepared_demo} prepared · ${data.origin_counts.live_run} new runs` : "Synthetic packets only",
+      note: data.origin_counts
+        ? `${data.origin_counts.prepared_demo} prepared · ${data.origin_counts.live_run} new runs`
+        : "Synthetic packets only",
       tone: "neutral",
     },
     {
       label: "Released",
       value: data.counts.released,
       status: "released",
-      note: data.origin_counts?.prepared_demo ? "Includes prepared examples" : "Verified patient artifacts",
+      note: data.origin_counts?.prepared_demo
+        ? "Includes prepared examples"
+        : "Verified patient artifacts",
       tone: "success",
     },
     {
@@ -149,7 +154,10 @@ export default function Overview({
             </div>
             <span className="subtle-tag">n = {data.counts.total}</span>
           </div>
-          <p className="chart-scope">Persisted case states, including clearly labelled prepared examples. These counts are not measured clinical outcomes.</p>
+          <p className="chart-scope">
+            Persisted case states, including clearly labelled prepared examples.
+            These counts are not measured clinical outcomes.
+          </p>
           {totalOutcomes === 0 ? (
             <State kind="empty" title="No outcomes yet">
               Create a case to populate this chart.
@@ -197,15 +205,65 @@ export default function Overview({
         </section>
         <section className="card chart-card" data-testid="desk-load-chart">
           <div className="section-heading">
-            <div><div className="eyebrow">CURRENT COLLECTION</div><h2>Cases by synthetic desk</h2></div>
+            <div>
+              <div className="eyebrow">CURRENT COLLECTION</div>
+              <h2>Cases by synthetic desk</h2>
+            </div>
             <span className="subtle-tag">{deskLoad.length} desks</span>
           </div>
-          <p className="chart-scope">Counts of persisted cases in this view, including prepared examples. Select a desk to open its register.</p>
-          {deskLoad.length ? <div className="outcome-bars" role="group" aria-label="Case counts by synthetic desk">{deskLoad.map((row) => <button className="bar-row" key={row.facility_id} onClick={() => drillDesk(row.facility_id)}><span>{row.city}</span><svg viewBox="0 0 200 20" preserveAspectRatio="none" aria-hidden="true"><rect width="200" height="12" y="4" rx="4" className="bar-track"/><rect width={row.count / maxDeskLoad * 200} height="12" y="4" rx="4" className="bar-fill"/></svg><strong>{row.count}</strong></button>)}</div> : <State kind="empty" title="No desk counts available">The summary has not returned facility counts.</State>}
+          <p className="chart-scope">
+            Counts of persisted cases in this view, including prepared examples.
+            Select a desk to open its register.
+          </p>
+          {deskLoad.length ? (
+            <div
+              className="outcome-bars"
+              role="group"
+              aria-label="Case counts by synthetic desk"
+            >
+              {deskLoad.map((row) => (
+                <button
+                  className="bar-row"
+                  key={row.facility_id}
+                  onClick={() => drillDesk(row.facility_id)}
+                >
+                  <span>{row.city}</span>
+                  <svg
+                    viewBox="0 0 200 20"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <rect
+                      width="200"
+                      height="12"
+                      y="4"
+                      rx="4"
+                      className="bar-track"
+                    />
+                    <rect
+                      width={(row.count / maxDeskLoad) * 200}
+                      height="12"
+                      y="4"
+                      rx="4"
+                      className="bar-fill"
+                    />
+                  </svg>
+                  <strong>{row.count}</strong>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <State kind="empty" title="No desk counts available">
+              The summary has not returned facility counts.
+            </State>
+          )}
         </section>
       </div>
       {data.durations.length ? (
-        <section className="card chart-card live-duration-panel" data-testid="live-duration-chart">
+        <section
+          className="card chart-card live-duration-panel"
+          data-testid="live-duration-chart"
+        >
           <div className="section-heading">
             <div>
               <div className="eyebrow">MEASURED NEW RUNS ONLY</div>
@@ -213,7 +271,11 @@ export default function Overview({
             </div>
             <span className="subtle-tag">Seconds</span>
           </div>
-          <p className="chart-scope">Actual completed worker timings from new verification runs. Prepared example durations are excluded; the run model is recorded in each case.</p>
+          <p className="chart-scope">
+            Actual completed worker timings from new verification runs. Prepared
+            example durations are excluded; the run model is recorded in each
+            case.
+          </p>
           {data.durations.length === 0 ? (
             <State kind="empty" title="No completed durations">
               A completed worker run records its measured duration.
@@ -268,7 +330,29 @@ export default function Overview({
             </div>
           )}
         </section>
-      ) : <section className="card new-run-callout"><div><strong>Run a new verification to measure its duration.</strong><p>Prepared examples populate the workflow without running Bedrock. They contribute no invented processing times.</p></div><button className="button secondary" onClick={create} disabled={!canCreate}>Run a new case</button>{!canCreate ? <p className="control-reason">Switch to operator or admin to start a new run.</p> : null}</section>}
+      ) : (
+        <section className="card new-run-callout">
+          <div>
+            <strong>Run a new verification to measure its duration.</strong>
+            <p>
+              Prepared examples populate the workflow without running Bedrock.
+              They contribute no invented processing times.
+            </p>
+          </div>
+          <button
+            className="button secondary"
+            onClick={create}
+            disabled={!canCreate}
+          >
+            Run a new case
+          </button>
+          {!canCreate ? (
+            <p className="control-reason">
+              Switch to operator or admin to start a new run.
+            </p>
+          ) : null}
+        </section>
+      )}
       <section className="card guard-note">
         <Icon name="shield" />
         <div>

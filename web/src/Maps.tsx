@@ -162,7 +162,12 @@ export default function Maps({
                   <option value="">Architecture only</option>
                   {cases.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.origin === "prepared_demo" ? "Prepared example" : item.origin === "live_run" ? "New run" : "Origin unrecorded"}: {item.packet_title} · {item.id.slice(0, 6)}
+                      {item.origin === "prepared_demo"
+                        ? "Prepared example"
+                        : item.origin === "live_run"
+                          ? "New run"
+                          : "Origin unrecorded"}
+                      : {item.packet_title} · {item.id.slice(0, 6)}
                     </option>
                   ))}
                 </select>
@@ -245,7 +250,9 @@ export default function Maps({
                       {detail?.result?.trace.some((entry) =>
                         (entry.agent || entry.node || "").includes(item.id),
                       )
-                        ? detail.origin === "prepared_demo" ? "Prepared example evidence" : "Recorded in selected case"
+                        ? detail.origin === "prepared_demo"
+                          ? "Prepared example evidence"
+                          : "Recorded in selected case"
                         : caseId
                           ? "Inspect evidence below"
                           : "Select to inspect"}
@@ -260,7 +267,22 @@ export default function Maps({
             <h2>{selected.title}</h2>
             <p className="mono break">{selected.id}</p>
             <p>{selected.tool}</p>
-            {detail ? <div className="map-case-origin"><OriginBadge origin={detail.origin} /><p>{detail.origin === "prepared_demo" ? "Prepared offline fixture trace. It illustrates this saved example and is not a fresh Bedrock execution." : detail.origin === "live_run" ? detail.result?.model_mode === "bedrock" ? "Recorded evidence from a new Amazon Bedrock run." : detail.result?.model_mode === "fixture" ? "Recorded evidence from a new offline fixture run." : "New run; model evidence is not available yet." : "This legacy record has no recorded origin."}</p></div> : null}
+            {detail ? (
+              <div className="map-case-origin">
+                <OriginBadge origin={detail.origin} />
+                <p>
+                  {detail.origin === "prepared_demo"
+                    ? "Prepared offline fixture trace. It illustrates this saved example and is not a fresh Bedrock execution."
+                    : detail.origin === "live_run"
+                      ? detail.result?.model_mode === "bedrock"
+                        ? "Recorded evidence from a new Amazon Bedrock run."
+                        : detail.result?.model_mode === "fixture"
+                          ? "Recorded evidence from a new offline fixture run."
+                          : "New run; model evidence is not available yet."
+                      : "This legacy record has no recorded origin."}
+                </p>
+              </div>
+            ) : null}
             {detailError ? (
               <p role="alert" className="warning-text">
                 {detailError}

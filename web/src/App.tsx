@@ -7,7 +7,15 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { api, boot, changeRole, key, loadExamples, message, newSession } from "./api";
+import {
+  api,
+  boot,
+  changeRole,
+  key,
+  loadExamples,
+  message,
+  newSession,
+} from "./api";
 import {
   clock,
   isActive,
@@ -295,7 +303,11 @@ function Console() {
         status: "",
         caseId: "",
       });
-      toast(preparedDemo ? "Opened a populated synthetic demo. Prepared examples are labelled; no Bedrock calls were made to populate it." : "Started an empty session. It will stay empty until you create a case or load examples.");
+      toast(
+        preparedDemo
+          ? "Opened a populated synthetic demo. Prepared examples are labelled; no Bedrock calls were made to populate it."
+          : "Started an empty session. It will stay empty until you create a case or load examples.",
+      );
     } catch (reason) {
       toast(message(reason), true);
     } finally {
@@ -308,7 +320,9 @@ function Console() {
       const data = await loadExamples();
       setBootstrap(data);
       refresh();
-      toast("Prepared examples loaded without running Bedrock. Loading again does not duplicate them.");
+      toast(
+        "Prepared examples loaded without running Bedrock. Loading again does not duplicate them.",
+      );
     } catch (reason) {
       toast(message(reason), true);
     } finally {
@@ -581,12 +595,50 @@ function Console() {
           <span className="demo-role">{label(role)} lens</span>
         </div>
         <main id="main" className="page-content">
-          {bootstrap.collection?.mode === "prepared_demo" || (overview?.origin_counts?.prepared_demo || 0) > 0 ? (
-            <section className="prepared-notice collection-notice" data-testid="prepared-demo-notice">
+          {bootstrap.collection?.mode === "prepared_demo" ||
+          (overview?.origin_counts?.prepared_demo || 0) > 0 ? (
+            <section
+              className="prepared-notice collection-notice"
+              data-testid="prepared-demo-notice"
+            >
               <Icon name="cases" />
-              <div><strong>Prepared examples and new verification runs</strong><p>Prepared examples use offline fixture records, not fresh Bedrock runs. Each case shows its origin. {bootstrap.runtime.model_mode === "bedrock" ? "New case runs a new Strands verification using Amazon Bedrock." : "New case runs a new Strands verification using the configured offline fixture model."}</p>{overview?.origin_counts ? <p className="collection-counts">Current view: {overview.origin_counts.prepared_demo} prepared examples · {overview.origin_counts.live_run} new runs{overview.origin_counts.unknown ? ` · ${overview.origin_counts.unknown} with unrecorded origin` : ""}</p> : <p className="collection-counts">Reading the current collection counts.</p>}</div>
+              <div>
+                <strong>Prepared examples and new verification runs</strong>
+                <p>
+                  Prepared examples use offline fixture records, not fresh
+                  Bedrock runs. Each case shows its origin.{" "}
+                  {bootstrap.runtime.model_mode === "bedrock"
+                    ? "New case runs a new Strands verification using Amazon Bedrock."
+                    : "New case runs a new Strands verification using the configured offline fixture model."}
+                </p>
+                {overview?.origin_counts ? (
+                  <p className="collection-counts">
+                    Current view: {overview.origin_counts.prepared_demo}{" "}
+                    prepared examples · {overview.origin_counts.live_run} new
+                    runs
+                    {overview.origin_counts.unknown
+                      ? ` · ${overview.origin_counts.unknown} with unrecorded origin`
+                      : ""}
+                  </p>
+                ) : (
+                  <p className="collection-counts">
+                    Reading the current collection counts.
+                  </p>
+                )}
+              </div>
             </section>
-          ) : bootstrap.collection?.initialized ? <section className="empty-collection-note" data-testid="empty-session-notice"><strong>Fresh session without prepared examples</strong><p>Prepared examples will not load automatically. Create a new case, or choose Load examples in Settings.</p></section> : null}
+          ) : bootstrap.collection?.initialized ? (
+            <section
+              className="empty-collection-note"
+              data-testid="empty-session-notice"
+            >
+              <strong>Fresh session without prepared examples</strong>
+              <p>
+                Prepared examples will not load automatically. Create a new
+                case, or choose Load examples in Settings.
+              </p>
+            </section>
+          ) : null}
           {active && pollCount.current >= 120 ? (
             <div className="notice" role="status">
               Automatic activity polling has paused after five minutes. Jobs
@@ -811,7 +863,7 @@ function Console() {
                             >
                               <strong>{item.packet_title}</strong>
                               <Badge status={item.status} />
-                                <OriginBadge origin={item.origin} />
+                              <OriginBadge origin={item.origin} />
                               <span>
                                 {clock(item.updated_at)}
                                 <Icon name="arrow" />
@@ -915,17 +967,44 @@ function Console() {
                       </dd>
                     </div>
                   </dl>
-                    <div className="action-row session-actions">
-                      <button className="button secondary" data-testid="open-populated-demo" onClick={() => void resetSession(true)} disabled={sessionBusy}>Open populated demo</button>
-                      <button className="button secondary" data-testid="start-empty-session" onClick={() => void resetSession(false)} disabled={sessionBusy}>Start empty session</button>
-                    </div>
+                  <div className="action-row session-actions">
+                    <button
+                      className="button secondary"
+                      data-testid="open-populated-demo"
+                      onClick={() => void resetSession(true)}
+                      disabled={sessionBusy}
+                    >
+                      Open populated demo
+                    </button>
+                    <button
+                      className="button secondary"
+                      data-testid="start-empty-session"
+                      onClick={() => void resetSession(false)}
+                      disabled={sessionBusy}
+                    >
+                      Start empty session
+                    </button>
+                  </div>
                   <p className="control-reason">
                     {sessionBusy
                       ? "A session request is in progress."
-                        : "These actions create a new session with prepared examples or an explicitly empty collection. Previous records expire after 24 hours. The daily job limit stays shared across sessions; it is not an AWS spend cap."}
+                      : "These actions create a new session with prepared examples or an explicitly empty collection. Previous records expire after 24 hours. The daily job limit stays shared across sessions; it is not an AWS spend cap."}
                   </p>
-                    <button className="button secondary" data-testid="load-demo-examples" onClick={() => void loadPreparedExamples()} disabled={sessionBusy || !canCreate}>Load examples</button>
-                    <p className="control-reason">{sessionBusy ? "A session request is in progress." : !canCreate ? "Switch to operator or admin to add prepared examples." : "Adds prepared examples once to this session without running Bedrock. Repeating this action does not duplicate them. Existing new runs remain; the session case limit still applies."}</p>
+                  <button
+                    className="button secondary"
+                    data-testid="load-demo-examples"
+                    onClick={() => void loadPreparedExamples()}
+                    disabled={sessionBusy || !canCreate}
+                  >
+                    Load examples
+                  </button>
+                  <p className="control-reason">
+                    {sessionBusy
+                      ? "A session request is in progress."
+                      : !canCreate
+                        ? "Switch to operator or admin to add prepared examples."
+                        : "Adds prepared examples once to this session without running Bedrock. Repeating this action does not duplicate them. Existing new runs remain; the session case limit still applies."}
+                  </p>
                 </section>
                 <section className="card settings-card">
                   <div className="eyebrow">LIVE RUNTIME CONFIGURATION</div>
