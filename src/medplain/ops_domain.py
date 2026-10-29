@@ -46,10 +46,10 @@ def utc_now() -> str:
 
 
 def commit() -> str:
-    if os.getenv("MEDPLAIN_COMMIT"):
-        return os.environ["MEDPLAIN_COMMIT"]
     build = Path(__file__).parent / "_build.json"
-    return json.loads(build.read_text())["commit"] if build.exists() else "development"
+    if build.exists():
+        return json.loads(build.read_text())["commit"]
+    return os.getenv("MEDPLAIN_COMMIT") or "development"
 
 
 def event(kind: str, message: str) -> dict:

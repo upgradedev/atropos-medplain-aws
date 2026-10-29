@@ -349,3 +349,19 @@ def test_retry_duplicate_does_not_consume_daily_allowance(cohort, monkeypatch):
     svc.retry(pk, session, case["id"], failed["version"], "bounded-retry")
     assert not svc.retry(pk, session, case["id"], failed["version"], "bounded-retry")[1]
     assert svc.store.rows[(daily_allowance()[0], "JOBS")]["used"] == 2
+
+
+def test_packaged_commit_precedes_environment_and_source_only_fallback(tmp_path, monkeypatch):
+    import json
+
+    import medplain.ops_domain as module
+
+    monkeypatch.setattr(module, "__file__", str(tmp_path / "ops_domain.py"))
+    monkeypatch.setenv("MEDPLAIN_COMMIT", "environment-new-code")
+    assert module.commit() == "environment-new-code"
+    (tmp_path / "_build.json").write_text(json.dumps({"commit": "packaged-old-code"}), encoding="utf-8")
+    assert module.commit() == "packaged-old-code"
+    monkeypatch.delenv("MEDPLAIN_COMMIT")
+    assert module.commit() == "packaged-old-code"
+    (tmp_path / "_build.json").unlink()
+    assert module.commit() == "development"
