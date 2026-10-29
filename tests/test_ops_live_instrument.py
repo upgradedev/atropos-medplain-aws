@@ -181,7 +181,7 @@ def test_stale_worker_commit_fails_and_matching_commit_passes(instrument):
 
 def test_publication_smoke_actually_rejects_stale_worker(instrument, monkeypatch):
     case = case_fixture("home-after-pneumonia")
-    case["status"] = "released"
+    case.update(status="released", origin="live_run", duration_ms=10)
     case["result"]["commit"] = "old-worker-code"
 
     class InstrumentClient:
@@ -207,6 +207,8 @@ def test_publication_smoke_actually_rejects_stale_worker(instrument, monkeypatch
                 return {}
             if path == "/api/ops/cases":
                 return {"case": {"id": case["id"]}, "created": False}
+            if path == "/api/ops/cases?limit=20":
+                return {"total": 0}
             if path.startswith("/api/ops/cases/"):
                 assert self.index == 1 and expected == 404
                 return {}

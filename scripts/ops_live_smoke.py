@@ -44,8 +44,10 @@ class Client:
             raise AssertionError(f"{path.split('?')[0]} expected HTTP {expected}, received {status}")
         return value
 
-    def session(self):
-        session = self.call("/api/ops/session", {}, expected=201)
+    def session(self, prepared_demo: bool = False):
+        # Live worker checks must start empty even when the browser defaults to
+        # prepared examples. This never substitutes prepared fixture results.
+        session = self.call("/api/ops/session", {"prepared_demo": prepared_demo}, expected=201)
         self.token = session["session_token"]
         if session["demo"] is not True or session["role"] != "operator":
             raise AssertionError("new session must be an explicitly synthetic operator lens")
@@ -156,6 +158,8 @@ def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) ->
     if not allow_fixture and health.get("model_mode") != "bedrock":
         raise AssertionError("live operations must use actual Bedrock inference")
     client.session()
+    if client.call("/api/ops/cases?limit=20")["total"] != 0:
+        raise AssertionError("live inference proof must begin with an explicitly empty session")
     boot = client.call("/api/ops/bootstrap")
     if len(boot["facilities"]) != 3 or not all(item["synthetic"] for item in boot["facilities"]):
         raise AssertionError("geographic facilities must be explicit synthetic demonstration points")
@@ -182,6 +186,8 @@ def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) ->
             raise AssertionError("command idempotency created a duplicate case")
         another.call(f"/api/ops/cases/{case_id}", expected=404)
         case = wait_case(client, case_id)
+        if case.get("origin") != "live_run" or case.get("duration_ms") is None:
+            raise AssertionError("a fresh worker execution must carry live provenance and a measured duration")
         if case["status"] not in {"review_required", "released"}:
             raise AssertionError(f"{packet['id']}: durable processing failed instead of producing verified evidence")
         result = validate_artifact(case)
@@ -215,6 +221,8 @@ def smoke(url: str, expected_commit: str | None, allow_fixture: bool = False) ->
             raise AssertionError("authorized review did not produce a public patient view")
         share_id = case["patient_url"].rstrip("/").split("/")[-1]
         public = Client(url).call("/api/ops/patient/" + share_id)
+        if public["case"].get("origin") != "live_run":
+            raise AssertionError("public patient view lost its live execution provenance")
         if public["case"].get("artifact_hash") != case["artifact_hash"]:
             raise AssertionError("public release did not retain the approved artifact")
         validate_artifact({**public["case"], "source": public["source"], "result": public["result"]})
