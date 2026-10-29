@@ -40,7 +40,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     intake.locator('input[type="checkbox"]').check()
     with page.expect_response(lambda res: res.url.endswith("/api/ops/cases") and res.request.method == "POST") as created:
         intake.get_by_test_id("start-verification").click()
-    assert created.value.status in {200, 201, 202}
+    assert created.value.status == 202
     case_id = created.value.json()["case"]["id"]
     drawer = page.get_by_role("dialog", name="Case details", exact=True)
     expect(drawer).to_be_visible()

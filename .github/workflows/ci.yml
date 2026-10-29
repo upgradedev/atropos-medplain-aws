@@ -38,8 +38,8 @@ jobs:
           node-version: '22'
       - name: Scan tracked source for secrets and prohibited punctuation
         run: python scripts/check_source.py
-      - name: Format console sources for review in CI
-        run: npx --yes prettier@3.5.3 --write 'web/**/*.{ts,tsx,css,js,cjs,json,html}'
+      - name: Check console source formatting
+        run: npx --yes prettier@3.5.3 --check 'web/**/*.{ts,tsx,css,js,cjs,json,html}'
       - name: Publish formatted console sources
         uses: actions/upload-artifact@v4
         with:
@@ -95,7 +95,7 @@ jobs:
         if: ${{ inputs.judge_url != '' }}
         env:
           JUDGE_URL: ${{ inputs.judge_url }}
-        run: python scripts/ops_live_smoke.py "$JUDGE_URL" --output artifacts/live-ops.json
+        run: python scripts/ops_live_smoke.py "$JUDGE_URL" --expected-commit "$GITHUB_SHA" --output artifacts/live-ops.json
       - name: Verify deployed console desktop and mobile journeys
         if: ${{ inputs.judge_url != '' }}
         env:
