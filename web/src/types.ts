@@ -133,7 +133,10 @@ export interface StructuralIssue {
   question_code: string;
   question_text: string;
   requires_clarification: boolean;
-  classification: "structural_check";
+  classification: "structural_check" | "selected_label_reference";
+  reference_ids?: string[];
+  selected_pair?: string[];
+  scope?: string;
 }
 export interface ContextQuestion {
   code: string;
@@ -153,6 +156,7 @@ export interface ClarificationArtifact {
   structural_issues: StructuralIssue[];
   proposed_questions: ContextQuestion[];
   teachback: ContextQuestion[];
+  references?: { snapshot_sha256: string; scope: string; reference_ids: string[]; interaction_service: string; identity_snapshot_status: string };
 }
 export function isReconciliationDossier(value: Packet | ReconciliationDossier): value is ReconciliationDossier {
   return "profile" in value && value.profile === "medplain-reconciliation-v1";
@@ -240,7 +244,7 @@ export interface Result {
   explanation_text: string | null;
   trace: { agent?: string; node?: string; status: string; message: string }[];
   receipts: Receipt[];
-  interactions: {
+  interactions?: {
     title: string;
     message: string;
     severity: string;

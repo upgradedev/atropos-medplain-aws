@@ -48,6 +48,7 @@ export default function ReconciliationForm({ bootstrap, workspace, count, canCre
   const totalChars = dossier.documents.reduce((sum, doc) => sum + Array.from(doc.text).length, 0);
   const nonemptyLines = dossier.documents.reduce((sum, doc) => sum + doc.text.split(/\r\n|\r|\n/).filter((line) => line.trim()).length, 0);
   const maxChars = examples?.limits?.max_source_chars || examples?.limits?.max_total_chars || 16000;
+  const maxDocumentChars = examples?.limits?.max_document_chars || 6000;
   const maxLines = examples?.limits?.max_lines || examples?.limits?.max_nonempty_lines || 60;
   const ids = dossier.documents.map((doc) => doc.document_id.trim());
   const inputReason = !/^Demo-[A-Za-z0-9-]{1,32}$/.test(dossier.patient_alias) ? "Use an invented Demo-... alias without personal details."
@@ -55,6 +56,7 @@ export default function ReconciliationForm({ bootstrap, workspace, count, canCre
     : ids.some((id) => !id) || new Set(ids).size !== ids.length ? "Each source needs a unique document identifier."
     : dossier.documents.some((doc) => !doc.text.trim()) ? "Enter text for every source, or remove an optional blank source."
     : dossier.documents.some((doc) => !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(doc.issued_at)) ? "Record the issued time for each source in UTC."
+    : dossier.documents.some((doc) => Array.from(doc.text).length > maxDocumentChars) ? `One source exceeds ${maxDocumentChars.toLocaleString()} characters. Nothing is silently truncated.`
     : totalChars > maxChars ? `Source text exceeds ${maxChars.toLocaleString()} characters. Nothing is silently truncated.`
     : nonemptyLines > maxLines ? `Source text exceeds ${maxLines} nonempty lines. Shorten it before submitting.`
     : Array.from(dossier.caregiver_concerns).length > 1000 ? "Keep caregiver concerns within 1,000 characters."
@@ -109,7 +111,7 @@ export default function ReconciliationForm({ bootstrap, workspace, count, canCre
       </section>)}
       <button type="button" className="button secondary" disabled={busy || dossier.documents.length >= 4} onClick={() => edit((current) => ({ ...current, documents: [...current.documents, { document_id: `source-${current.documents.length + 1}`, kind: "addendum", issued_at: "", effective_at: null, text: "" }] }))}>Add original source</button>
       {dossier.documents.length >= 4 ? <p className="control-reason">The source packet is limited to four documents.</p> : null}
-      <p className="intake-counter" role="status">{totalChars.toLocaleString()} / {maxChars.toLocaleString()} source characters · {nonemptyLines} / {maxLines} nonempty lines</p>
+      <p className="intake-counter" role="status">{totalChars.toLocaleString()} / {maxChars.toLocaleString()} source characters · {nonemptyLines} / {maxLines} nonempty lines · {maxDocumentChars.toLocaleString()} characters per document</p>
       <label>Caregiver concerns<textarea aria-label="Caregiver concerns" value={dossier.caregiver_concerns} disabled={busy} onChange={(event) => edit((current) => ({ ...current, caregiver_concerns: event.target.value }))} /></label>
       <p className="control-reason">{Array.from(dossier.caregiver_concerns).length} / 1,000 characters. These concerns guide source-cited questions, not medication changes.</p>
       <label>Synthetic operations desk<select aria-label="Synthetic operations desk" value={facility} disabled={busy} onChange={(event) => { setFacility(event.target.value); setConfirmed(false); idempotency.current = key(); }} >{bootstrap.facilities.map((item) => <option key={item.id} value={item.id}>{item.city} · {item.name}</option>)}</select></label>

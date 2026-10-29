@@ -412,7 +412,7 @@ export default function CaseDrawer({
                     The gate emits a receipt when it evaluates a candidate.
                   </State>
                 )}
-                {data.result?.interactions.length ? (
+                {data.result?.interactions?.length ? (
                   <>
                     <h3>Curated interaction evidence</h3>
                     {data.result.interactions.map((interaction, i) => (

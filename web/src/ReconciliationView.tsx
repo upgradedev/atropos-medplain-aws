@@ -48,18 +48,20 @@ export default function ClarificationView({ artifact, onSource }: { artifact: Cl
     <section aria-label="Confirmed structural checks">
       <h3>Confirmed structural checks</h3>
       <p className="muted">These checks compare recorded source relationships. They do not certify a clinical error or settle a medication decision.</p>
-      {artifact.structural_issues.length ? artifact.structural_issues.map((issue) => <article className="reconciliation-issue" key={issue.issue_id} data-testid="structural-issue">
+      {artifact.structural_issues.some((issue) => issue.classification === "structural_check") ? artifact.structural_issues.filter((issue) => issue.classification === "structural_check").map((issue) => <article className="reconciliation-issue" key={issue.issue_id} data-testid="structural-issue">
         <span className="subtle-tag">Structural check</span><h4>{issue.code.replaceAll("_", " ")}</h4>
         <p lang={artifact.language}>{issue.question_text}</p>
         {issue.requires_clarification ? <p className="control-reason">Needs clarification from the care team. Releasing this question does not resolve the source disagreement.</p> : null}
         <Citations ids={issue.statement_ids} statements={artifact.source_statements} onSource={onSource} />
       </article>) : <p>No structural issue was recorded. This does not establish that a regimen is clinically appropriate.</p>}
     </section>
+    {artifact.structural_issues.some((issue) => issue.classification === "selected_label_reference") ? <section aria-label="Selected label reference checks"><h3>Selected label reference checks</h3><p className="muted">A bounded reference prompt about possible exposure. It does not establish concurrent use, a complete interaction screen, or a medication change.</p>{artifact.structural_issues.filter((issue) => issue.classification === "selected_label_reference").map((issue) => <article className="reconciliation-issue" key={issue.issue_id} data-testid="selected-label-reference"><span className="subtle-tag">Selected label reference</span><p lang={artifact.language}>{issue.question_text}</p>{issue.scope ? <p className="control-reason">{issue.scope}</p> : null}<p className="muted">Reference identifiers: {issue.reference_ids?.join(", ") || "None recorded"}</p><Citations ids={issue.statement_ids} statements={artifact.source_statements} onSource={onSource} /></article>)}</section> : null}
     <section aria-label="AI context proposals">
       <h3>AI context proposals</h3><p className="muted">Questions for discussion, separate from confirmed structural checks. They are not verified medication errors.</p>
       {artifact.proposed_questions.length ? artifact.proposed_questions.map((question, index) => <article className="context-proposal" key={`${question.code}-${index}`} data-testid="context-proposal"><span className="subtle-tag" lang={artifact.language}>{question.label}</span><p lang={artifact.language}>{question.text}</p><Citations ids={question.statement_ids} statements={artifact.source_statements} onSource={onSource} /></article>) : <p>No extra context question was proposed.</p>}
     </section>
     {artifact.teachback.length ? <section aria-label="Caregiver understanding questions"><h3>Questions to check your understanding</h3>{artifact.teachback.map((question, index) => <article className="context-proposal" key={`${question.code}-${index}`}><p className="muted" lang={artifact.language}>{question.label}</p><p lang={artifact.language}>{question.text}</p><Citations ids={question.statement_ids} statements={artifact.source_statements} onSource={onSource} /></article>)}</section> : null}
     <details><summary>All recorded source quotations</summary>{artifact.source_statements.map((statement) => <Quotation key={statement.statement_id} statement={statement} onSource={onSource} />)}</details>
+    {artifact.references ? <details><summary>Bound reference snapshot</summary><p>{artifact.references.scope}</p><p>Selected reference identifiers: {artifact.references.reference_ids.join(", ") || "None recorded"}</p><p>Interaction service: {artifact.references.interaction_service}. Identity snapshot status: {artifact.references.identity_snapshot_status}.</p><Hash title="Bound reference snapshot SHA-256" value={artifact.references.snapshot_sha256} /></details> : null}
   </section>;
 }
