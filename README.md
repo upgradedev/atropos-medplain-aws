@@ -8,13 +8,25 @@ Built for adults leaving hospital with changed medicines and limited support int
 
 ## Try the safety boundary
 
-1. Open the demo and choose **Catch a tenfold dose change**.
-2. Leave **Inject a deliberate dosage error** selected and press **Explain this packet**.
-3. Compare source **Warfarin 2.5 mg QHS** with the verified patient explanation. The drill changes the first draft to **25 mg** before publication.
-4. Inspect the actual Strands handoff trail: the gate refuses the changed draft, routes to the verifier, and checks a rebuilt explanation.
-5. Download the JSON receipt and press **Verify receipt chain**. Its first decision is refused; its second is verified.
+1. Open the operations console and start a synthetic case using **Catch a tenfold dose change**. Keep the deliberate mutation enabled.
+2. The command returns a job immediately. Its captured source and outbox commit together, then a separate worker executes the real Strands Graph through SQS.
+3. Open the case drawer. Compare source **Warfarin 2.5 mg QHS** with the verified explanation. The drill changes the first draft to **25 mg** before the gate checks it.
+4. Inspect Safety, Agents and Receipt: the gate refuses the changed draft, hands control back to the verifier and validates the rebuilt artifact.
+5. This corrected case enters the review queue. Choose the **reviewer demo role**, inspect the exact source and artifact, then release it. Open the resulting public patient view.
 
-Across the samples you can inspect liquid doses in mL, doses in mcg, BID/TID/QHS frequency preservation, source laboratory ranges, and a stopped medicine. No account, API key, upload or patient data is needed. You can turn the fault injection off to compare normal execution.
+The clean pneumonia packet can release automatically under the synthetic demo policy. Interaction flags or a correction require review. A reviewer cannot override a failed clinical gate. The three packets include mL, mcg, BID/TID/QHS, laboratory intervals and stopped medicines. Every record is invented.
+
+The **Safety walkthrough** guides this sequence. It is a product tour, separate from the organizer's required AWS workshop. The original [single-packet demonstration](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/demo) remains available at the same AWS host.
+
+## Operations console
+
+React, TypeScript, Tailwind and TanStack Table provide a responsive shell with a collapsible sidebar, counter badges, workspace switcher, `/` search and a user menu. Overview, Cases, Queues, Maps and Settings use the same server-scoped synthetic session. Cases support server filtering, sorting and pagination, with a tabbed detail drawer. Action results use toasts; unavailable APIs, empty cohorts and loading requests have explicit states. Disabled actions state their reason.
+
+Overview charts use persisted case outcomes and measured worker durations. There is no invented operating history. Search covers the current session and workspace, including cases beyond the loaded table page.
+
+Maps has two views: an interactive agent workflow with recorded trace drill-down, and a geographic map of **synthetic discharge desks** at city-center coordinates. These are demonstration facilities, not patient addresses or real hospital sites. OpenStreetMap tiles and attribution are visible; a tile outage does not become an empty facility result. The browser never requests the visitor's location.
+
+An opaque anonymous capability scopes the session. Operator, reviewer, auditor and admin are explicitly labelled **synthetic demo lenses**, selectable by the same visitor. The server enforces the selected role and case ownership, but this is not authenticated hospital staff authorization. Sessions and public release capabilities expire after 24 hours. Only the included packets are accepted.
 
 ## What runs
 
@@ -28,7 +40,7 @@ Strands is load-bearing: its `Agent` loop executes the registered tools, its Pyd
 | `DrugAndContraindicationVerifierAgent` | `medication_dosage_frequency_parity_checker` and `drug_interaction_checker` check dose, unit, frequency, stop status and selected demonstration pairs |
 | `PatientAdvocateExplainerAgent` | `grounded_explanation_builder` produces a constrained `PatientExplanation`; the `AfterInvocationEvent` hook checks it before publication |
 
-Each request has a new session identifier, shared request context and SDK `agent.state`. Correction state and receipt links remain inside that request. No health record database or persistent patient session is deployed.
+Each processing generation has a new execution correlation identifier, request context and SDK `agent.state`. DynamoDB retains the captured synthetic source, job version, result, receipt chain and review history. Live agent objects and model conversation state remain inside their worker invocation. No real patient records are accepted.
 
 The verifier's typed result references the deterministic tool evidence by hash. The tools retain the full parity findings and curated interaction records; the model acknowledges their content references rather than rewriting their clinical classifications. The lifecycle hook requires an exact reference match. The patient advocate still returns the full structured explanation, which faces the independent clinical publication gate.
 
@@ -47,21 +59,23 @@ The gate compares every supported medication and lab by identity, rather than co
 The stress injector runs after generation and before the gate. It changes both the structured dose and its patient sentence. This is a deliberate engineering drill, not evidence that Bedrock naturally made that error. The Graph permits a bounded correction and withholds output if it still fails.
 
 ```mermaid
-sequenceDiagram
-    participant B as Anonymous browser
-    participant L as AWS Lambda and FastAPI
-    participant S as Strands Graph
-    participant M as Amazon Bedrock
-    participant H as Atropos hook
-    B->>L: Select synthetic packet
-    L->>S: New isolated session
-    S->>M: Agent tools and typed output
-    M-->>S: Candidate artifact
-    S->>H: Before HTTP publication
-    H-->>S: Refuse or verify, append receipt
-    S-->>L: Verified text or explicit refusal
-    L-->>B: Explanation, actual trace and receipts
+flowchart LR
+    B[Anonymous React console] -->|Command, HTTP 202| A[FastAPI Lambda]
+    A -->|Atomic case and outbox| D[(DynamoDB)]
+    D -->|Committed OUTBOX insert| R[Streams relay Lambda]
+    R --> Q[SQS]
+    Q --> W[Worker Lambda]
+    Q --> DLQ[Dead-letter queue]
+    W --> S[Strands Graph and Bedrock]
+    S --> H[Independent artifact validation]
+    H --> D
+    D --> V[Review queue]
+    V -->|Exact version and hashes| P[Public patient capability]
 ```
+
+The command path uses a transactional outbox rather than an uncoordinated database write and queue send. Queue messages contain identifiers and a generation, never clinical documents or API session tokens. Conditional claims, expiring leases and version fencing prevent stale attempts from committing over newer work. SQS may deliver duplicates and a crashed worker may repeat inference. The guarantee is a conditional accepted publication, not exactly-once model execution.
+
+A worker independently rechecks saved source, full artifact and receipt integrity before persistence. Review and public reads repeat that validation. A review binds the current record version, source hash and artifact hash. It cannot approve a different candidate or bypass a refused gate.
 
 ## Safety and scope
 
@@ -83,10 +97,12 @@ For a separate Linux development environment with Python 3.12:
 
 ```bash
 python -m pip install -e '.[test]'
+cd web && npm ci && npm run build && cd ..
+python scripts/stage_console.py
 MEDPLAIN_MODEL_MODE=fixture uvicorn medplain.api:app --host 127.0.0.1 --port 8000
 ```
 
-Fixture mode replaces the inference adapter with a bounded deterministic model that emits genuine SDK tool-use events. It still runs real Strands Agents, tools, structured output, hooks and Graph edges. It is explicitly labeled offline in the UI and requires no AWS credentials.
+Local fixture mode uses explicit in-memory operations storage and background dispatch. A configured DynamoDB outage never falls back to memory. Fixture mode replaces the inference adapter with a bounded deterministic model that emits genuine SDK tool-use events. It still runs real Strands Agents, tools, structured output, hooks and Graph edges. It is explicitly labeled offline in the UI and requires no AWS credentials.
 
 ```bash
 python scripts/check_source.py
@@ -104,12 +120,31 @@ For Bedrock mode, set `MEDPLAIN_MODEL_MODE=bedrock`, `MEDPLAIN_BEDROCK_MODEL_ID=
 
 CI builds a Linux Python 3.12 Lambda zip and a SHA-256 manifest containing the exact source commit. Download that artifact, then run `scripts/deploy_aws.py` with `--account`, `--package` and `--commit`. Its default prints a plan; `--apply` deploys the reviewed artifact. The helper refuses a different AWS account, a mismatched package hash or commit, and existing resources without the project ownership tag.
 
-Deployment uses dedicated `atropos-medplain` resources: a Lambda function, an execution role scoped to its log group and the named Bedrock model, a public Function URL and the two required URL invocation permissions. A private encrypted S3 bucket stages content-addressed CI packages with expiring release objects; its ownership tag and uploaded metadata are checked before deployment. Reserved concurrency is limited, execution time is bounded, and logs have finite retention. There are no always-running compute instances. Request-based AWS charges still apply; concurrency is not a total spend cap.
+Deployment uses only project-tagged `atropos-medplain` resources: the public API Lambda, separate outbox-relay and Strands-worker Lambdas, encrypted DynamoDB with TTL and point-in-time recovery, SQS with a dead-letter queue, and CloudWatch logs and alarms. Each role has scoped table, stream, queue, log and model access for its task. The API retains Bedrock permission for the original `/api/explain` path. No AWS credentials reach the browser.
+
+A private encrypted S3 bucket stages content-addressed CI packages with expiring release objects; it is not a clinical evidence archive. Reserved concurrency, bounded SDK execution, a per-session case limit and a daily operations job allowance control this demo's workload. The daily allowance applies to queued operations jobs, not all AWS requests or the legacy endpoint, so it is not a total spend cap. Logs have finite retention. There are no always-running compute instances.
+
+CloudWatch alarms cover failed workers, outbox delivery and queue health. Notification subscribers are not configured. Step Functions, AgentCore, SNS and EventBridge are not deployed. Strands already owns the agent graph; a future timed escalation, isolated agent runtime or independent event subscriber would provide a concrete reason to add those services.
+
+### Well-Architected design review
+
+This is a bounded demonstration, not a certification or a complete Well-Architected review. The implemented choices relate to these current AWS best practices, with the remaining gaps stated explicitly:
+
+| AWS practice | Concrete mechanism | Remaining gap |
+|---|---|---|
+| [REL04-BP02, loosely coupled dependencies](https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_prevent_interaction_failure_loosely_coupled_system.html) | HTTP 202, transactional outbox, queue and separate worker | API and worker still share a bounded-context table; no regional failover |
+| [REL04-BP04, idempotent mutating operations](https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_prevent_interaction_failure_idempotent.html) | Command keys, conditional claims, generation/version fencing | A crashed attempt can repeat inference; no exactly-once claim |
+| [REL05-BP04, fail fast and limit queues](https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_mitigate_interaction_failure_fail_fast.html) | Bounded execution, job allowance, DLQ and queue alarms | No measured recovery-time objective or staffed alarm subscriber |
+| [SEC03-BP02, least privilege](https://docs.aws.amazon.com/wellarchitected/latest/framework/sec_permissions_least_privileges.html) | Separate AWS roles and scoped resources; session capability isolation | Demo role selection is not staff identity; no real health-data deployment assessment |
+| [OPS04-BP02, application telemetry](https://docs.aws.amazon.com/wellarchitected/latest/framework/ops_observability_application_telemetry.html) | Correlated persisted job events, measured duration and CloudWatch metrics | No cross-service distributed trace or user-outcome measurement |
+
+Performance, cost and sustainability choices include asynchronous browser commands, bounded workers, short synthetic retention and avoiding unused services. Load testing, a full account budget policy and measured sustainability outcomes remain outside this demonstration.
 
 To verify an actual deployment, use the command below with the live URL and the artifact's full commit. It fails on non-200 responses or any missing flagship behavior.
 
 ```bash
 python scripts/live_smoke.py 'YOUR_PUBLIC_AWS_URL' --expected-commit 'FULL_SOURCE_COMMIT'
+python scripts/ops_live_smoke.py 'YOUR_PUBLIC_AWS_URL' --expected-commit 'FULL_SOURCE_COMMIT'
 ```
 
 ## Pre-existing open-source patterns
@@ -119,5 +154,7 @@ python scripts/live_smoke.py 'YOUR_PUBLIC_AWS_URL' --expected-commit 'FULL_SOURC
 | [Strands Agents Python SDK](https://github.com/strands-agents/sdk-python), Apache-2.0 | Public `Agent`, `@tool`, Graph, lifecycle hook, structured-output and custom-model interfaces. The SDK is a pinned runtime dependency. |
 | [Lachesis](https://github.com/upgradedev/lachesis-guard), MIT | Conceptual inspiration: deterministic decisions at an SDK lifecycle seam and request/session-bound state. Inspected read-only. No Lachesis code, benchmark, model, fixtures or product was copied. |
 | FastAPI, Pydantic and Mangum | Standard open-source web, schema and Lambda adapter dependencies, declared in `pyproject.toml`. |
+| React, TypeScript, Vite, Tailwind, TanStack Table and Leaflet | Public component, build, styling, table and map APIs; dependencies declared in `web/package.json`. |
+| AWS transactional outbox guidance | Architectural pattern for committed job events, idempotent consumption and durable queue handoff; implementation written for this project. |
 
-The clinical contracts, source profile, templates, safety gate, receipt chain, stress injector, fixtures, UI and orchestration wiring were written for this project. Every packet is invented. No customer code or patient records are included. Project code is [MIT licensed](LICENSE).
+An owner-provided private operations console was inspected read-only for generic navigation and master-detail behavior. No private code, assets, domain data or configuration was copied. The clinical contracts, source profile, templates, safety gate, receipt chain, stress injector, fixtures, operations domain, UI and orchestration wiring were written for this project. Every packet is invented. No customer code or patient records are included. Project code is [MIT licensed](LICENSE).
