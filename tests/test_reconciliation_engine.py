@@ -18,6 +18,67 @@ from medplain.reconciliation_models import ReconciliationSelection
 from medplain.ops_domain import OpsService
 
 
+def _resolved_dossier():
+    """Fresh synthetic context with explicit understanding, not a gold case ID."""
+    return {
+        "profile": "medplain-reconciliation-v1", "patient_alias": "Demo-Resolved", "language": "en",
+        "caregiver_concerns": "", "documents": [
+            {"document_id": "home", "kind": "home_list", "issued_at": "2026-10-01T09:00:00Z",
+             "effective_at": None, "text": "Stop Amlodipine 5 mg QD.\nStop Furosemide 20 mg QD."},
+            {"document_id": "discharge", "kind": "discharge", "issued_at": "2026-10-30T09:00:00Z",
+             "effective_at": None, "text": "Stop Amlodipine 5 mg QD.\nStop Furosemide 20 mg QD."},
+            {"document_id": "caregiver", "kind": "caregiver_note", "issued_at": "2026-10-30T09:30:00Z",
+             "effective_at": None,
+             "text": "I understand both medicines remain stopped. I do not have an identity, bottle, or restart question."},
+        ],
+    }
+
+
+def _forced_native_planner(monkeypatch, payload):
+    """Exercise the unchanged live tool-choice wrapper inside the actual offline SDK."""
+    original = engine._model
+    calls = []
+
+    class NamedToolDelegate(FixtureModel):
+        def __init__(self, context, output_model):
+            super().__init__([], output_model, lambda: {})
+            self.context = context
+            self.output_attempts = 0
+            self.invocation_index = None
+
+        async def stream(self, messages, tool_specs=None, system_prompt=None, **kwargs):
+            invocation = len(self.context.nodes)
+            if self.invocation_index != invocation:
+                self.invocation_index, self.output_attempts = invocation, 0
+            name = kwargs["tool_choice"]["tool"]["name"]
+            assert name in {spec["name"] for spec in tool_specs}
+            arguments = {}
+            if name == self._output_model.__name__:
+                self.output_attempts += 1
+                arguments = payload(self.context, self.output_attempts)
+            calls.append({"invocation_index": invocation, "name": name})
+            yield {"messageStart": {"role": "assistant"}}
+            yield {"contentBlockStart": {"contentBlockIndex": 0,
+                                         "start": {"toolUse": {"toolUseId": f"named-{len(calls)}", "name": name}}}}
+            yield {"contentBlockDelta": {"contentBlockIndex": 0,
+                                         "delta": {"toolUse": {"input": json.dumps(arguments)}}}}
+            yield {"contentBlockStop": {"contentBlockIndex": 0}}
+            yield {"messageStop": {"stopReason": "tool_use"}}
+            yield {"metadata": {"usage": {"inputTokens": 0, "outputTokens": 0, "totalTokens": 0},
+                                 "metrics": {"latencyMs": 0}}}
+
+    def model(mode, context, role, tools, output_model):
+        if role != engine.PLANNER:
+            return original(mode, context, role, tools, output_model)
+        delegate = NamedToolDelegate(context, output_model)
+        return engine.RequiredToolModel(delegate, lambda: [name for name in
+            ("lookup_reconciliation_references", "check_reconciliation_constraints")
+            if name not in context.completed[role]], output_model.__name__)
+
+    monkeypatch.setattr(engine, "_model", model)
+    return calls
+
+
 @pytest.mark.parametrize("example", examples(), ids=lambda row: row["example_id"])
 def test_actual_sdk_indexes_plans_and_publishes_with_fresh_tools(example):
     result = run_reconciliation(example["dossier"], "sdk-" + example["example_id"], mode="fixture")
@@ -75,6 +136,69 @@ def test_virtual_concerns_and_caregiver_documents_both_keep_citation_identity():
         "reported-context:L1", "caregiver-concerns:L1", "caregiver-concerns:L2"]
     assert [row["citation"]["quote"] for row in result["caregiver_context"]] == [
         "A separate caregiver document.", "First context line.", "Second context line."]
+
+
+@pytest.mark.parametrize("language", ["en", "el"])
+def test_planner_sees_exact_rendered_floor_and_complete_question_meanings(language):
+    source = copy.deepcopy(examples()[3]["dossier"])
+    source["language"] = language
+    context = engine.Context(source, "exact-question-context", False)
+    context.index_verified = True
+    tool = next(item for item in engine._tools(context)[engine.PLANNER]
+                if item.tool_name == "check_reconciliation_constraints")
+    evidence = tool()
+    artifact = build_artifact(source, baseline_selection(source))
+    floor = evidence["already_rendered_checks"]
+    assert floor
+    assert [{key: value for key, value in row.items() if key != "question_meaning_en"} for row in floor] == artifact["structural_issues"]
+    assert set(evidence["question_catalog"]) == set(engine.QUESTION_CODES)
+    assert evidence["question_catalog"]["confirm_identity_form"]["meaning_en"] == (
+        "Do these names, bottles or formulations refer to the same medicine? Ask the pharmacist to confirm identity, strength and release form.")
+    for row in floor:
+        catalog = evidence["question_catalog"][row["question_code"]]
+        assert row["question_text"] == catalog["rendered_text"]
+        assert row["question_meaning_en"] == catalog["meaning_en"]
+    assert "recommended_plan" not in evidence and "expected_plan" not in evidence
+
+
+def test_model_roles_share_configuration_helper_and_planner_override_is_isolated(monkeypatch):
+    monkeypatch.delenv("MEDPLAIN_BEDROCK_MODEL_ID", raising=False)
+    monkeypatch.delenv("MEDPLAIN_RECONCILIATION_PLANNER_MODEL_ID", raising=False)
+    assert engine.configured_model_ids() == {
+        engine.INDEXER: "amazon.nova-micro-v1:0", engine.PLANNER: "amazon.nova-pro-v1:0",
+        engine.PUBLISHER: "amazon.nova-micro-v1:0"}
+    monkeypatch.setenv("MEDPLAIN_BEDROCK_MODEL_ID", "existing-base-setting")
+    monkeypatch.setenv("MEDPLAIN_RECONCILIATION_PLANNER_MODEL_ID", "amazon.nova-micro-v1:0")
+    recorded = []
+    monkeypatch.setattr(engine, "BedrockModel", lambda **kwargs: recorded.append(kwargs) or SimpleNamespace())
+    context = engine.Context(examples()[0]["dossier"], "role-model-configuration", False)
+    tools = engine._tools(context)
+    for role in engine.AGENT_NAMES:
+        engine._model("bedrock", context, role, tools[role], engine._OUTPUT_MODELS[role])
+    assert [row["model_id"] for row in recorded] == ["existing-base-setting", "amazon.nova-micro-v1:0", "existing-base-setting"]
+    assert all(row["max_tokens"] == 4096 and row["temperature"] == 0.0 for row in recorded)
+    # The actual adapter must use the shared helper, rather than duplicating env logic.
+    monkeypatch.setattr(engine, "configured_model_ids", lambda: {role: "helper-selected-model" for role in engine.AGENT_NAMES})
+    engine._model("bedrock", context, engine.PLANNER, tools[engine.PLANNER], ReconciliationSelection)
+    assert recorded[-1]["model_id"] == "helper-selected-model"
+
+
+@pytest.mark.parametrize("invalid", ["", "unknown-model", "us.amazon.nova-pro-v1:0", "arn:aws:bedrock:us-east-1:123456789012:inference-profile/private"])
+def test_unknown_planner_model_fails_closed_without_echo_or_fallback(monkeypatch, invalid):
+    monkeypatch.setenv("MEDPLAIN_RECONCILIATION_PLANNER_MODEL_ID", invalid)
+    with pytest.raises(ValueError, match="^Unsupported reconciliation planner model ID$"):
+        engine.configured_model_ids()
+
+
+def test_fixture_discloses_configured_models_separately_from_actual_replay(monkeypatch):
+    monkeypatch.delenv("MEDPLAIN_BEDROCK_MODEL_ID", raising=False)
+    monkeypatch.delenv("MEDPLAIN_RECONCILIATION_PLANNER_MODEL_ID", raising=False)
+    result = run_reconciliation(examples()[0]["dossier"], "configured-is-not-inferred", mode="fixture")
+    assert result["status"] == "verified", result
+    assert result["runtime"]["configured_model_ids"] == engine.configured_model_ids()
+    assert result["runtime"]["model_adapter_ids"] == {role: "medplain-synthetic-replay" for role in engine.AGENT_NAMES}
+    assert "not evidence every node completed inference" in result["runtime"]["model_identity_scope"]
+    assert result["model_mode"] == "fixture"
 
 
 def test_live_adapter_forces_references_then_case_context_without_changing_frozen_descriptor(monkeypatch):
@@ -135,6 +259,91 @@ def test_model_questions_are_not_filtered_or_repaired_into_better_citation_group
     assert result["runtime"]["selection"] == selected
     assert result["artifact"]["proposed_questions"][0]["statement_ids"] == question["statement_ids"]
     assert result["artifact"]["proposed_questions"][0]["code"] == question["code"]
+    validate_reconciliation_result(source, result)
+
+
+@pytest.mark.parametrize("first_malformed", [False, True])
+def test_actual_sdk_named_output_accepts_empty_questions_with_teachback_and_fresh_evidence(monkeypatch, first_malformed):
+    source = _resolved_dossier()
+    selected = {"source_hash": canonical_hash(source), "questions": [],
+                "teachback": [{"code": "teachback", "statement_ids": ["home:L1", "discharge:L1", "caregiver:L1"]}]}
+
+    def payload(context, attempt):
+        value = copy.deepcopy(selected)
+        if first_malformed and attempt == 1:
+            value["questions"] = None
+        return value
+
+    calls = _forced_native_planner(monkeypatch, payload)
+    result = run_reconciliation(source, "native-empty-questions", mode="fixture")
+    assert result["status"] == "verified", result
+    assert result["runtime"]["selection"] == selected
+    assert result["artifact"]["proposed_questions"] == []
+    assert result["artifact"]["teachback"][0]["statement_ids"] == selected["teachback"][0]["statement_ids"]
+    assert result["runtime"]["nodes_executed"] == list(engine.AGENT_NAMES)
+    assert result["runtime"]["structured_output_repairs"] == 0
+    assert result["runtime"]["planner_rejections"] == []
+    names = [row["name"] for row in calls]
+    expected = ["lookup_reconciliation_references", "check_reconciliation_constraints", "ReconciliationSelection"]
+    assert names == expected + (["ReconciliationSelection"] if first_malformed else [])
+    attempts = [row for row in result["runtime"]["native_output_attempts"] if row["agent"] == engine.PLANNER]
+    assert [row["status"] for row in attempts] == (["error", "success"] if first_malformed else ["success"])
+    if first_malformed:
+        assert attempts[0]["validation"]["kind"] == "pydantic"
+        assert attempts[0]["validation"]["errors"][0]["loc"] == ["questions"]
+    assert attempts[-1]["input_sha256"] == canonical_hash(selected)
+    planner_tools = [row for row in result["runtime"]["tools_executed"] if row["agent"] == engine.PLANNER]
+    assert [row["tool"] for row in planner_tools] == expected[:2]
+    assert all(row["success"] for row in planner_tools)
+    assert result["runtime"]["failure"] is None
+    validate_reconciliation_result(source, result)
+
+
+def test_actual_sdk_native_output_failure_keeps_existing_turn_cap_and_withholds_artifact(monkeypatch):
+    source = _resolved_dossier()
+    calls = _forced_native_planner(monkeypatch, lambda context, attempt: {
+        "source_hash": canonical_hash(source), "questions": None,
+        "teachback": [{"code": "teachback", "statement_ids": ["home:L1"]}]})
+    result = run_reconciliation(source, "native-invalid-remains-refused", mode="fixture")
+    assert result["status"] == "refused", result
+    assert result["artifact"] is result["artifact_hash"] is result["explanation_text"] is None
+    assert result["runtime"]["selection"] is None
+    assert result["runtime"]["failure"] == {"code": "model_turn_budget", "agent": engine.PLANNER}
+    assert result["runtime"]["structured_output_repairs"] == 0
+    assert len(calls) == engine.MAX_MODEL_TURNS == 5
+    attempts = [row for row in result["runtime"]["native_output_attempts"] if row["agent"] == engine.PLANNER]
+    assert len(attempts) == 3 and all(row["status"] == "error" for row in attempts)
+    assert result["receipts"] == []
+    validate_reconciliation_result(source, result)
+
+
+@pytest.mark.parametrize("include_caregiver", [False, True])
+def test_negative_caregiver_context_is_never_auto_cited_or_semantically_filtered(monkeypatch, include_caregiver):
+    source = _resolved_dossier()
+    ids = ["home:L1", "discharge:L2"] + (["caregiver:L1"] if include_caregiver else [])
+    selected = {"source_hash": canonical_hash(source), "questions": [{"code": "confirm_identity_form", "statement_ids": ids}],
+                "teachback": [{"code": "teachback", "statement_ids": ["home:L1"]}]}
+    original = engine._model
+
+    def model(mode, context, role, tools, output_model):
+        if role == engine.PLANNER:
+            return FixtureModel([item.tool_name for item in tools], output_model, lambda: copy.deepcopy(selected))
+        return original(mode, context, role, tools, output_model)
+
+    monkeypatch.setattr(engine, "_model", model)
+    result = run_reconciliation(source, "negative-context-preserves-model-decision", mode="fixture")
+    if include_caregiver:
+        # A semantically bad yet gate-valid proposal stays visible to the independent ruler.
+        assert result["status"] == "verified", result
+        assert result["runtime"]["selection"] == selected
+        assert result["artifact"]["proposed_questions"][0]["statement_ids"] == ids
+    else:
+        assert result["status"] == "refused", result
+        assert result["artifact"] is None
+        assert result["runtime"]["structured_output_repairs"] == 1
+        assert len(result["runtime"]["planner_rejections"]) == 2
+        assert all(row["rejected_typed_selection"] == selected for row in result["runtime"]["planner_rejections"])
+        assert all("requires cited caregiver context" in row["reason"] for row in result["runtime"]["planner_rejections"])
     validate_reconciliation_result(source, result)
 
 
@@ -312,6 +521,43 @@ def test_pydantic_diagnostics_omit_raw_input_and_context():
     assert details["errors"]
     assert all(set(row) == {"loc", "type", "msg"} for row in details["errors"])
     assert "private-input-should-not-be-copied" not in json.dumps(details)
+
+
+def test_native_output_diagnostics_are_redacted_bounded_observations_without_mutations():
+    source = examples()[0]["dossier"]
+    context = engine.Context(source, "private-native-attempts", False)
+    context.nodes = [engine.INDEXER, engine.PLANNER]
+    context.completed[engine.PLANNER] = {"lookup_reconciliation_references", "check_reconciliation_constraints"}
+    hook = engine.ReconciliationHook(context, engine.PLANNER)
+    payload = {"source_hash": canonical_hash(source), "questions": None,
+               "teachback": [{"code": "teachback", "statement_ids": ["private-source-value-never-copied"]}],
+               "private-secret-field": "private-value-never-copied"}
+    output = {"name": "ReconciliationSelection", "input": payload}
+    result = {"status": "error", "content": [{"text": "provider-secret-must-not-appear"}]}
+    saved_output, saved_result = copy.deepcopy(output), copy.deepcopy(result)
+    for _ in range(engine.MAX_NATIVE_OUTPUT_ATTEMPTS + 3):
+        hook.after_tool_call(SimpleNamespace(tool_use=output, result=result))
+    assert output == saved_output and result == saved_result
+    assert context.completed[engine.PLANNER] == {"lookup_reconciliation_references", "check_reconciliation_constraints"}
+    assert context.tools == [] and context.repairs == hook.repairs == hook.turns == 0
+    assert context.selection is None and context.failure is None
+    assert len(context.native_output_attempts) == engine.MAX_NATIVE_OUTPUT_ATTEMPTS
+    assert context.native_output_attempts_dropped == 3
+    for record in context.native_output_attempts:
+        assert record["input_sha256"] == canonical_hash(payload)
+        assert record["validation"]["kind"] == "pydantic"
+        assert all(set(row) == {"loc", "type", "msg"} for row in record["validation"]["errors"])
+        assert len(json.dumps(record, ensure_ascii=False).encode("utf-8")) <= engine.MAX_NATIVE_OUTPUT_ATTEMPT_BYTES
+    serialized = json.dumps(context.native_output_attempts)
+    assert "private-secret-field" not in serialized and "private-value-never-copied" not in serialized
+    assert "private-source-value-never-copied" not in serialized and "provider-secret" not in serialized
+    assert "unknown_field" in serialized
+    # A provider failure after schema-valid input still cannot leak provider text.
+    valid = {"source_hash": canonical_hash(source), "questions": [],
+             "teachback": [{"code": "teachback", "statement_ids": ["home:L1"]}]}
+    hook.after_tool_call(SimpleNamespace(tool_use={"name": "ReconciliationSelection", "input": valid}, result=result))
+    assert context.native_output_attempts[-1]["validation"] == {"kind": "sdk_tool_error", "details": "No provider error text retained"}
+    assert "provider-secret" not in json.dumps(context.native_output_attempts)
 
 
 def test_tool_eligibility_exposes_only_existing_preconditions_not_a_plan():

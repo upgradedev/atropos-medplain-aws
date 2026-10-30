@@ -129,6 +129,8 @@ class OpsService:
             raise OpsError(403, "This action is unavailable in the selected synthetic demo role.")
 
     def bootstrap(self, session: dict, pk: str | None = None) -> dict:
+        from medplain.reconciliation_engine import configured_model_ids
+
         rows = self.store.cases(pk) if pk else []
         collection = {"mode": "empty", "initialized": False, "seed_version": None,
                       **session.get("collection", {}),
@@ -142,6 +144,7 @@ class OpsService:
                 "packets": [{"id": p.packet_id, "title": p.title, "summary": p.subtitle,
                              "stress_available": p.adversarial} for p in get_packets()],
                 "runtime": {"model_mode": os.getenv("MEDPLAIN_MODEL_MODE", "fixture"),
+                            "reconciliation_model_ids": configured_model_ids(),
                             "transport_mode": self.store.transport_mode,
                             "commit": commit(), "storage": self.store.storage},
                 "limits": {"max_cases": 20, "daily_jobs": daily_allowance()[1], "daily_reset": "00:00 UTC"}}

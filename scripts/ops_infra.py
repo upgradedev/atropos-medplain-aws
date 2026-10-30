@@ -16,15 +16,20 @@ WORKER_TIMEOUT = 180
 QUEUE_VISIBILITY = 1080
 MAX_RECEIVES = 3
 LOG_RETENTION_DAYS = 7
+DEFAULT_PLANNER_MODEL_ID = "amazon.nova-pro-v1:0"
+PLANNER_MODEL_IDS = {"amazon.nova-micro-v1:0", DEFAULT_PLANNER_MODEL_ID}
 
 
-def operations_plan(account: str, region: str, function: str, model_id: str) -> dict:
+def operations_plan(account: str, region: str, function: str, model_id: str,
+                    planner_model_id: str = DEFAULT_PLANNER_MODEL_ID) -> dict:
     if not re.fullmatch(r"[0-9]{12}", account) or not re.fullmatch(r"atropos-medplain(?:-[a-z0-9-]+)?", function):
         raise ValueError("operations resources require a scoped MedPlain function and AWS account")
     if region != "us-east-1":
         raise ValueError("this deployment is pinned to the verified us-east-1 Bedrock region")
     if not re.fullmatch(r"amazon\.nova-[a-z0-9-]+-v[0-9]+:[0-9]+", model_id):
         raise ValueError("operations require an explicitly named Amazon Nova foundation model")
+    if planner_model_id not in PLANNER_MODEL_IDS:
+        raise ValueError("planner model must be the explicitly allowed Nova Micro or Nova Pro foundation model")
     table = function + "-ops"
     queue, dlq = function + "-jobs", function + "-jobs-dlq"
     worker, relay = function + "-worker", function + "-outbox-relay"
@@ -44,6 +49,11 @@ def operations_plan(account: str, region: str, function: str, model_id: str) -> 
         "daily_job_limit": 120,
         "alarms": [worker + "-errors", dlq + "-visible", queue + "-oldest", relay + "-iterator-age"],
         "model_arn": f"arn:aws:bedrock:{region}::foundation-model/{model_id}",
+        "planner_model_id": planner_model_id,
+        "planner_model_arn": f"arn:aws:bedrock:{region}::foundation-model/{planner_model_id}",
+        "worker_model_arns": list(dict.fromkeys(
+            f"arn:aws:bedrock:{region}::foundation-model/{selected}"
+            for selected in [model_id, planner_model_id])),
     }
 
 
@@ -258,6 +268,7 @@ def provision(args, plan: dict, cli, signed_request) -> dict:
     }, cli)
     environment = {
         "MEDPLAIN_MODEL_MODE": args.model_mode, "MEDPLAIN_BEDROCK_MODEL_ID": args.model_id,
+        "MEDPLAIN_RECONCILIATION_PLANNER_MODEL_ID": ops["planner_model_id"],
         "MEDPLAIN_COMMIT": args.commit, "OTEL_SDK_DISABLED": "true",
         "MEDPLAIN_OPS_TABLE": ops["table"], "MEDPLAIN_OPS_QUEUE_URL": queue_url,
         "MEDPLAIN_OPS_DLQ_URL": dlq_url,
@@ -265,7 +276,7 @@ def provision(args, plan: dict, cli, signed_request) -> dict:
     }
     worker_role = ensure_role(args, ops["worker_role"], [
         log_policy(args, ops["worker"]), table_permissions(plan),
-        {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], "Resource": ops["model_arn"]},
+        {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], "Resource": ops["worker_model_arns"]},
         {"Effect": "Allow", "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"], "Resource": ops["queue_arn"]},
     ], cli)
     relay_role = ensure_role(args, ops["relay_role"], [

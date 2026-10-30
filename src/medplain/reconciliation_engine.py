@@ -25,10 +25,10 @@ from medplain.fixture_model import FixtureModel
 from medplain.clinical_references import reference_material
 from medplain.gate import canonical_hash
 from medplain.reconciliation import (
-    PROFILE, _commit, append_receipt, artifact_digest, baseline_selection, build_artifact,
+    PROFILE, _TEXT, _commit, append_receipt, artifact_digest, baseline_selection, build_artifact,
     gate_errors, render_artifact, source_statements, structural_issues, validate_selection,
 )
-from medplain.reconciliation_models import PublicationSelection, ReconciliationSelection, SourceIndex
+from medplain.reconciliation_models import QUESTION_CODES, PublicationSelection, ReconciliationSelection, SourceIndex
 from medplain.required_tool_model import RequiredToolModel
 
 INDEXER = "DischargeEvidenceIndexerAgent"
@@ -42,6 +42,19 @@ MAX_CANDIDATES = 2
 MAX_MODEL_TURNS = 5
 MAX_PRIVATE_REJECTIONS = 4
 MAX_PRIVATE_REJECTION_BYTES = 16384
+MAX_NATIVE_OUTPUT_ATTEMPTS = 20
+MAX_NATIVE_OUTPUT_ATTEMPT_BYTES = 4096
+PLANNER_MODEL_IDS = frozenset({"amazon.nova-pro-v1:0", "amazon.nova-micro-v1:0"})
+_OUTPUT_MODELS = {INDEXER: SourceIndex, PLANNER: ReconciliationSelection, PUBLISHER: PublicationSelection}
+
+
+def configured_model_ids() -> dict[str, str]:
+    """Configured Bedrock models, not proof of inference or fixture execution."""
+    base = os.getenv("MEDPLAIN_BEDROCK_MODEL_ID", "amazon.nova-micro-v1:0")
+    planner = os.getenv("MEDPLAIN_RECONCILIATION_PLANNER_MODEL_ID", "amazon.nova-pro-v1:0")
+    if planner not in PLANNER_MODEL_IDS:
+        raise ValueError("Unsupported reconciliation planner model ID")
+    return {INDEXER: base, PLANNER: planner, PUBLISHER: base}
 
 
 class FailureCode(str, Enum):
@@ -180,10 +193,39 @@ class Context:
     repairs: int = 0
     planner_rejections: list[dict] = field(default_factory=list)
     repair_diagnostics: list[dict] = field(default_factory=list)
+    native_output_attempts: list[dict] = field(default_factory=list)
+    native_output_attempts_dropped: int = 0
     failure: dict | None = None
 
     def clear_publication(self):
         self.publication_plan = self.snapshot = self.snapshot_hash = self.binding = None
+
+
+def _record_native_output_attempt(context: Context, role: str, tool_use: dict, result: dict):
+    """Observe SDK output-tool validation without changing its result or retrying."""
+    payload = tool_use.get("input")
+    try:
+        input_hash = canonical_hash(payload)
+    except (TypeError, ValueError, UnicodeError):
+        input_hash = None
+    success = result.get("status", "success") == "success"
+    record = {"agent": role, "invocation_index": len(context.nodes),
+              "tool": _OUTPUT_MODELS[role].__name__, "status": "success" if success else "error",
+              "input_sha256": input_hash}
+    if not success:
+        try:
+            _OUTPUT_MODELS[role].model_validate(payload)
+        except (TypeError, ValueError) as exc:
+            record["validation"] = _validator_details(exc)
+        else:
+            # SDK/provider prose may contain arbitrary values or credentials.
+            record["validation"] = {"kind": "sdk_tool_error", "details": "No provider error text retained"}
+    if len(json.dumps(record, ensure_ascii=False).encode("utf-8")) > MAX_NATIVE_OUTPUT_ATTEMPT_BYTES:
+        record["validation"] = {"kind": "bounded_schema_error", "details": "Diagnostic size limit reached"}
+    if len(context.native_output_attempts) >= MAX_NATIVE_OUTPUT_ATTEMPTS:
+        context.native_output_attempts.pop(0)
+        context.native_output_attempts_dropped += 1
+    context.native_output_attempts.append(record)
 
 
 def _tools(context: Context) -> dict[str, list]:
@@ -223,7 +265,11 @@ def _tools(context: Context) -> dict[str, list]:
                 "source_statement_order": [row["statement_id"] for row in statements],
                 "clinical_source_statements": [row for row in statements if row["document_kind"] != "caregiver_note"],
                 "caregiver_context": [row for row in statements if row["document_kind"] == "caregiver_note"],
-                "already_rendered_checks": floor,
+                "already_rendered_checks": [{**row,
+                    "question_text": _TEXT[context.dossier["language"]][row["question_code"]],
+                    "question_meaning_en": _TEXT["en"][row["question_code"]]} for row in floor],
+                "question_catalog": {code: {"meaning_en": _TEXT["en"][code],
+                    "rendered_text": _TEXT[context.dossier["language"]][code]} for code in QUESTION_CODES},
                 "code_eligibility": {"scope": "Unchanged validator preconditions only. Eligibility is not relevance, a gold answer or a recommended question plan. Empty witness lists mean that code cannot be supported by this source. All citations must be distinct current source IDs; teachback belongs only in its own section.",
                                      "codes": eligibility},
                 "caregiver_concerns": context.dossier["caregiver_concerns"],
@@ -348,6 +394,9 @@ class ReconciliationHook(HookProvider):
 
     def after_tool_call(self, event):
         name = event.tool_use.get("name")
+        if name == _OUTPUT_MODELS[self.role].__name__:
+            _record_native_output_attempt(self.context, self.role, event.tool_use, event.result)
+            return
         if name not in REQUIRED_TOOLS[self.role]:
             return
         success = event.result.get("status", "success") == "success"
@@ -440,7 +489,7 @@ def _model(mode: str, context: Context, role: str, tools: list, output_model):
         return FixtureModel([item.tool_name for item in tools], output_model, payload)
     if mode == "bedrock":
         from botocore.config import Config
-        delegate = BedrockModel(model_id=os.getenv("MEDPLAIN_BEDROCK_MODEL_ID", "amazon.nova-micro-v1:0"),
+        delegate = BedrockModel(model_id=configured_model_ids()[role],
                                 region_name=os.getenv("AWS_REGION", "us-east-1"), max_tokens=4096, temperature=0.0,
                                 boto_client_config=Config(connect_timeout=5, read_timeout=45,
                                                           retries={"total_max_attempts": 1}))
@@ -452,50 +501,40 @@ def _model(mode: str, context: Context, role: str, tools: list, output_model):
 
 def _make_graph(context: Context, mode: str):
     tools = _tools(context)
-    outputs = {INDEXER: SourceIndex, PLANNER: ReconciliationSelection, PUBLISHER: PublicationSelection}
+    outputs = _OUTPUT_MODELS
     instructions = {
         INDEXER: "Call read_reconciliation_sources. Return SourceIndex with source_hash and all statement_ids in source order. Do not interpret orders.",
         PLANNER: (
-            "Call lookup_reconciliation_references first, then check_reconciliation_constraints fresh. References "
-            "describe pinned scope, not comprehensive clinical clearance. Never infer equivalent formulation, "
-            "substitution or automatic stop from a name/ID. Your task is RELATIONSHIP SELECTION, not a checklist "
-            "of medicine, taper, hold or pending-test mentions. Use the case-specific context tool's partitions. "
-            "Read EVERY caregiver_context record, including caregiver_note documents when caregiver_concerns is empty. "
-            "Read clinical_source_statements together, including addenda and explicit agreement/non-conflict. "
-            "already_rendered_checks will appear with their own questions automatically. Do not repeat one of those "
-            "checks merely because it exists. Propose a question only for ADDITIONAL uncertainty supported by the "
-            "relationship between original passages: a caregiver interpretation versus written instructions, "
-            "incompatible source details, an unclear referent, an identity/form question, or unresolved responsibility. "
-            "If there is no additional uncertainty, return questions:[]; an unchanged plan, an explicitly explained "
-            "change, or a bare clinical label does not itself require an extra question. Return "
-            "ReconciliationSelection with source_hash, questions:[{code,statement_ids}], teachback:[{code:'teachback',statement_ids}]. "
-            "For ONE uncertainty, select ONE code and cite ALL passages necessary to understand it in the SAME "
-            "statement_ids list. Include the caregiver passage AND the clinical passage it questions; for competing "
-            "documents include BOTH competing passages. Do not split the clinical half and the contextual half into "
-            "separate questions. Do not attach unrelated sources or create all-pairs questions. Generic citation "
-            "illustration, unrelated to any input: if a relationship depends on alpha:L7 and beta:L4, use one list "
-            "['alpha:L7','beta:L4'], not two one-item questions. If gamma:L2 supplies the uncertainty, include all "
-            "three. These are placeholder IDs, never output them unless actually present. "
-            "Choose compare_instructions for an additional incompatibility between cited passages, not simply two "
-            "lists. Choose confirm_intentional_change for an explicit Intentional change: source whose relation to "
-            "the cited instructions needs clarification; include those instructions with the rationale. Choose "
-            "confirm_taper for a contextual phase/order/day-anchor/final-action question, citing both the phase "
-            "source and the passage raising that uncertainty. Choose confirm_hold_restart for conflicting hold "
-            "conditions or an interpretation/restart-authority question, citing all related predicates/context. "
-            "Choose confirm_identity_form when a caregiver asks whether names, strengths, boxes or release forms "
-            "refer to the same product; cite the named-product passages AND that caregiver context. This asks the "
-            "pharmacist to confirm identity and does NOT assert equivalence, so use this specific code rather than "
-            "separating a generic caregiver question from the medicine sources. Choose confirm_pending_owner for "
-            "an additional ownership/contact/follow-up uncertainty, citing the relevant pending record(s) AND the "
-            "passage causing the question; a bare pending-test mention is already covered. "
-            "confirm_interaction_review requires both sources of a selected label-backed pair and should not "
-            "repeat an already-rendered review flag without additional context. It never asserts current concurrent "
-            "use, a contraindication or a stop instruction. Use caregiver_question only when no specific code fits, "
-            "still grouping its context and clinical evidence. Put teachback ONLY in the teachback array and "
-            "always include at least one; teachback is separate from additional uncertainty. "
-            "There is no supplied expected plan. Your selections remain contextual proposals, NOT verified errors. "
-            "Preserve taper/hold/AND/OR/comparators/negation and never infer a restart or latest-wins authority. "
-            "No clinical fields, new advice, free text, medication changes or extra keys. All medicine instructions stay quoted."
+            "Call lookup_reconciliation_references and then check_reconciliation_constraints fresh. Read all original "
+            "documents and caregiver_context, including caregiver_note documents even when caregiver_concerns is empty. "
+            "Select ADDITIONAL unresolved relationships for discussion, not a checklist of clinical mentions. "
+            "The question_catalog shows exactly what each code asks. already_rendered_checks shows questions that "
+            "the card will include automatically. Eligibility is only a validity precondition, never a recommendation. "
+            "Read agreement, explicit explanations, uncertainty and NEGATION in whole passages. An unchanged plan, "
+            "different dates alone, a fully explained change, a resolved concern or an explicit statement of understanding "
+            "does not create a new question. Do not invent identity/restart confusion when a caregiver denies it. "
+            "Zero, one or multiple additional questions can be correct. Return questions:[] when no additional "
+            "supported uncertainty remains; teachback still belongs in its separate nonempty array. "
+            "A new wording of a floor question is not a new relationship. The same code can be useful only when "
+            "another passage adds an unresolved interpretation, competing evidence, unclear referent or responsibility "
+            "that the existing citation group does not capture. Do not restate a floor check just because it exists. "
+            "For each genuine uncertainty choose the code whose COMPLETE question meaning fits, and cite ALL passages "
+            "needed to understand it in ONE statement_ids group. Include the caregiver's interpretation AND every "
+            "clinical passage it relates to; include both sides of a document disagreement. Do not split a relationship "
+            "into partial questions, attach unrelated sources, or create all-pairs questions. An unclear change rationale "
+            "is not automatically an identity/form question. A documented intentional change may still need clarification "
+            "when its referent or relationship to instructions is unclear; cite the rationale and affected instructions. "
+            "Use identity/form review only for actual caregiver uncertainty about named products, strengths or forms, "
+            "not merely because two medicines appear. Include that caregiver passage and the relevant product passages; "
+            "never assert equivalence or substitution. For taper/hold/follow-up questions include the actual source and "
+            "the context creating the additional uncertainty, preserving every phase, predicate and owner. "
+            "Use caregiver_question only for a genuine unresolved concern when no specific question meaning fits. "
+            "Do not move an irrelevant specific question into this generic code. Teachback is separate from question "
+            "selection and does not imply an unresolved discrepancy. Return only ReconciliationSelection with the exact "
+            "source_hash, model-selected questions and teachback; each question has only code and statement_ids. "
+            "Follow code_eligibility without inventing witnesses or IDs. These are proposals, not verified clinical errors. "
+            "Pinned references are limited review context, not comprehensive clearance. Never infer a new prescription, "
+            "automatic stop, restart or latest-document authority. No new advice, clinical fields or extra keys."
         ),
         PUBLISHER: "Call build_clarification_card. Return ONLY the fresh exact source_hash,artifact_ref,presentation as PublicationSelection. Never return clinical advice or reuse a prior reference.",
     }
@@ -556,5 +595,11 @@ def run(dossier: dict, session_id: str, mode: str | None = None, stress: bool = 
                         "hook_invocations": len(context.nodes), "structured_output_repairs": context.repairs,
                         "source_index_verified": context.index_verified, "selection": context.selection,
                         "planner_rejections": context.planner_rejections, "repair_diagnostics": context.repair_diagnostics,
+                        "native_output_attempts": context.native_output_attempts,
+                        "native_output_attempts_dropped": context.native_output_attempts_dropped,
+                        "configured_model_ids": configured_model_ids(),
+                        "model_adapter_ids": (configured_model_ids() if mode == "bedrock" else
+                                              {role: "medplain-synthetic-replay" for role in AGENT_NAMES}),
+                        "model_identity_scope": "Configured adapters, not evidence every node completed inference; inspect the invocation and tool trace. Usage and cost are not collected.",
                         "failure": context.failure,
                         "publication_plan": context.publication_plan, "semantic_relevance_verified": False}}

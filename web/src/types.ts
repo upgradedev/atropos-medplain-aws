@@ -54,6 +54,7 @@ export interface Bootstrap {
     transport_mode: string;
     commit: string;
     storage: string;
+    reconciliation_model_ids?: Record<string, string>;
   };
   limits: { max_cases: number; daily_jobs?: number; daily_reset?: string };
   collection?: {
