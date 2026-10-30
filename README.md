@@ -105,6 +105,27 @@ All 28 delivered model cards preserved exact supported clinical content. The oth
 
 One concrete contribution is linking both Metoprolol source passages to the caregiver's indirect phrase "my heart pill" and "XL" in one identity/form question. This asks a pharmacist to confirm the formulation; it does not authorize equivalence or substitution. Another example joins two different recorded owners of the same pending result into one ownership question. The baseline retains those records but misses those particular annotated links. These observations support a bounded contextual-association role, not the necessity of an LLM or a claim of clinical benefit.
 
+### Precision intervention: completion fixed, relevance regressed
+
+The [actual known-corpus measurement at `38313f8`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-reconciliation-38313f8) changes the planner to Nova Pro, retains Micro for indexing/publication, and provides the exact already-rendered floor questions with a selective policy. Model and prompt changes were evaluated together. The clinical gate, public schemas, renderer, complete baseline, corpus, ruler, references and execution limits are unchanged.
+
+| Metric | Prior Strands `473c9f4` | Strands `38313f8` | Unchanged baseline |
+|---|---:|---:|---:|
+| Verified cards | 28/30 | 30/30 | 30/30 |
+| Workflow refusals | 2 | 0 | 0 |
+| Context TP / FP / FN | 12 / 15 / 3 | 9 / 17 / 6 | 4 / 2 / 11 |
+| Context precision | 44.4% | 34.6% | 66.7% |
+| Context recall | 80.0% | 60.0% | 26.7% |
+| Context F1 | 0.5714 | 0.4390 | 0.3810 |
+| Additional questions: targeted + generic | 27 + 1 | 26 + 3 | 6 + 12 |
+| Source coverage / citations / supported atoms / null regimen | 28/30 each | 30/30 each | 30/30 each |
+
+Both formerly failed controls complete with empty additional-question lists and retained teach-back, in the full comparison and two separate first-job canaries. Availability is fixed, but **precision and recall regress**. The declared accuracy targets were not met. The full baseline question plan remains byte-for-byte identical in its canonical projection. All 60 arm outcomes and the complete partial journal remain public, with independent scoring, source/receipt audits and a sidecar counting generic questions. No failed experiment was replaced.
+
+The 17 false positives comprise ten already-covered floor questions, three redundant broad comparisons, three wrong intents and one incomplete caregiver witness group. Four previous context hits were lost and one gained. This shows why a larger model and a longer policy are not sufficient evidence of improvement.
+
+All 30 delivered cards preserve the supported source content. Structural matches remain 29/29 and selected label-pair prompts 4/4. Completed live roles have 90 successful native outputs and 30 publisher schema-error attempts recovered inside the existing SDK budget. Zero graph-level structured repairs does not mean zero native errors. Model configuration and the SDK trajectory do not independently attest provider-returned model identity. This is a repeat on inspected synthetic cases, not a holdout, clinical validation or a comparison with commercial products. Token use, cost and patient outcomes remain unmeasured.
+
 Patient views provide larger text, high contrast and manual local-device speech controls with visible unavailable-voice reasons. Speech never starts automatically. This uses the device's supported voices, not Amazon Polly; audio pronunciation and patient comprehension have not been validated. No OCR, unrestricted FHIR import, hospital identity system or autonomous prescribing capability is implied.
 
 ## Operations console
@@ -119,7 +140,7 @@ An opaque anonymous capability scopes the session. Operator, reviewer, auditor a
 
 ## What runs
 
-This source configures Amazon Bedrock Nova Pro for the multisource clarification planner, with Nova Micro for evidence indexing, immutable card publication and the separate simple-note workflow. The real `strands-agents==1.53.0` runtime remains load-bearing. Settings and the health response disclose the configured model IDs by role. There is no silent model fallback: a provider error or exhausted correction budget withholds patient content. Offline fixtures do not invoke these models. The historical measurements above identify their own source and used Nova Micro throughout; a new configuration is not evidence of improved accuracy until its own actual report is published.
+This source configures Amazon Bedrock Nova Pro for the multisource clarification planner, with Nova Micro for evidence indexing, immutable card publication and the separate simple-note workflow. The real `strands-agents==1.53.0` runtime remains load-bearing. Settings and the health response disclose the configured model IDs by role. There is no silent model fallback: a provider error or exhausted correction budget withholds patient content. Offline fixtures do not invoke these models. Each measurement above identifies its own source: the earlier runs use Micro throughout; `38313f8` uses the Pro planner and reports its negative relevance result explicitly. Later source changes are unmeasured until they have their own actual report.
 
 Strands is load-bearing: its `Agent` loop executes the registered tools, its Pydantic output mechanism validates node results, its lifecycle hooks enforce the publication boundary, and its `Graph` routes the correction cycle. Removing Strands breaks the anonymous execution path.
 
