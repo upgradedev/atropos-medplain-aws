@@ -505,10 +505,48 @@ def test_model_roles_share_configuration_helper_and_planner_override_is_isolated
         engine._model("bedrock", context, role, tools[role], engine._OUTPUT_MODELS[role])
     assert [row["model_id"] for row in recorded] == ["existing-base-setting", "amazon.nova-micro-v1:0", "existing-base-setting"]
     assert all(row["max_tokens"] == 4096 and row["temperature"] == 0.0 for row in recorded)
+    assert recorded[1]["additional_request_fields"] == {"inferenceConfig": {"topK": 1}}
+    assert all("additional_request_fields" not in recorded[index] for index in [0, 2])
     # The actual adapter must use the shared helper, rather than duplicating env logic.
     monkeypatch.setattr(engine, "configured_model_ids", lambda: {role: "helper-selected-model" for role in engine.AGENT_NAMES})
     engine._model("bedrock", context, engine.PLANNER, tools[engine.PLANNER], engine.PlanningDraft)
     assert recorded[-1]["model_id"] == "helper-selected-model"
+
+
+def test_pinned_sdk_forwards_planner_top_k_to_converse_request_without_changing_other_adapters(monkeypatch):
+    import strands.models.bedrock as bedrock_sdk
+    from strands.tools.structured_output.structured_output_tool import StructuredOutputTool
+
+    class OfflineSession:
+        region_name = "us-east-1"
+
+        def client(self, **kwargs):
+            assert kwargs["service_name"] == "bedrock-runtime"
+            return SimpleNamespace(meta=SimpleNamespace(region_name="us-east-1"))
+
+    # Actual pinned SDK construction and request formatting, with no HTTP client.
+    monkeypatch.setattr(bedrock_sdk.boto3, "Session", OfflineSession)
+    monkeypatch.delenv("MEDPLAIN_BEDROCK_MODEL_ID", raising=False)
+    monkeypatch.delenv("MEDPLAIN_RECONCILIATION_PLANNER_MODEL_ID", raising=False)
+    source = examples()[0]["dossier"]
+    context = engine.Context(source, "planner-greedy-request-fields", False)
+    tools = engine._tools(context)
+    for role in engine.AGENT_NAMES:
+        output_model = engine._OUTPUT_MODELS[role]
+        model = engine._model("bedrock", context, role, tools[role], output_model)
+        specs = [item.tool_spec for item in tools[role]] + [StructuredOutputTool(output_model).tool_spec]
+        choice = {"tool": {"name": output_model.__name__}}
+        request = model.delegate.format_request(
+            messages=[{"role": "user", "content": [{"text": "Construct an offline synthetic request only."}]}],
+            tool_specs=specs, tool_choice=choice)
+        assert request["modelId"] == engine.configured_model_ids()[role]
+        assert request["inferenceConfig"] == {"maxTokens": 4096, "temperature": 0.0}
+        assert request["toolConfig"]["toolChoice"] == choice
+        if role == engine.PLANNER:
+            assert request["additionalModelRequestFields"] == {"inferenceConfig": {"topK": 1}}
+        else:
+            assert request.get("additionalModelRequestFields", {}) == {}
+        assert "topK" not in request["inferenceConfig"]
 
 
 @pytest.mark.parametrize("invalid", ["", "unknown-model", "us.amazon.nova-pro-v1:0", "arn:aws:bedrock:us-east-1:123456789012:inference-profile/private"])
