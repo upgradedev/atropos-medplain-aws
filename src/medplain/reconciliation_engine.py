@@ -155,7 +155,8 @@ def _validator_details(exc):
     return {"kind": "exception_type", "exception_type": _bounded_text(type(exc).__name__, 64)}
 
 
-def _record_planner_rejection(context, payload, exc):
+def _record_planner_rejection(context, payload, exc, review=None):
+    """Store bounded diagnostic previews, never a replacement selection or review reason."""
     details = _validator_details(exc)
     reason = ("; ".join(details["messages"]) if details["kind"] == "contract"
               else json.dumps(details, ensure_ascii=True, separators=(",", ":")))
@@ -164,12 +165,20 @@ def _record_planner_rejection(context, payload, exc):
         original_hash = canonical_hash(payload)
     except (TypeError, ValueError, UnicodeError):
         original_hash = None
+    selection_type = _bounded_text(type(payload).__name__, 64)
+    selection_is_object = isinstance(payload, dict)
+    payload = payload if selection_is_object else {}
+    try:
+        review_hash = canonical_hash(review)
+    except (TypeError, ValueError, UnicodeError):
+        review_hash = None
+    review_rows = review if isinstance(review, list) else []
     counts = {key: len(payload.get(key, [])) if isinstance(payload.get(key), list) else 0
               for key in ["questions", "teachback"]}
     width = 96
     while True:
         preview = {"source_hash": _bounded_text(payload.get("source_hash"), 64)}
-        truncated = False
+        truncated = not selection_is_object
         for section, maximum in [("questions", 12), ("teachback", 6)]:
             rows = payload.get(section, [])
             rows = rows if isinstance(rows, list) else []
@@ -182,15 +191,40 @@ def _record_planner_rejection(context, payload, exc):
                 values = [_bounded_text(value, width) for value in ids[:8]]
                 truncated |= len(ids) > 8 or any(value != original for value, original in zip(values, ids))
                 preview[section].append({"code": _bounded_text(row.get("code"), 48), "statement_ids": values})
+        if not selection_is_object:
+            preview = {"unavailable": "Selection payload is not an object"}
+        review_preview = []
+        review_truncated = not isinstance(review, list) or len(review_rows) > 12
+        for row in review_rows[:12]:
+            row = row if isinstance(row, dict) else {}
+            ids = row.get("statement_ids", [])
+            ids = ids if isinstance(ids, list) else []
+            values = [_bounded_text(value, width) if isinstance(value, str)
+                      and re.fullmatch(r"[a-z][a-z0-9_-]{0,39}:L[1-9][0-9]{0,5}", value)
+                      else "invalid_statement_id" for value in ids[:8]]
+            review_truncated |= len(ids) > 8 or any(value != original for value, original in zip(values, ids))
+            index = row.get("question_index")
+            review_preview.append({
+                "disposition": row.get("disposition") if row.get("disposition") in ("covered", "resolved", "ask") else "unknown",
+                "intent": row.get("intent") if row.get("intent") in QUESTION_CODES else "unknown",
+                "statement_ids": values,
+                "question_index": index if type(index) is int and 0 <= index <= 11 else None if index is None else "invalid"})
         record = {"invocation_index": len(context.nodes), "failure_code": FailureCode.PLANNER_CONTRACT.value,
                   "validator": details, "reason": reason, "rejected_typed_selection": preview,
-                  "selection_sha256": original_hash, "selection_counts": counts, "selection_truncated": truncated}
+                  "selection_sha256": original_hash, "selection_payload_type": selection_type,
+                  "selection_counts": counts, "selection_truncated": truncated,
+                  "rejected_review": review_preview, "review_sha256": review_hash,
+                  "review_counts": {"items": len(review_rows), "previewed": len(review_preview)},
+                  "review_truncated": review_truncated}
         if len(json.dumps(record, ensure_ascii=False, allow_nan=False).encode("utf-8")) <= MAX_PRIVATE_REJECTION_BYTES:
             break
         width //= 2
         if width < 6:
             record["rejected_typed_selection"] = {"omitted": "Diagnostic serialized-size limit"}
             record["selection_truncated"] = True
+            record["rejected_review"] = {"omitted": "Diagnostic serialized-size limit"}
+            record["review_truncated"] = True
+            record["review_counts"]["previewed"] = 0
             break
     if len(context.planner_rejections) < MAX_PRIVATE_REJECTIONS:
         context.planner_rejections.append(record)
@@ -242,11 +276,18 @@ def _record_native_output_attempt(context: Context, role: str, tool_use: dict, r
     record = {"agent": role, "invocation_index": len(context.nodes),
               "tool": _OUTPUT_MODELS[role].__name__, "status": "success" if success else "error",
               "input_sha256": input_hash}
-    if not success:
-        try:
-            _OUTPUT_MODELS[role].model_validate(payload)
-        except (TypeError, ValueError) as exc:
-            record["validation"] = _validator_details(exc)
+    try:
+        validated = _OUTPUT_MODELS[role].model_validate(payload)
+    except (TypeError, ValueError) as exc:
+        record["validation"] = _validator_details(exc)
+    else:
+        if success:
+            try:
+                normalized_hash = canonical_hash(validated.model_dump(mode="json"))
+            except (TypeError, ValueError, UnicodeError):
+                record["validation"] = {"kind": "canonicalization_error", "details": "Validated input hash unavailable"}
+            else:
+                record["validated_input_sha256"] = normalized_hash
         else:
             # SDK/provider prose may contain arbitrary values or credentials.
             record["validation"] = {"kind": "sdk_tool_error", "details": "No provider error text retained"}
@@ -530,7 +571,9 @@ class ReconciliationHook(HookProvider):
             try:
                 selection, review = _validate_planning_draft(context.dossier, payload)
             except (TypeError, ValueError) as exc:
-                reason = _record_planner_rejection(context, payload["selection"], exc)
+                draft_preview = payload if isinstance(payload, dict) else {}
+                reason = _record_planner_rejection(context, draft_preview.get("selection"), exc,
+                                                   review=draft_preview.get("review"))
                 self._repair(event, reason, FailureCode.PLANNER_CONTRACT)
                 return
             context.selection, context.planning_review = selection, review

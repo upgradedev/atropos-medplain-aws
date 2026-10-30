@@ -207,6 +207,101 @@ def test_repeated_incoherent_review_refuses_without_baseline_fallback_or_hidden_
     validate_reconciliation_result(source, result)
 
 
+@pytest.mark.parametrize("payload", [None, [], {"review": []}, {"selection": None, "review": []}])
+def test_malformed_private_hook_payload_keeps_bounded_repair_and_refusal_without_preview_lookup_error(payload):
+    source = examples()[0]["dossier"]
+    context = engine.Context(source, "defensive-private-draft", False)
+    context.nodes = [engine.PLANNER]
+    context.invocation_outcomes = ["running"]
+    context.completed[engine.PLANNER] = set(engine.REQUIRED_TOOLS[engine.PLANNER])
+    hook = engine.ReconciliationHook(context, engine.PLANNER)
+    output = SimpleNamespace(model_dump=lambda **kwargs: copy.deepcopy(payload))
+    event = SimpleNamespace(result=SimpleNamespace(structured_output=output), resume=None)
+    hook.after_invocation(event)
+    assert event.resume and context.repairs == 1
+    assert context.selection is context.planning_review is None
+    assert context.planner_rejections[0]["rejected_typed_selection"] == {"unavailable": "Selection payload is not an object"}
+    context.nodes.append(engine.PLANNER)
+    context.invocation_outcomes.append("running")
+    with pytest.raises(engine.WorkflowFailure):
+        hook.after_invocation(SimpleNamespace(result=SimpleNamespace(structured_output=output), resume=None))
+    assert context.failure == {"code": "structured_repair_exhausted", "agent": engine.PLANNER,
+                               "contract_code": "planner_contract"}
+    assert context.repairs == 1 and len(context.planner_rejections) == 2
+    assert context.selection is context.planning_review is None
+    assert context.receipts == []
+
+
+def test_rejected_review_preview_retains_bounded_metadata_and_full_hash_without_reason_or_provider_text():
+    source = examples()[0]["dossier"]
+    context = engine.Context(source, "bounded-rejected-review", False)
+    selection = _private_draft(source, [{"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"]}])["selection"]
+    review = [{"disposition": "ask", "intent": "caregiver_question", "statement_ids": ["foreign:L1"] * 20,
+               "question_index": 0, "reason": "private-reason-secret-" + "x" * 50000} for _ in range(100)]
+    review[0].update(disposition="provider-disposition-secret", intent="provider-intent-secret",
+                     question_index="provider-index-secret", statement_ids=["provider-id-secret", "home:L1"])
+    saved = copy.deepcopy(review)
+    for _ in range(engine.MAX_PRIVATE_REJECTIONS + 2):
+        engine._record_planner_rejection(context, selection, ValueError("provider-exception-secret"), review=review)
+    assert review == saved and len(context.planner_rejections) == engine.MAX_PRIVATE_REJECTIONS
+    for record in context.planner_rejections:
+        assert record["selection_sha256"] == canonical_hash(selection)
+        assert record["review_sha256"] == canonical_hash(review)
+        assert record["review_counts"] == {"items": 100, "previewed": 12}
+        assert record["review_truncated"] is True
+        assert len(record["rejected_review"]) == 12
+        assert all(set(row) == {"disposition", "intent", "statement_ids", "question_index"} for row in record["rejected_review"])
+        assert record["rejected_review"][0] == {"disposition": "unknown", "intent": "unknown",
+            "statement_ids": ["invalid_statement_id", "home:L1"], "question_index": "invalid"}
+        assert len(json.dumps(record, ensure_ascii=False).encode("utf-8")) <= engine.MAX_PRIVATE_REJECTION_BYTES
+    serialized = json.dumps(context.planner_rejections)
+    assert "private-reason-secret" not in serialized
+    assert "provider-" not in serialized
+
+
+def test_native_success_records_raw_and_pydantic_normalized_hashes_without_mutating_optional_fields():
+    source = examples()[0]["dossier"]
+    draft = _private_draft(source, [])
+    draft["review"][0].pop("question_index")
+    original = copy.deepcopy(draft)
+    context = engine.Context(source, "native-normalization", False)
+    context.nodes = [engine.PLANNER]
+    engine._record_native_output_attempt(context, engine.PLANNER, {"input": draft}, {"status": "success"})
+    record = context.native_output_attempts[-1]
+    normalized = engine.PlanningDraft.model_validate(draft).model_dump(mode="json")
+    assert draft == original and "question_index" not in draft["review"][0]
+    assert record["input_sha256"] == canonical_hash(original)
+    assert record["validated_input_sha256"] == canonical_hash(normalized)
+    assert record["input_sha256"] != record["validated_input_sha256"]
+    assert normalized["review"][0]["question_index"] is None
+    assert len(json.dumps(record).encode("utf-8")) <= engine.MAX_NATIVE_OUTPUT_ATTEMPT_BYTES
+    for status in ["success", "error"]:
+        invalid = copy.deepcopy(draft)
+        invalid["selection"]["teachback"] = []
+        engine._record_native_output_attempt(context, engine.PLANNER, {"input": invalid}, {"status": status})
+        assert "validated_input_sha256" not in context.native_output_attempts[-1]
+        assert context.native_output_attempts[-1]["status"] == status
+        assert context.native_output_attempts[-1]["validation"]["kind"] == "pydantic"
+
+
+def test_actual_sdk_omitted_optional_review_index_binds_normalized_retained_draft(monkeypatch):
+    source = examples()[0]["dossier"]
+    draft = _private_draft(source, [])
+    draft["review"][0].pop("question_index")
+    emitted = _planner_draft_replay(monkeypatch, lambda invocation: draft)
+    result = run_reconciliation(source, "native-optional-review-index", mode="fixture")
+    assert result["status"] == "verified", result
+    assert emitted == [draft]
+    normalized = {"review": result["runtime"]["planning_review"], "selection": result["runtime"]["selection"]}
+    native = [row for row in result["runtime"]["native_output_attempts"] if row["agent"] == engine.PLANNER]
+    assert len(native) == 1 and native[0]["status"] == "success"
+    assert native[0]["input_sha256"] == canonical_hash(draft)
+    assert native[0]["validated_input_sha256"] == canonical_hash(normalized)
+    assert native[0]["input_sha256"] != native[0]["validated_input_sha256"]
+    assert result["runtime"]["structured_output_repairs"] == 0
+    validate_reconciliation_result(source, result)
+
+
 @pytest.mark.parametrize("repair", [False, True])
 def test_only_exact_rendered_floor_repeat_is_rejected_and_model_must_author_its_replacement(monkeypatch, repair):
     source = examples()[0]["dossier"]
