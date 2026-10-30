@@ -61,10 +61,10 @@ class RelationshipReview(Contract):
 
 
 class PlanningDraft(Contract):
-    """Review original relationships before authoring the unchanged public selection."""
+    """Unchanged model-selected public selection and private untrusted relationship review."""
 
-    review: list[RelationshipReview] = Field(min_length=1, max_length=60)
     selection: ReconciliationSelection
+    review: list[RelationshipReview] = Field(min_length=1, max_length=60)
 
 
 _OUTPUT_MODELS = {INDEXER: SourceIndex, PLANNER: PlanningDraft, PUBLISHER: PublicationSelection}
@@ -353,7 +353,7 @@ def _fixture_planning_draft(dossier: dict, selection: dict) -> dict:
                    "question_index": None,
                    "reason": "Offline replay selects no extra question; this does not establish clinical resolution."}
                   for index in range(0, len(ids), 8)]
-    return {"review": review, "selection": selection}
+    return {"selection": selection, "review": review}
 
 
 def _tools(context: Context) -> dict[str, list]:
@@ -643,7 +643,7 @@ def _make_graph(context: Context, mode: str):
             "Call lookup_reconciliation_references and then check_reconciliation_constraints fresh. Read all original "
             "documents and caregiver_context, including caregiver_note documents even when caregiver_concerns is empty. "
             "Select ADDITIONAL unresolved relationships for discussion, not a checklist of clinical mentions. "
-            "Return PlanningDraft with review BEFORE selection. Each private review item has disposition covered/resolved/ask, "
+            "Return PlanningDraft with selection FIRST and review LAST. Each private review item has disposition covered/resolved/ask, "
             "intent using an existing question code, exact statement_ids, a brief source-bound action justification in reason, "
             "and question_index only for ask. These notes are untrusted proposals, not verified reasoning or clinical advice. "
             "Use covered for an existing rendered check, resolved for no additional uncertainty supported by the passages, "

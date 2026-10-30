@@ -143,13 +143,36 @@ def test_private_fixture_protocol_preserves_every_complete_baseline_plan_and_art
     original = copy.deepcopy(selected)
     artifact_hash = canonical_hash(build_artifact(source, selected, baseline=True))
     draft = engine._fixture_planning_draft(source, selected)
-    assert list(draft) == ["review", "selection"]
-    assert list(engine.PlanningDraft.model_json_schema()["properties"]) == ["review", "selection"]
+    assert list(draft) == ["selection", "review"]
+    assert list(engine.PlanningDraft.model_json_schema()["properties"]) == ["selection", "review"]
     validated, review = engine._validate_planning_draft(source, draft)
     assert canonical_hash(selected) == canonical_hash(original) == canonical_hash(validated)
     assert canonical_hash(build_artifact(source, validated, baseline=True)) == artifact_hash
     assert draft["selection"] == original and review
     assert all("Offline" in row["reason"] for row in review)
+
+
+def test_private_envelope_mapping_order_does_not_change_hashes_validation_or_model_selected_values():
+    source = examples()[0]["dossier"]
+    draft = _private_draft(source, [{"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1", "home:L1"]}])
+    review_first = {"review": copy.deepcopy(draft["review"]), "selection": copy.deepcopy(draft["selection"])}
+    selection_first = {"selection": copy.deepcopy(draft["selection"]), "review": copy.deepcopy(draft["review"])}
+    saved = copy.deepcopy([review_first, selection_first])
+    accepted = [engine._validate_planning_draft(source, payload) for payload in [review_first, selection_first]]
+    assert accepted[0] == accepted[1] == (draft["selection"], draft["review"])
+    assert canonical_hash(review_first) == canonical_hash(selection_first)
+    normalized = [engine.PlanningDraft.model_validate(payload).model_dump(mode="json") for payload in [review_first, selection_first]]
+    assert all(list(payload) == ["selection", "review"] for payload in normalized)
+    assert canonical_hash(normalized[0]) == canonical_hash(normalized[1])
+    assert [review_first, selection_first] == saved
+    errors = []
+    for payload in [review_first, selection_first]:
+        invalid = copy.deepcopy(payload)
+        invalid["review"][0]["intent"] = "confirm_hold_restart"
+        with pytest.raises(ValueError) as captured:
+            engine._validate_planning_draft(source, invalid)
+        errors.append(str(captured.value))
+    assert errors == ["review[0]: Ask review intent and citations must equal its selected question"] * 2
 
 
 @pytest.mark.parametrize("mutation", ["missing_ask", "wrong_intent", "different_ids", "foreign_review_id", "duplicate_ask", "nonask_index"])
@@ -544,6 +567,14 @@ def test_pinned_sdk_forwards_planner_top_k_to_converse_request_without_changing_
         assert request["toolConfig"]["toolChoice"] == choice
         if role == engine.PLANNER:
             assert request["additionalModelRequestFields"] == {"inferenceConfig": {"topK": 1}}
+            native_spec = next(spec for spec in specs if spec["name"] == "PlanningDraft")
+            schema = native_spec["inputSchema"]["json"]
+            assert list(schema["properties"]) == ["selection", "review"]
+            assert schema["required"] == ["selection", "review"]
+            wire_spec = next(item["toolSpec"] for item in request["toolConfig"]["tools"]
+                             if item["toolSpec"]["name"] == "PlanningDraft")
+            assert list(wire_spec["inputSchema"]["json"]["properties"]) == ["selection", "review"]
+            assert wire_spec["inputSchema"]["json"]["required"] == ["selection", "review"]
         else:
             assert request.get("additionalModelRequestFields", {}) == {}
         assert "topK" not in request["inferenceConfig"]
