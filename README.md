@@ -119,7 +119,7 @@ An opaque anonymous capability scopes the session. Operator, reviewer, auditor a
 
 ## What runs
 
-The public AWS route uses Amazon Bedrock Nova Micro and the real `strands-agents==1.53.0` runtime. It has no silent inference fallback. A provider error or an exhausted correction budget withholds patient content. The screen identifies the active model mode.
+This source configures Amazon Bedrock Nova Pro for the multisource clarification planner, with Nova Micro for evidence indexing, immutable card publication and the separate simple-note workflow. The real `strands-agents==1.53.0` runtime remains load-bearing. Settings and the health response disclose the configured model IDs by role. There is no silent model fallback: a provider error or exhausted correction budget withholds patient content. Offline fixtures do not invoke these models. The historical measurements above identify their own source and used Nova Micro throughout; a new configuration is not evidence of improved accuracy until its own actual report is published.
 
 Strands is load-bearing: its `Agent` loop executes the registered tools, its Pydantic output mechanism validates node results, its lifecycle hooks enforce the publication boundary, and its `Graph` routes the correction cycle. Removing Strands breaks the anonymous execution path.
 

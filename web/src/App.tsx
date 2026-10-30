@@ -1054,6 +1054,31 @@ function Console() {
                           : "Offline fixture model"}
                       </dd>
                     </div>
+                    {bootstrap.runtime.model_mode === "bedrock"
+                      ? [
+                          {
+                            role: "DischargeEvidenceIndexerAgent",
+                            label: "Evidence indexer model",
+                          },
+                          {
+                            role: "CrossDocumentClarificationPlannerAgent",
+                            label: "Clarification planner model",
+                          },
+                          {
+                            role: "ClarificationCardPublisherAgent",
+                            label: "Card publisher model",
+                          },
+                        ].map(({ role, label }) => (
+                          <div key={role}>
+                            <dt>{label}</dt>
+                            <dd className="mono break">
+                              {bootstrap.runtime.reconciliation_model_ids?.[
+                                role
+                              ] || "Model configuration not reported"}
+                            </dd>
+                          </div>
+                        ))
+                      : null}
                     <div>
                       <dt>Job transport</dt>
                       <dd>{bootstrap.runtime.transport_mode}</dd>
