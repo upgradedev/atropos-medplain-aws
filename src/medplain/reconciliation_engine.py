@@ -10,8 +10,9 @@ import secrets
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
+from typing import Literal
 
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 
 from strands import Agent, tool
 from strands.hooks import (
@@ -28,7 +29,9 @@ from medplain.reconciliation import (
     PROFILE, _TEXT, _commit, append_receipt, artifact_digest, baseline_selection, build_artifact,
     gate_errors, render_artifact, source_statements, structural_issues, validate_selection,
 )
-from medplain.reconciliation_models import QUESTION_CODES, PublicationSelection, ReconciliationSelection, SourceIndex
+from medplain.reconciliation_models import (
+    QUESTION_CODES, Contract, PublicationSelection, QuestionCode, ReconciliationSelection, SourceIndex,
+)
 from medplain.required_tool_model import RequiredToolModel
 
 INDEXER = "DischargeEvidenceIndexerAgent"
@@ -45,7 +48,26 @@ MAX_PRIVATE_REJECTION_BYTES = 16384
 MAX_NATIVE_OUTPUT_ATTEMPTS = 20
 MAX_NATIVE_OUTPUT_ATTEMPT_BYTES = 4096
 PLANNER_MODEL_IDS = frozenset({"amazon.nova-pro-v1:0", "amazon.nova-micro-v1:0"})
-_OUTPUT_MODELS = {INDEXER: SourceIndex, PLANNER: ReconciliationSelection, PUBLISHER: PublicationSelection}
+
+
+class RelationshipReview(Contract):
+    """Private action justification, not verified reasoning or clinical truth."""
+
+    disposition: Literal["covered", "resolved", "ask"]
+    intent: QuestionCode
+    statement_ids: list[str] = Field(min_length=1, max_length=8)
+    reason: str = Field(min_length=1, max_length=160)
+    question_index: int | None = Field(default=None, ge=0, le=11, strict=True)
+
+
+class PlanningDraft(Contract):
+    """Review original relationships before authoring the unchanged public selection."""
+
+    review: list[RelationshipReview] = Field(min_length=1, max_length=60)
+    selection: ReconciliationSelection
+
+
+_OUTPUT_MODELS = {INDEXER: SourceIndex, PLANNER: PlanningDraft, PUBLISHER: PublicationSelection}
 
 
 def configured_model_ids() -> dict[str, str]:
@@ -89,6 +111,12 @@ _VALIDATOR_MESSAGES = frozenset({
     "An identity question requires cited caregiver context and does not assert equivalence",
     "An interaction-review question requires both sources of a selected label-backed pair",
     "Duplicate question",
+    "Private review must cite distinct statements from this source",
+    "Ask review requires exactly one matching selected question",
+    "Ask review intent and citations must equal its selected question",
+    "Non-ask review cannot reference a selected question",
+    "Every selected question requires exactly one ask review",
+    "Selected question exactly repeats an already-rendered fixed question",
 })
 
 
@@ -100,7 +128,8 @@ def _bounded_text(value, limit=512):
 def _validator_details(exc):
     """Accept only known validator messages or bounded Pydantic metadata."""
     if isinstance(exc, ValidationError):
-        fields = {"source_hash", "questions", "teachback", "code", "statement_ids"}
+        fields = {"source_hash", "questions", "teachback", "code", "statement_ids", "selection", "review",
+                  "disposition", "intent", "reason", "question_index"}
         types = {"literal_error", "string_type", "string_pattern_mismatch", "string_unicode",
                  "list_type", "too_short", "too_long", "missing", "extra_forbidden", "model_type"}
         errors = []
@@ -120,7 +149,7 @@ def _validator_details(exc):
             return {"kind": "contract", "messages": [text]}
         messages = text.split("; ")
         if len(messages) <= 8 and all(
-                (match := re.fullmatch(r"(?:questions|teachback)\[\d{1,2}\]: (.+)", message))
+                (match := re.fullmatch(r"(?:questions|teachback|review)\[\d{1,2}\]: (.+)", message))
                 and match[1] in _VALIDATOR_MESSAGES for message in messages):
             return {"kind": "contract", "messages": messages}
     return {"kind": "exception_type", "exception_type": _bounded_text(type(exc).__name__, 64)}
@@ -176,6 +205,7 @@ class Context:
     nonce: str = field(default_factory=lambda: secrets.token_hex(16))
     index_verified: bool = False
     selection: dict | None = None
+    planning_review: list[dict] | None = None
     attempts: int = 0
     errors: list[str] = field(default_factory=list)
     candidate: dict | None = None
@@ -226,6 +256,58 @@ def _record_native_output_attempt(context: Context, role: str, tool_use: dict, r
         context.native_output_attempts.pop(0)
         context.native_output_attempts_dropped += 1
     context.native_output_attempts.append(record)
+
+
+def _validate_planning_draft(dossier: dict, payload: dict) -> tuple[dict, list[dict]]:
+    """Reject protocol inconsistency; never improve or replace a model's selection."""
+    draft = PlanningDraft.model_validate(payload).model_dump(mode="json")
+    selection = validate_selection(dossier, draft["selection"])
+    statements = source_statements(dossier)
+    floor = structural_issues(statements)
+    current_ids = {row["statement_id"] for row in statements}
+    matched = set()
+    for index, item in enumerate(draft["review"]):
+        ids = item["statement_ids"]
+        if len(ids) != len(set(ids)) or not set(ids) <= current_ids:
+            raise ValueError(f"review[{index}]: Private review must cite distinct statements from this source")
+        question_index = item["question_index"]
+        if item["disposition"] != "ask":
+            # These are source-bound model claims, not verified semantic conclusions.
+            if question_index is not None:
+                raise ValueError(f"review[{index}]: Non-ask review cannot reference a selected question")
+            continue
+        if question_index is None or question_index >= len(selection["questions"]) or question_index in matched:
+            raise ValueError(f"review[{index}]: Ask review requires exactly one matching selected question")
+        question = selection["questions"][question_index]
+        if item["intent"] != question["code"] or ids != question["statement_ids"]:
+            raise ValueError(f"review[{index}]: Ask review intent and citations must equal its selected question")
+        matched.add(question_index)
+    for index, question in enumerate(selection["questions"]):
+        if index not in matched:
+            raise ValueError(f"questions[{index}]: Every selected question requires exactly one ask review")
+        for issue in floor:
+            if (issue["question_code"] == question["code"]
+                    and set(issue["statement_ids"]) == set(question["statement_ids"])
+                    and _TEXT[dossier["language"]][issue["question_code"]] == _TEXT[dossier["language"]][question["code"]]):
+                raise ValueError(f"questions[{index}]: Selected question exactly repeats an already-rendered fixed question")
+    return selection, draft["review"]
+
+
+def _fixture_planning_draft(dossier: dict, selection: dict) -> dict:
+    """Wrap only private replay metadata; preserve every public baseline-selected field."""
+    questions = selection.get("questions")
+    questions = questions if isinstance(questions, list) else []
+    review = [{"disposition": "ask", "intent": question["code"],
+               "statement_ids": list(question["statement_ids"]), "question_index": index,
+               "reason": "Offline fixture replay of the unchanged selected question; not model reasoning."}
+              for index, question in enumerate(questions)]
+    if not review:
+        ids = [row["statement_id"] for row in source_statements(dossier)]
+        review = [{"disposition": "resolved", "intent": "caregiver_question", "statement_ids": ids[index:index + 8],
+                   "question_index": None,
+                   "reason": "Offline replay selects no extra question; this does not establish clinical resolution."}
+                  for index in range(0, len(ids), 8)]
+    return {"review": review, "selection": selection}
 
 
 def _tools(context: Context) -> dict[str, list]:
@@ -378,6 +460,7 @@ class ReconciliationHook(HookProvider):
         self.repair_pending = False
         if self.role == PLANNER:
             context.selection = None
+            context.planning_review = None
         if self.role == PUBLISHER:
             context.clear_publication()
         if callable(getattr(event.agent.model, "begin_invocation", None)):
@@ -445,11 +528,12 @@ class ReconciliationHook(HookProvider):
             context.index_verified = True
         elif self.role == PLANNER:
             try:
-                context.selection = validate_selection(context.dossier, payload)
+                selection, review = _validate_planning_draft(context.dossier, payload)
             except (TypeError, ValueError) as exc:
-                reason = _record_planner_rejection(context, payload, exc)
+                reason = _record_planner_rejection(context, payload["selection"], exc)
                 self._repair(event, reason, FailureCode.PLANNER_CONTRACT)
                 return
+            context.selection, context.planning_review = selection, review
         else:
             try:
                 candidate = resolve_publication(context, payload)
@@ -484,7 +568,7 @@ def _model(mode: str, context: Context, role: str, tools: list, output_model):
             if role == INDEXER:
                 return dict(context.expected_index)
             if role == PLANNER:
-                return baseline_selection(context.dossier)
+                return _fixture_planning_draft(context.dossier, baseline_selection(context.dossier))
             return dict(context.publication_plan)
         return FixtureModel([item.tool_name for item in tools], output_model, payload)
     if mode == "bedrock":
@@ -508,6 +592,13 @@ def _make_graph(context: Context, mode: str):
             "Call lookup_reconciliation_references and then check_reconciliation_constraints fresh. Read all original "
             "documents and caregiver_context, including caregiver_note documents even when caregiver_concerns is empty. "
             "Select ADDITIONAL unresolved relationships for discussion, not a checklist of clinical mentions. "
+            "Return PlanningDraft with review BEFORE selection. Each private review item has disposition covered/resolved/ask, "
+            "intent using an existing question code, exact statement_ids, a brief source-bound action justification in reason, "
+            "and question_index only for ask. These notes are untrusted proposals, not verified reasoning or clinical advice. "
+            "Use covered for an existing rendered check, resolved for no additional uncertainty supported by the passages, "
+            "and ask for an additional unresolved relationship. Author the final ReconciliationSelection yourself under selection. "
+            "Every selected question must have exactly one ask item with the identical intent/code, ordered statement_ids and "
+            "zero-based question_index. Non-ask items have question_index:null. Do not silently drop or repair a selected question. "
             "The question_catalog shows exactly what each code asks. already_rendered_checks shows questions that "
             "the card will include automatically. Eligibility is only a validity precondition, never a recommendation. "
             "Read agreement, explicit explanations, uncertainty and NEGATION in whole passages. An unchanged plan, "
@@ -528,10 +619,18 @@ def _make_graph(context: Context, mode: str):
             "not merely because two medicines appear. Include that caregiver passage and the relevant product passages; "
             "never assert equivalence or substitution. For taper/hold/follow-up questions include the actual source and "
             "the context creating the additional uncertainty, preserving every phase, predicate and owner. "
+            "Intent contrasts: a caregiver asking when day one starts or what follows the final taper phase still needs "
+            "confirm_taper, not a generic question. Misunderstanding AND/OR or restart authority needs confirm_hold_restart; "
+            "compare_instructions concerns competing instructions, not merely an interpretation of one condition. "
+            "Two records naming different owners for the same pending result need confirm_pending_owner with both records; "
+            "a later timestamp alone does not resolve responsibility. An explicit agreement with an already-explained plan "
+            "can require no extra question. Two named bottles with an identity concern need confirm_identity_form and all "
+            "relevant evidence; do not append a broad comparison for that same concern. A documented change with an unclear "
+            "referent needs confirm_intentional_change, not identity merely because the caregiver asks which medicine. "
             "Use caregiver_question only for a genuine unresolved concern when no specific question meaning fits. "
             "Do not move an irrelevant specific question into this generic code. Teachback is separate from question "
-            "selection and does not imply an unresolved discrepancy. Return only ReconciliationSelection with the exact "
-            "source_hash, model-selected questions and teachback; each question has only code and statement_ids. "
+            "selection and does not imply an unresolved discrepancy. The nested selection keeps the exact source_hash, "
+            "model-selected questions and teachback; each question has only code and statement_ids. "
             "Follow code_eligibility without inventing witnesses or IDs. These are proposals, not verified clinical errors. "
             "Pinned references are limited review context, not comprehensive clearance. Never infer a new prescription, "
             "automatic stop, restart or latest-document authority. No new advice, clinical fields or extra keys."
@@ -594,6 +693,8 @@ def run(dossier: dict, session_id: str, mode: str | None = None, stress: bool = 
                         "invocation_outcomes": context.invocation_outcomes,
                         "hook_invocations": len(context.nodes), "structured_output_repairs": context.repairs,
                         "source_index_verified": context.index_verified, "selection": context.selection,
+                        "planning_review": context.planning_review,
+                        "planning_review_scope": "Private untrusted action justifications, not verified reasoning or clinical clearance.",
                         "planner_rejections": context.planner_rejections, "repair_diagnostics": context.repair_diagnostics,
                         "native_output_attempts": context.native_output_attempts,
                         "native_output_attempts_dropped": context.native_output_attempts_dropped,

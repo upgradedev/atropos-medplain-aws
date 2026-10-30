@@ -3,6 +3,7 @@
 import asyncio
 import copy
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -15,6 +16,7 @@ from medplain.reconciliation import (
     validate_reconciliation_result,
 )
 from medplain.reconciliation_models import ReconciliationSelection
+from medplain.reconciliation_evaluation import match_focus
 from medplain.ops_domain import OpsService
 
 
@@ -55,7 +57,7 @@ def _forced_native_planner(monkeypatch, payload):
             arguments = {}
             if name == self._output_model.__name__:
                 self.output_attempts += 1
-                arguments = payload(self.context, self.output_attempts)
+                arguments = engine._fixture_planning_draft(self.context.dossier, payload(self.context, self.output_attempts))
             calls.append({"invocation_index": invocation, "name": name})
             yield {"messageStart": {"role": "assistant"}}
             yield {"contentBlockStart": {"contentBlockIndex": 0,
@@ -79,6 +81,41 @@ def _forced_native_planner(monkeypatch, payload):
     return calls
 
 
+def _planner_draft_replay(monkeypatch, draft_at_invocation):
+    """Model-authored test drafts, including deliberate contract/semantic failures."""
+    original = engine._model
+    emitted = []
+
+    def model(mode, context, role, tools, output_model):
+        if role != engine.PLANNER:
+            return original(mode, context, role, tools, output_model)
+        holder = {}
+
+        def payload():
+            value = copy.deepcopy(draft_at_invocation(holder["model"]._invocation))
+            emitted.append(copy.deepcopy(value))
+            return value
+
+        replay = FixtureModel([item.tool_name for item in tools], output_model, payload)
+        holder["model"] = replay
+        return replay
+
+    monkeypatch.setattr(engine, "_model", model)
+    return emitted
+
+
+def _private_draft(source, questions):
+    selection = {"source_hash": canonical_hash(source), "questions": copy.deepcopy(questions),
+                 "teachback": [{"code": "teachback", "statement_ids": [source_statements(source)[0]["statement_id"]]}]}
+    review = [{"disposition": "ask", "intent": question["code"], "statement_ids": list(question["statement_ids"]),
+               "question_index": index, "reason": "Private test action justification, not clinical truth."}
+              for index, question in enumerate(questions)]
+    if not review:
+        review = [{"disposition": "resolved", "intent": "caregiver_question", "statement_ids": [source_statements(source)[0]["statement_id"]],
+                   "question_index": None, "reason": "No additional uncertainty proposed in this test draft."}]
+    return {"review": review, "selection": selection}
+
+
 @pytest.mark.parametrize("example", examples(), ids=lambda row: row["example_id"])
 def test_actual_sdk_indexes_plans_and_publishes_with_fresh_tools(example):
     result = run_reconciliation(example["dossier"], "sdk-" + example["example_id"], mode="fixture")
@@ -87,11 +124,168 @@ def test_actual_sdk_indexes_plans_and_publishes_with_fresh_tools(example):
     assert result["runtime"]["nodes_executed"] == list(engine.AGENT_NAMES)
     assert result["runtime"]["sdk_version"] == "1.53.0"
     assert result["runtime"]["semantic_relevance_verified"] is False
+    assert result["runtime"]["planning_review"]
+    assert "untrusted" in result["runtime"]["planning_review_scope"]
+    assert "planning_review" not in result["artifact"] and "review" not in result["artifact"]
     assert result["patient_regimen"] is None
     for index, role in enumerate(result["runtime"]["nodes_executed"], start=1):
         observed = [row for row in result["runtime"]["tools_executed"] if row["invocation_index"] == index]
         assert {row["tool"] for row in observed if row["success"]} == set(engine.REQUIRED_TOOLS[role])
         assert all(row["agent"] == role for row in observed)
+
+
+@pytest.mark.parametrize("case", json.loads((Path(engine.__file__).parent / "data" / "reconciliation_corpus.json").read_text(encoding="utf-8"))["cases"],
+                         ids=lambda row: row["id"])
+def test_private_fixture_protocol_preserves_every_complete_baseline_plan_and_artifact(case):
+    source = case["dossier"]
+    selected = baseline_selection(source)
+    original = copy.deepcopy(selected)
+    artifact_hash = canonical_hash(build_artifact(source, selected, baseline=True))
+    draft = engine._fixture_planning_draft(source, selected)
+    assert list(draft) == ["review", "selection"]
+    assert list(engine.PlanningDraft.model_json_schema()["properties"]) == ["review", "selection"]
+    validated, review = engine._validate_planning_draft(source, draft)
+    assert canonical_hash(selected) == canonical_hash(original) == canonical_hash(validated)
+    assert canonical_hash(build_artifact(source, validated, baseline=True)) == artifact_hash
+    assert draft["selection"] == original and review
+    assert all("Offline" in row["reason"] for row in review)
+
+
+@pytest.mark.parametrize("mutation", ["missing_ask", "wrong_intent", "different_ids", "foreign_review_id", "duplicate_ask", "nonask_index"])
+def test_private_review_inconsistency_requires_a_fresh_model_draft_without_changing_selection(monkeypatch, mutation):
+    source = examples()[0]["dossier"]
+    good = _private_draft(source, [{"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1", "home:L1"]}])
+    bad = copy.deepcopy(good)
+    row = bad["review"][0]
+    if mutation == "missing_ask":
+        row.update(disposition="resolved", question_index=None)
+    elif mutation == "wrong_intent":
+        row["intent"] = "confirm_taper"
+    elif mutation == "different_ids":
+        row["statement_ids"] = ["discharge:L1"]
+    elif mutation == "foreign_review_id":
+        row["statement_ids"] = ["foreign:L1"]
+    elif mutation == "duplicate_ask":
+        bad["review"].append(copy.deepcopy(row))
+    else:
+        row["disposition"] = "covered"
+    emitted = _planner_draft_replay(monkeypatch, lambda invocation: bad if invocation == 1 else good)
+    result = run_reconciliation(source, "private-review-fresh-repair", mode="fixture")
+    assert result["status"] == "verified", result
+    assert emitted == [bad, good]
+    assert result["runtime"]["selection"] == good["selection"] == bad["selection"]
+    assert result["runtime"]["planning_review"] == good["review"]
+    assert result["runtime"]["structured_output_repairs"] == 1
+    assert result["runtime"]["nodes_executed"] == [engine.INDEXER, engine.PLANNER, engine.PLANNER, engine.PUBLISHER]
+    assert result["runtime"]["planner_rejections"][0]["rejected_typed_selection"] == bad["selection"]
+    for index in [2, 3]:
+        records = [row for row in result["runtime"]["tools_executed"] if row["invocation_index"] == index]
+        assert {row["tool"] for row in records if row["success"]} == set(engine.REQUIRED_TOOLS[engine.PLANNER])
+    validate_reconciliation_result(source, result)
+
+
+def test_repeated_incoherent_review_refuses_without_baseline_fallback_or_hidden_question_repair(monkeypatch):
+    source = examples()[0]["dossier"]
+    draft = _private_draft(source, [{"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1", "home:L1"]}])
+    draft["review"][0]["intent"] = "confirm_hold_restart"
+    emitted = _planner_draft_replay(monkeypatch, lambda invocation: draft)
+
+    def forbidden_fallback(*args):
+        raise AssertionError("A rejected model draft cannot call the baseline")
+
+    monkeypatch.setattr(engine, "baseline_selection", forbidden_fallback)
+    result = run_reconciliation(source, "private-review-remains-refused", mode="fixture")
+    assert result["status"] == "refused", result
+    assert emitted == [draft, draft]
+    assert result["artifact"] is result["explanation_text"] is None
+    assert result["runtime"]["selection"] is result["runtime"]["planning_review"] is None
+    assert result["runtime"]["structured_output_repairs"] == 1
+    assert result["runtime"]["failure"]["code"] == "structured_repair_exhausted"
+    assert len(result["runtime"]["planner_rejections"]) == 2
+    assert all(row["rejected_typed_selection"] == draft["selection"] for row in result["runtime"]["planner_rejections"])
+    assert result["receipts"] == []
+    validate_reconciliation_result(source, result)
+
+
+@pytest.mark.parametrize("repair", [False, True])
+def test_only_exact_rendered_floor_repeat_is_rejected_and_model_must_author_its_replacement(monkeypatch, repair):
+    source = examples()[0]["dossier"]
+    duplicate = _private_draft(source, [{"code": "compare_instructions", "statement_ids": ["home:L1", "discharge:L1"]}])
+    added_context = _private_draft(source, [{"code": "compare_instructions",
+        "statement_ids": ["home:L1", "discharge:L1", "caregiver-concerns:L1"]}])
+    # The unchanged clinical gate accepts this exact repeat; draft quality is a separate declared precondition.
+    assert gate_errors(source, build_artifact(source, duplicate["selection"]), duplicate["selection"]) == []
+    emitted = _planner_draft_replay(monkeypatch, lambda invocation: added_context if repair and invocation > 1 else duplicate)
+    result = run_reconciliation(source, "exact-repeat-draft-repair", mode="fixture")
+    assert result["runtime"]["structured_output_repairs"] == 1
+    assert "exactly repeats" in result["runtime"]["planner_rejections"][0]["reason"]
+    assert emitted[0] == duplicate
+    if repair:
+        assert result["status"] == "verified", result
+        assert emitted == [duplicate, added_context]
+        assert result["runtime"]["selection"] == added_context["selection"]
+        assert result["artifact"]["proposed_questions"][0]["statement_ids"] == added_context["selection"]["questions"][0]["statement_ids"]
+    else:
+        assert result["status"] == "refused", result
+        assert emitted == [duplicate, duplicate]
+        assert result["artifact"] is None
+    validate_reconciliation_result(source, result)
+
+
+def test_private_review_is_not_released_to_patient_or_added_to_fixed_artifact(monkeypatch):
+    source = examples()[0]["dossier"]
+    draft = _private_draft(source, [{"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1", "home:L1"]}])
+    draft["review"][0]["reason"] = "private-untrusted-justification-never-published"
+    _planner_draft_replay(monkeypatch, lambda invocation: draft)
+    result = run_reconciliation(source, "private-review-stays-private", mode="fixture")
+    assert result["status"] == "verified", result
+    assert result["runtime"]["planning_review"] == draft["review"]
+    assert "private-untrusted-justification" not in json.dumps(result["artifact"])
+    assert "private-untrusted-justification" not in result["explanation_text"]
+    share = {"execution_id": result["session_id"], "source_profile": "medplain-reconciliation-v1",
+             "source": source, "result": result, "intake": None,
+             "case": {"status": "released", "source_hash": canonical_hash(source), "artifact_hash": result["artifact_hash"]}}
+    public = OpsService(SimpleNamespace(get=lambda *_: copy.deepcopy(share))).patient("a" * 32)
+    assert "runtime" not in public["result"]
+    assert "planning_review" not in json.dumps(public)
+    assert "private-untrusted-justification" not in json.dumps(public)
+
+
+def test_combined_conflicting_owner_evidence_remains_allowed_despite_single_source_floor_checks():
+    source = {"profile": "medplain-reconciliation-v1", "patient_alias": "Demo-Ownership", "language": "en",
+        "caregiver_concerns": "", "documents": [
+            {"document_id": "result", "kind": "lab_report", "issued_at": "2026-10-28T09:00:00Z", "effective_at": None,
+             "text": "Pending test: urine culture; owner: community team; follow-up: within 3 days"},
+            {"document_id": "update", "kind": "addendum", "issued_at": "2026-10-30T09:00:00Z", "effective_at": None,
+             "text": "Pending test: urine culture; owner: inpatient team; follow-up: within 3 days"}]}
+    draft = _private_draft(source, [{"code": "confirm_pending_owner", "statement_ids": ["result:L1", "update:L1"]}])
+    selected, review = engine._validate_planning_draft(source, draft)
+    assert selected == draft["selection"] and review == draft["review"]
+    assert gate_errors(source, build_artifact(source, selected), selected) == []
+
+    # A coherent but wrong resolution claim is not turned into an invented question.
+    wrong_resolution = _private_draft(source, [])
+    wrong_resolution["review"][0].update(intent="confirm_pending_owner", statement_ids=["result:L1", "update:L1"],
+        reason="The model claims the newer record resolves ownership; this claim is unverified.")
+    selected, _ = engine._validate_planning_draft(source, wrong_resolution)
+    assert selected == wrong_resolution["selection"]
+    assert match_focus(build_artifact(source, selected)["proposed_questions"], [{
+        "codes": ["confirm_pending_owner"], "required_statement_ids": ["result:L1", "update:L1"],
+        "allowed_statement_ids": ["result:L1", "update:L1"]}])["false_negative"] == 1
+
+
+@pytest.mark.parametrize("mutation", ["review_count", "reason_length", "boolean_index"])
+def test_private_draft_schema_bounds_action_metadata_without_changing_public_schema(mutation):
+    source = examples()[0]["dossier"]
+    draft = _private_draft(source, [{"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"]}])
+    if mutation == "review_count":
+        draft["review"] *= 61
+    elif mutation == "reason_length":
+        draft["review"][0]["reason"] = "x" * 161
+    else:
+        draft["review"][0]["question_index"] = True
+    with pytest.raises(ValueError):
+        engine.PlanningDraft.model_validate(draft)
 
 
 def test_empty_concerns_still_exposes_original_caregiver_document_context():
@@ -179,7 +373,7 @@ def test_model_roles_share_configuration_helper_and_planner_override_is_isolated
     assert all(row["max_tokens"] == 4096 and row["temperature"] == 0.0 for row in recorded)
     # The actual adapter must use the shared helper, rather than duplicating env logic.
     monkeypatch.setattr(engine, "configured_model_ids", lambda: {role: "helper-selected-model" for role in engine.AGENT_NAMES})
-    engine._model("bedrock", context, engine.PLANNER, tools[engine.PLANNER], ReconciliationSelection)
+    engine._model("bedrock", context, engine.PLANNER, tools[engine.PLANNER], engine.PlanningDraft)
     assert recorded[-1]["model_id"] == "helper-selected-model"
 
 
@@ -216,8 +410,8 @@ def test_live_adapter_forces_references_then_case_context_without_changing_froze
     context.completed[engine.PLANNER] = set()
     tools = engine._tools(context)[engine.PLANNER]
     assert engine.REQUIRED_TOOLS[engine.PLANNER] == ("check_reconciliation_constraints", "lookup_reconciliation_references")
-    model = engine._model("bedrock", context, engine.PLANNER, tools, ReconciliationSelection)
-    specs = [{"name": name} for name in ["lookup_reconciliation_references", "check_reconciliation_constraints", "ReconciliationSelection"]]
+    model = engine._model("bedrock", context, engine.PLANNER, tools, engine.PlanningDraft)
+    specs = [{"name": name} for name in ["lookup_reconciliation_references", "check_reconciliation_constraints", "PlanningDraft"]]
 
     async def exercise():
         for name in ["lookup_reconciliation_references", "check_reconciliation_constraints"]:
@@ -227,7 +421,7 @@ def test_live_adapter_forces_references_then_case_context_without_changing_froze
             context.completed[engine.PLANNER].add(name)
         async for _ in model.stream([], specs):
             pass
-        assert delegate.choices[-1] == {"tool": {"name": "ReconciliationSelection"}}
+        assert delegate.choices[-1] == {"tool": {"name": "PlanningDraft"}}
         context.completed[engine.PLANNER].clear()
         async for _ in model.stream([], specs):
             pass
@@ -237,7 +431,7 @@ def test_live_adapter_forces_references_then_case_context_without_changing_froze
 
 
 @pytest.mark.parametrize("question", [
-    {"code": "compare_instructions", "statement_ids": ["discharge:L1", "home:L1"]},
+    {"code": "compare_instructions", "statement_ids": ["discharge:L1", "home:L1", "discharge:L2"]},
     {"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"]},
 ])
 def test_model_questions_are_not_filtered_or_repaired_into_better_citation_groups(monkeypatch, question):
@@ -248,7 +442,8 @@ def test_model_questions_are_not_filtered_or_repaired_into_better_citation_group
 
     def model(mode, context, role, tools, output_model):
         if role == engine.PLANNER:
-            return FixtureModel([item.tool_name for item in tools], output_model, lambda: copy.deepcopy(selected))
+            return FixtureModel([item.tool_name for item in tools], output_model,
+                                lambda: engine._fixture_planning_draft(context.dossier, copy.deepcopy(selected)))
         return original(mode, context, role, tools, output_model)
 
     monkeypatch.setattr(engine, "_model", model)
@@ -284,14 +479,14 @@ def test_actual_sdk_named_output_accepts_empty_questions_with_teachback_and_fres
     assert result["runtime"]["structured_output_repairs"] == 0
     assert result["runtime"]["planner_rejections"] == []
     names = [row["name"] for row in calls]
-    expected = ["lookup_reconciliation_references", "check_reconciliation_constraints", "ReconciliationSelection"]
-    assert names == expected + (["ReconciliationSelection"] if first_malformed else [])
+    expected = ["lookup_reconciliation_references", "check_reconciliation_constraints", "PlanningDraft"]
+    assert names == expected + (["PlanningDraft"] if first_malformed else [])
     attempts = [row for row in result["runtime"]["native_output_attempts"] if row["agent"] == engine.PLANNER]
     assert [row["status"] for row in attempts] == (["error", "success"] if first_malformed else ["success"])
     if first_malformed:
         assert attempts[0]["validation"]["kind"] == "pydantic"
-        assert attempts[0]["validation"]["errors"][0]["loc"] == ["questions"]
-    assert attempts[-1]["input_sha256"] == canonical_hash(selected)
+        assert attempts[0]["validation"]["errors"][0]["loc"] == ["selection", "questions"]
+    assert attempts[-1]["input_sha256"] == canonical_hash(engine._fixture_planning_draft(source, selected))
     planner_tools = [row for row in result["runtime"]["tools_executed"] if row["agent"] == engine.PLANNER]
     assert [row["tool"] for row in planner_tools] == expected[:2]
     assert all(row["success"] for row in planner_tools)
@@ -327,7 +522,8 @@ def test_negative_caregiver_context_is_never_auto_cited_or_semantically_filtered
 
     def model(mode, context, role, tools, output_model):
         if role == engine.PLANNER:
-            return FixtureModel([item.tool_name for item in tools], output_model, lambda: copy.deepcopy(selected))
+            return FixtureModel([item.tool_name for item in tools], output_model,
+                                lambda: engine._fixture_planning_draft(context.dossier, copy.deepcopy(selected)))
         return original(mode, context, role, tools, output_model)
 
     monkeypatch.setattr(engine, "_model", model)
@@ -337,6 +533,8 @@ def test_negative_caregiver_context_is_never_auto_cited_or_semantically_filtered
         assert result["status"] == "verified", result
         assert result["runtime"]["selection"] == selected
         assert result["artifact"]["proposed_questions"][0]["statement_ids"] == ids
+        assert match_focus(result["artifact"]["proposed_questions"], []) == {
+            "true_positive": 0, "false_positive": 1, "false_negative": 0, "predicted": 1, "expected": 0, "exact": False}
     else:
         assert result["status"] == "refused", result
         assert result["artifact"] is None
@@ -420,9 +618,10 @@ def test_bad_semantic_citation_gets_one_bounded_repair_without_exposing_output(m
     def model(mode, context, role, tools, output_model):
         if role == engine.PLANNER:
             return FixtureModel([item.tool_name for item in tools], output_model,
-                                lambda: {"source_hash": canonical_hash(context.dossier), "questions": [
+                                lambda: engine._fixture_planning_draft(context.dossier, {
+                                    "source_hash": canonical_hash(context.dossier), "questions": [
                                     {"code": "caregiver_question", "statement_ids": ["foreign:L1"]}],
-                                         "teachback": [{"code": "teachback", "statement_ids": ["home:L1"]}]})
+                                         "teachback": [{"code": "teachback", "statement_ids": ["home:L1"]}]}))
         return original(mode, context, role, tools, output_model)
     monkeypatch.setattr(engine, "_model", model)
     source = examples()[0]["dossier"]
@@ -462,7 +661,8 @@ def test_actual_validator_reason_requires_fresh_model_repair_and_stays_private(m
         if role == engine.PLANNER:
             holder = {}
             replay = CapturingModel([item.tool_name for item in tools], output_model,
-                                    lambda: copy.deepcopy(bad if holder["model"]._invocation == 1 else valid))
+                                    lambda: engine._fixture_planning_draft(context.dossier,
+                                        copy.deepcopy(bad if holder["model"]._invocation == 1 else valid)))
             holder["model"] = replay
             return replay
         return original_model(mode, context, role, tools, output_model)
@@ -532,7 +732,8 @@ def test_native_output_diagnostics_are_redacted_bounded_observations_without_mut
     payload = {"source_hash": canonical_hash(source), "questions": None,
                "teachback": [{"code": "teachback", "statement_ids": ["private-source-value-never-copied"]}],
                "private-secret-field": "private-value-never-copied"}
-    output = {"name": "ReconciliationSelection", "input": payload}
+    payload = engine._fixture_planning_draft(source, payload)
+    output = {"name": "PlanningDraft", "input": payload}
     result = {"status": "error", "content": [{"text": "provider-secret-must-not-appear"}]}
     saved_output, saved_result = copy.deepcopy(output), copy.deepcopy(result)
     for _ in range(engine.MAX_NATIVE_OUTPUT_ATTEMPTS + 3):
@@ -555,7 +756,8 @@ def test_native_output_diagnostics_are_redacted_bounded_observations_without_mut
     # A provider failure after schema-valid input still cannot leak provider text.
     valid = {"source_hash": canonical_hash(source), "questions": [],
              "teachback": [{"code": "teachback", "statement_ids": ["home:L1"]}]}
-    hook.after_tool_call(SimpleNamespace(tool_use={"name": "ReconciliationSelection", "input": valid}, result=result))
+    hook.after_tool_call(SimpleNamespace(tool_use={"name": "PlanningDraft",
+        "input": engine._fixture_planning_draft(source, valid)}, result=result))
     assert context.native_output_attempts[-1]["validation"] == {"kind": "sdk_tool_error", "details": "No provider error text retained"}
     assert "provider-secret" not in json.dumps(context.native_output_attempts)
 
@@ -582,7 +784,8 @@ def test_a_valid_nonbaseline_semantic_plan_is_used_not_silently_replaced(monkeyp
     original = engine._model
     def model(mode, context, role, tools, output_model):
         if role == engine.PLANNER:
-            return FixtureModel([item.tool_name for item in tools], output_model, lambda: copy.deepcopy(selected))
+            return FixtureModel([item.tool_name for item in tools], output_model,
+                                lambda: engine._fixture_planning_draft(context.dossier, copy.deepcopy(selected)))
         return original(mode, context, role, tools, output_model)
     monkeypatch.setattr(engine, "_model", model)
     result = run_reconciliation(source, "model-owned-context", mode="fixture")
