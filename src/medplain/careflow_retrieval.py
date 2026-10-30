@@ -16,6 +16,14 @@ from pydantic import BaseModel, ConfigDict, Field
 CORPUS_PATH = Path(__file__).parent / "data/careflow_evidence_v1.json"
 CORPUS_VERSION = "careflow-workflow-evidence-v1"
 CORPUS_SHA256 = "d52610536bd520e2a405b8af49a2cd261d60661ee8edb71069084f5333d550fe"
+STOPWORDS = frozenset({
+    "a", "an", "the", "and", "or", "of", "to", "in", "on", "at", "for", "from", "with", "by", "as", "if",
+    "is", "are", "was", "were", "be", "been", "it", "this", "that", "these", "those", "what", "which", "who", "when",
+    "where", "why", "how", "can", "could", "should", "would", "will", "may", "must", "do", "does", "did", "i", "me",
+    "my", "you", "your", "he", "she", "his", "her", "their", "they", "them", "we", "our", "please", "explain", "explains",
+    "ο", "η", "το", "οι", "τα", "του", "της", "των", "και", "ή", "να", "σε", "με", "για", "από", "στο", "στη", "στην",
+    "είναι", "τι", "ποιο", "ποιος", "πότε", "πού", "πώς", "εγώ", "μου", "εσείς", "σας", "θα", "μπορώ", "πρέπει",
+})
 
 
 class EvidenceQuery(BaseModel):
@@ -56,7 +64,7 @@ def _load_corpus():
 
 
 def _tokens(text):
-    return re.findall(r"[^\W_]+", text.casefold(), flags=re.UNICODE)
+    return [word for word in re.findall(r"[^\W_]+", text.casefold(), flags=re.UNICODE) if word not in STOPWORDS]
 
 
 def _eligible(doc, query):

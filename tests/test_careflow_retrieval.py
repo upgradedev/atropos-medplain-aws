@@ -55,6 +55,14 @@ def test_unknown_medical_facts_do_not_gain_workflow_support():
     retrieval.validate_workflow_evidence(result)
 
 
+@pytest.mark.parametrize("text", ["What dose of insulin should I take?", "What diagnosis explains this rash?",
+                                "Who is the one that I should go to?", "τι πρέπει να κάνω και πώς"])
+def test_function_words_cannot_make_unrelated_clinical_questions_supported(text):
+    result = retrieval.search_workflow_evidence(query(text))
+    assert result["status"] == "no_support" and result["entries"] == []
+    retrieval.validate_workflow_evidence(result)
+
+
 @pytest.mark.parametrize("field,value", [("url", "https://example.invalid"), ("path", "private/file"), ("limit", 100),
                                          ("population", "child"), ("as_of", "not-a-date")])
 def test_typed_query_rejects_unknown_network_or_unbounded_inputs(field, value):
