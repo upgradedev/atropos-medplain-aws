@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 CORPUS_PATH = Path(__file__).parent / "data/careflow_evidence_v1.json"
 CORPUS_VERSION = "careflow-workflow-evidence-v1"
-CORPUS_SHA256 = "d52610536bd520e2a405b8af49a2cd261d60661ee8edb71069084f5333d550fe"
+CORPUS_SHA256 = "e03e23d92b5a9c80351fb4e4161b35148baa5fb2df392eb3969d2731a666877a"
 STOPWORDS = frozenset({
     "a", "an", "the", "and", "or", "of", "to", "in", "on", "at", "for", "from", "with", "by", "as", "if",
     "is", "are", "was", "were", "be", "been", "it", "this", "that", "these", "those", "what", "which", "who", "when",

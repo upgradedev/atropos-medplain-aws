@@ -184,7 +184,7 @@ def test_prompt_or_stale_release_and_empty_response_are_rejected_before_inferenc
 
 def test_expired_or_unrelated_evidence_never_authorizes_assessment(monkeypatch, released):
     result = teachback.run_teachback_assessment(*released, "Please help me explain it", "expired:attempt",
-                                               mode="fixture", evidence_as_of="2026-11-05")
+                                               mode="fixture", evidence_as_of="2026-11-30")
     assert result["status"] == "refused" and result["assessment"] is None
     assert result["evidence"]["status"] == "no_support"
 

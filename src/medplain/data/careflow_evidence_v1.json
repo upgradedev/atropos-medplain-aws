@@ -5,7 +5,7 @@
   "scope": "Small educational workflow excerpt snapshots. Not clinician-approved patient-care guidance, full documents, medical recommendations, evidence of comprehension or an endorsement by AHRQ.",
   "document_hash_scope": "SHA-256 of the captured excerpt snapshot, not the full source page.",
   "offset_scope": "UTF-8 byte offsets within captured_excerpt_text.",
-  "validity_scope": "Application review window only, not medical guideline effective dates.",
+  "validity_scope": "Application engineering review window through 2026-11-30 exclusive, not medical guideline effective dates. A future deployment must reconfirm coverage of its judging period; the window is never automatically extended.",
   "documents": [
     {
       "source_id": "ahrq-teachback",
@@ -17,7 +17,7 @@
       "jurisdiction": "US",
       "language": "en",
       "valid_from": "2026-10-30",
-      "valid_until": "2026-11-05",
+      "valid_until": "2026-11-30",
       "captured_excerpt_text": "Do not ask questions that can be answered with a \"yes\" or \"no.\"\nClarify and check again.",
       "document_sha256": "1fbf851648f984eee4a9978e1858cc1189d84dc767b7a26617bf92f66ef484b4",
       "spans": [
@@ -61,7 +61,7 @@
       "jurisdiction": "US",
       "language": "en",
       "valid_from": "2026-10-30",
-      "valid_until": "2026-11-05",
+      "valid_until": "2026-11-30",
       "captured_excerpt_text": "Patient understanding is confirmed when he or she explains the information back to you in his or her own words.",
       "document_sha256": "845d2ebe6405af2ce1cc0e8aa5d024457ad8bd20e0de3b9067edc43d7267035b",
       "spans": [
@@ -91,7 +91,7 @@
       "jurisdiction": "US",
       "language": "en",
       "valid_from": "2026-10-30",
-      "valid_until": "2026-11-05",
+      "valid_until": "2026-11-30",
       "captured_excerpt_text": "Clearly define roles and responsibilities for each discipline involved in medication reconciliation.",
       "document_sha256": "b56e406b143bd8fbebef2ca7d159afd4c107d217b05ee2ca3e3166ea1cd81dad",
       "spans": [
@@ -112,5 +112,5 @@
       ]
     }
   ],
-  "sha256": "d52610536bd520e2a405b8af49a2cd261d60661ee8edb71069084f5333d550fe"
+  "sha256": "e03e23d92b5a9c80351fb4e4161b35148baa5fb2df392eb3969d2731a666877a"
 }

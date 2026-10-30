@@ -38,7 +38,7 @@ def test_targeted_retrieval_and_all_original_short_snapshot_citations_are_exact(
 
 
 @pytest.mark.parametrize("changes", [{"language": "el"}, {"jurisdiction": "GR"}, {"jurisdiction": "EU"},
-                                     {"as_of": "2026-10-29"}, {"as_of": "2026-11-05"}])
+                                     {"as_of": "2026-10-29"}, {"as_of": "2026-11-30"}])
 def test_scope_and_expiry_have_explicit_no_support_without_translation_or_fallback(changes):
     result = retrieval.search_workflow_evidence(query(**changes))
     assert result["status"] == "no_support" and result["entries"] == []
