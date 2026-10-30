@@ -87,6 +87,24 @@ All **24/24 delivered model cards** preserved exact supported source content. Th
 
 The repeat found more annotated context relationships, with lower precision and fewer completed cards. It is a mixed outcome, not a clean model win. Unmatched proposed questions are not automatically unsafe medical advice. These engineering annotations do not establish clinical correctness, comprehensive interaction sensitivity, patient comprehension or health benefit. Token use and inference cost are unmeasured. A green measurement workflow means the measurement ran; inspect its raw outcomes and failures before interpreting capability.
 
+### Follow-up after bounded validation feedback
+
+The [actual follow-up at `473c9f4`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-reconciliation-473c9f4) retains the same model, clinical contracts, baseline, corpus, ruler, references and inference budgets. The context tool now exposes existing code preconditions, and the existing bounded repair receives the exact validator reason. Rejected selections and final failures have bounded private diagnostics; public patient output excludes them. No citations are filled, questions dropped or baseline plan substituted after model output. This is another known-corpus repeat, not a new holdout.
+
+| Metric | Actual Strands / Bedrock at `473c9f4` | Full deterministic baseline |
+|---|---|---|
+| Verified cards | 28/30 | 30/30 |
+| Prepublication workflow refusals | 2/30 | 0/30 |
+| Complete source coverage / exact citations / supported atoms / regimen withheld | 28/30 for each | 30/30 for each |
+| Context TP / FP / FN | 12 / 15 / 3 | 4 / 2 / 11 |
+| Context precision / recall | 44.4% / 80.0% | 66.7% / 26.7% |
+| Context F1 | 0.5714 | 0.3810 |
+| Delivered structural matches / selected-pair prompts | 29/29 / 4/4 | 29/29 / 4/4 |
+
+All 28 delivered model cards preserved exact supported clinical content. The other two had no patient artifact: one exhausted the unchanged model-turn limit; one twice proposed an identity question without a required caregiver-context citation and exhausted the existing structured-repair limit. The full report, partial journal and independent audit retain all thirty case denominators and sixty arm outcomes. Compared with `78d6706`, availability and annotated recall improved while precision and F1 worsened slightly. This remains a mixed result.
+
+One concrete contribution is linking both Metoprolol source passages to the caregiver's indirect phrase "my heart pill" and "XL" in one identity/form question. This asks a pharmacist to confirm the formulation; it does not authorize equivalence or substitution. Another example joins two different recorded owners of the same pending result into one ownership question. The baseline retains those records but misses those particular annotated links. These observations support a bounded contextual-association role, not the necessity of an LLM or a claim of clinical benefit.
+
 Patient views provide larger text, high contrast and manual local-device speech controls with visible unavailable-voice reasons. Speech never starts automatically. This uses the device's supported voices, not Amazon Polly; audio pronunciation and patient comprehension have not been validated. No OCR, unrestricted FHIR import, hospital identity system or autonomous prescribing capability is implied.
 
 ## Operations console
