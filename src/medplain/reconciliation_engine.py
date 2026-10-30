@@ -116,7 +116,6 @@ _VALIDATOR_MESSAGES = frozenset({
     "Ask review intent and citations must equal its selected question",
     "Non-ask review cannot reference a selected question",
     "Every selected question requires exactly one ask review",
-    "Selected question exactly repeats an already-rendered fixed question",
 })
 
 
@@ -316,7 +315,6 @@ def _validate_planning_draft(dossier: dict, payload: dict) -> tuple[dict, list[d
     draft = PlanningDraft.model_validate(payload).model_dump(mode="json")
     selection = validate_selection(dossier, draft["selection"])
     statements = source_statements(dossier)
-    floor = structural_issues(statements)
     current_ids = {row["statement_id"] for row in statements}
     matched = set()
     for index, item in enumerate(draft["review"]):
@@ -335,14 +333,9 @@ def _validate_planning_draft(dossier: dict, payload: dict) -> tuple[dict, list[d
         if item["intent"] != question["code"] or ids != question["statement_ids"]:
             raise ValueError(f"review[{index}]: Ask review intent and citations must equal its selected question")
         matched.add(question_index)
-    for index, question in enumerate(selection["questions"]):
+    for index in range(len(selection["questions"])):
         if index not in matched:
             raise ValueError(f"questions[{index}]: Every selected question requires exactly one ask review")
-        for issue in floor:
-            if (issue["question_code"] == question["code"]
-                    and set(issue["statement_ids"]) == set(question["statement_ids"])
-                    and _TEXT[dossier["language"]][issue["question_code"]] == _TEXT[dossier["language"]][question["code"]]):
-                raise ValueError(f"questions[{index}]: Selected question exactly repeats an already-rendered fixed question")
     return selection, draft["review"]
 
 

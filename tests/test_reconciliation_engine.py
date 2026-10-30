@@ -134,7 +134,8 @@ def test_actual_sdk_indexes_plans_and_publishes_with_fresh_tools(example):
         assert all(row["agent"] == role for row in observed)
 
 
-@pytest.mark.parametrize("case", json.loads((Path(engine.__file__).parent / "data" / "reconciliation_corpus.json").read_text(encoding="utf-8"))["cases"],
+@pytest.mark.parametrize("case", json.loads((Path(engine.__file__).parent / "data" / "reconciliation_corpus.json").read_text(encoding="utf-8"))["cases"]
+                         + [{"id": row["example_id"], "dossier": row["dossier"]} for row in examples()],
                          ids=lambda row: row["id"])
 def test_private_fixture_protocol_preserves_every_complete_baseline_plan_and_artifact(case):
     source = case["dossier"]
@@ -343,28 +344,25 @@ def test_actual_sdk_omitted_optional_review_index_binds_normalized_retained_draf
     validate_reconciliation_result(source, result)
 
 
-@pytest.mark.parametrize("repair", [False, True])
-def test_only_exact_rendered_floor_repeat_is_rejected_and_model_must_author_its_replacement(monkeypatch, repair):
+@pytest.mark.parametrize("added_context", [False, True])
+def test_coherent_model_selected_floor_repeat_or_additional_context_reaches_unchanged_gate_and_scorer(monkeypatch, added_context):
     source = examples()[0]["dossier"]
-    duplicate = _private_draft(source, [{"code": "compare_instructions", "statement_ids": ["home:L1", "discharge:L1"]}])
-    added_context = _private_draft(source, [{"code": "compare_instructions",
-        "statement_ids": ["home:L1", "discharge:L1", "caregiver-concerns:L1"]}])
-    # The unchanged clinical gate accepts this exact repeat; draft quality is a separate declared precondition.
-    assert gate_errors(source, build_artifact(source, duplicate["selection"]), duplicate["selection"]) == []
-    emitted = _planner_draft_replay(monkeypatch, lambda invocation: added_context if repair and invocation > 1 else duplicate)
-    result = run_reconciliation(source, "exact-repeat-draft-repair", mode="fixture")
-    assert result["runtime"]["structured_output_repairs"] == 1
-    assert "exactly repeats" in result["runtime"]["planner_rejections"][0]["reason"]
-    assert emitted[0] == duplicate
-    if repair:
-        assert result["status"] == "verified", result
-        assert emitted == [duplicate, added_context]
-        assert result["runtime"]["selection"] == added_context["selection"]
-        assert result["artifact"]["proposed_questions"][0]["statement_ids"] == added_context["selection"]["questions"][0]["statement_ids"]
-    else:
-        assert result["status"] == "refused", result
-        assert emitted == [duplicate, duplicate]
-        assert result["artifact"] is None
+    ids = ["home:L1", "discharge:L1"] + (["caregiver-concerns:L1"] if added_context else [])
+    draft = _private_draft(source, [{"code": "compare_instructions", "statement_ids": ids}])
+    emitted = _planner_draft_replay(monkeypatch, lambda invocation: draft)
+    result = run_reconciliation(source, "coherent-floor-repeat-is-visible", mode="fixture")
+    assert result["status"] == "verified", result
+    assert emitted == [draft] and result["runtime"]["selection"] == draft["selection"]
+    assert result["runtime"]["structured_output_repairs"] == 0
+    assert result["runtime"]["planner_rejections"] == []
+    assert result["runtime"]["nodes_executed"] == list(engine.AGENT_NAMES)
+    assert result["artifact"]["proposed_questions"][0]["statement_ids"] == ids
+    assert gate_errors(source, result["artifact"], draft["selection"]) == []
+    targets = [{"codes": ["compare_instructions"], "required_statement_ids": ids,
+                "allowed_statement_ids": ids}] if added_context else []
+    measured = match_focus(result["artifact"]["proposed_questions"], targets)
+    assert measured["true_positive"] == int(added_context)
+    assert measured["false_positive"] == int(not added_context)
     validate_reconciliation_result(source, result)
 
 
@@ -567,7 +565,7 @@ def test_live_adapter_forces_references_then_case_context_without_changing_froze
 
 
 @pytest.mark.parametrize("question", [
-    {"code": "compare_instructions", "statement_ids": ["discharge:L1", "home:L1", "discharge:L2"]},
+    {"code": "compare_instructions", "statement_ids": ["discharge:L1", "home:L1"]},
     {"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"]},
 ])
 def test_model_questions_are_not_filtered_or_repaired_into_better_citation_groups(monkeypatch, question):
