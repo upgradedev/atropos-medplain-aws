@@ -10,11 +10,20 @@ from uuid import uuid4
 import pytest
 
 from medplain.careflow_domain import CareflowService
-from medplain.careflow_store import CareflowStore
+from medplain.careflow_store import CareflowStore, check_size
 from medplain.ops_domain import LeaseBusy, OpsError, OpsService
 from medplain.ops_store import Conflict, DynamoStore, MemoryStore, daily_allowance
 from medplain.ops_worker import process_message
 from medplain.reconciliation import examples
+
+
+def test_storage_limit_counts_the_actual_dynamo_escaped_unicode_payload():
+    case = {"notes": "α" * 65000}
+    assert len(json.dumps(case, ensure_ascii=False).encode("utf-8")) < 380000
+    with pytest.raises(OpsError) as failed:
+        check_size(case)
+    assert failed.value.status == 413
+    check_size({"notes": "α" * 1000})
 
 
 @pytest.fixture

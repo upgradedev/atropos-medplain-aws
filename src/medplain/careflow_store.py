@@ -11,7 +11,9 @@ def check_size(case: dict) -> None:
     """Leave headroom for DynamoDB keys and version/TTL attributes."""
     from medplain.ops_domain import OpsError
 
-    if len(json.dumps(case, ensure_ascii=False, allow_nan=False).encode("utf-8")) > 380000:
+    # Match DynamoStore._item's persisted JSON string. Non-ASCII characters
+    # expand to escapes there, so UTF-8 source length would undercount Greek.
+    if len(json.dumps(case, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode("utf-8")) > 380000:
         raise OpsError(413, "This synthetic workflow reached its bounded storage limit.")
 
 

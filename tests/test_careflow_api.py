@@ -93,6 +93,8 @@ def test_real_sdk_clarification_acceptance_response_and_reviewer_journey(client)
     cap_headers = {"X-Medplain-Teachback": cap}
     public = client.get(public_path, headers=cap_headers)
     assert public.status_code == 200, public.text
+    assert public.headers["cache-control"] == "no-store"
+    assert public.headers["vary"] == "X-Medplain-Teachback"
     assert "PRIVATE SYNTHETIC STAFF ANSWER" not in public.text
     assert "SESSION#" not in public.text and headers["X-Medplain-Session"] not in public.text
     public_view = public.json()
@@ -101,6 +103,7 @@ def test_real_sdk_clarification_acceptance_response_and_reviewer_journey(client)
             "idempotency_key": "careflow-api-actual-patient-response"}
     submitted = client.post(public_path + "/responses", headers=cap_headers, json=body)
     assert submitted.status_code == 202, submitted.text
+    assert submitted.json()["attempt_id"]
     replay = client.post(public_path + "/responses", headers=cap_headers, json=body)
     assert replay.status_code == 202 and replay.json()["created"] is False
     public_view = client.get(public_path, headers=cap_headers).json()
@@ -138,3 +141,16 @@ def test_evidence_requires_owner_and_has_explicit_no_support(client):
     assert missing.json()["status"] == "no_support"
     assert client.post("/api/ops/careflow/evidence/search", headers=headers,
                        json={"query": "handoff", "url": "https://unapproved.invalid"}).status_code == 422
+
+
+def test_evidence_integrity_failure_is_unavailable_without_a_fallback(client, monkeypatch):
+    headers = owner(client)
+
+    def corrupt(query):
+        raise ValueError("private integrity diagnostic")
+
+    monkeypatch.setattr("medplain.careflow_retrieval.search_workflow_evidence", corrupt)
+    response = client.post("/api/ops/careflow/evidence/search", headers=headers, json={"query": "teach back"})
+    assert response.status_code == 503
+    assert "integrity" in response.json()["detail"] and "private" not in response.text
+    assert "entries" not in response.json()

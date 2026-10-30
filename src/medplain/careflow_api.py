@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Response
 
 from medplain.careflow_domain import CareflowService
 from medplain.careflow_models import (
@@ -73,19 +73,23 @@ def close(case_id: str, body: CloseRequest, auth: Auth, svc: Care):
 
 
 @router.post("/cases/{case_id}/careflow/enable-teachback")
-def enable_teachback(case_id: str, body: EnableTeachbackRequest, auth: Auth, svc: Care):
+def enable_teachback(case_id: str, body: EnableTeachbackRequest, response: Response, auth: Auth, svc: Care):
+    response.headers["Cache-Control"] = "no-store"
     _, pk, session = auth
     return svc.enable_teachback(pk, session, case_id, body.model_dump())
 
 
 @router.get("/careflow/patient/{share_id}")
-def patient_teachback(share_id: str, svc: Care, capability: Capability = None):
+def patient_teachback(share_id: str, response: Response, svc: Care, capability: Capability = None):
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Vary"] = "X-Medplain-Teachback"
     return svc.patient_view(share_id, capability)
 
 
 @router.post("/careflow/patient/{share_id}/responses", status_code=202)
-def patient_response(share_id: str, body: ResponseRequest, background: BackgroundTasks,
+def patient_response(share_id: str, body: ResponseRequest, response: Response, background: BackgroundTasks,
                      svc: Care, capability: Capability = None):
+    response.headers["Cache-Control"] = "no-store"
     view, created, job_id, message = svc.submit_response(share_id, capability, body.model_dump())
     if created and isinstance(svc.store, MemoryStore):
         from medplain.careflow_worker import process_message
@@ -93,7 +97,7 @@ def patient_response(share_id: str, body: ResponseRequest, background: Backgroun
         sk = f"OUTBOX#CARE#{message['case_id']}#{message['attempt_id']}"
         svc.store.mark_sent(message["session_key"], sk)
         background.add_task(process_message, message, svc.store)
-    return {"careflow": view, "created": created, "job_id": job_id}
+    return {"careflow": view, "attempt_id": message["attempt_id"], "created": created, "job_id": job_id}
 
 
 @router.post("/cases/{case_id}/careflow/teachback/{attempt_id}/review")
@@ -112,8 +116,10 @@ def search_evidence(body: EvidenceQuery, auth: Auth):
 
     try:
         return search_workflow_evidence(body.model_dump(mode="json"))
-    except (ValueError, TypeError):
-        raise OpsError(422, "Use the supported evidence query, topic and applicability filters.") from None
+    except (ValueError, TypeError, KeyError, OSError):
+        # Body validation already checked query shape. Snapshot corruption or
+        # absence is an availability failure, never permission to improvise.
+        raise OpsError(503, "The reviewed evidence snapshot is unavailable or failed integrity verification. No support was returned.") from None
 
 
 @router.get("/careflow/profile")
