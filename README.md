@@ -1,8 +1,8 @@
 # Atropos MedPlain
 
-Atropos MedPlain uses a Strands SDK Graph to withhold discharge explanations when a clinical fact changes.
+Atropos MedPlain uses a Strands SDK Graph to turn multiple synthetic discharge documents into source-cited clarification cards, with a deterministic gate that withholds altered clinical facts.
 
-Built for adults leaving hospital with changed medicines and limited support interpreting clinical jargon. The anonymous demo explains invented discharge packets, preserves their clinical facts, and shows a deliberately altered dose being refused and corrected.
+Built as a prototype for adults leaving hospital with changed medicines and limited support interpreting clinical jargon. The anonymous console keeps conflicting instructions, caregiver questions and original source passages available for review. Its clarification card never supplies a reconciled prescription. A separate simple-note workflow explains invented discharge packets and demonstrates deliberately altered facts being refused and corrected.
 
 [Open the anonymous AWS demo](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/) · [Source and CI](https://github.com/upgradedev/atropos-medplain-aws/actions)
 
@@ -34,7 +34,7 @@ The application retains the exact original note, raw-source SHA-256 and ledger h
 
 This is an English ASCII line profile with at most 8,000 characters, 25 lines, six medicines and six labs. It supports new invented names and values within that profile. It is not a general hospital-document parser or PHI detector. The confirmation does not detect or remove private data. Enter only invented information; accepted notes are stored in the anonymous session and sent to its configured model.
 
-## Compare Strands with a deterministic baseline
+## Simple-note comparison with a deterministic baseline
 
 **Settings** displays the source-bound evaluation report and offers its full JSON. CI uses real **Strands Evals `Case`, `Experiment` and deterministic evaluators** to compare the SDK workflow with the full deterministic normalizer, renderer and the same safety gate on the same independent synthetic corpus. The baseline can process every supported input and receives the same validation rules. Per-case outcomes, failures, corpus/ruler hashes and report hash remain available.
 
@@ -46,7 +46,9 @@ The [first actual Bedrock measurement at 97d5616](https://github.com/upgradedev/
 
 ## Complex discharge packets: clarify across sources
 
-**New case > Reconcile source packet** accepts two to four invented source documents, their supplied issue/effective dates, and an editable caregiver concern. Six examples cover conflicting dose/stop instructions, an explicitly documented intentional change, ordered taper phases, conditional hold/restart wording, product/form confusion, and pending-result follow-up ownership. Source revisions create a new linked case; they do not overwrite the previous case or its evidence.
+**New case > Reconcile source packet** accepts two to four invented source documents, their supplied issue/effective dates, and an editable caregiver concern in the separate `medplain-reconciliation-v1` profile. Documents can be home lists, discharge orders, addenda, caregiver notes or lab reports. Each document is limited to 6,000 characters; the dossier, including its caregiver concern, is limited to 16,000 characters, 60 nonempty source lines and twelve recognized medication statements. The caregiver concern is limited to 1,000 characters. The selected English or Greek language controls bounded question clauses; original source quotations remain unchanged.
+
+Six examples cover conflicting dose/stop instructions, an explicitly documented intentional change, ordered taper phases, conditional hold/restart wording, product/form confusion, and pending-result follow-up ownership. Source revisions create a new linked case; they do not overwrite the previous case or its evidence.
 
 The useful model task is selecting relevant passages across documents and linking unfamiliar caregiver wording to focused clarification questions. `DischargeEvidenceIndexerAgent` establishes exact source coverage. `CrossDocumentClarificationPlannerAgent` selects cited context and question codes using fresh constraint/reference tools. `ClarificationCardPublisherAgent` references a fresh immutable card. The code independently retains every source statement, recognizes bounded literal clinical atoms, checks structural discrepancies and verifies the entire card before release. It does not infer which document authorizes a medication change from recency alone.
 
@@ -56,7 +58,52 @@ Selected warfarin/apixaban with ibuprofen/naproxen appearances produce label-bac
 
 The workflow follows [AHRQ MATCH medication reconciliation](https://www.ahrq.gov/patient-safety/settings/hospital/match/chapter-3.html), [RED pending-result follow-up](https://www.ahrq.gov/patient-safety/settings/hospital/red/toolkit/redtool3.html) and [teach-back guidance](https://www.ahrq.gov/health-literacy/improve/precautions/tool5.html). These sources support the workflow design; they do not validate this prototype. Pinned sources, retrieval dates, scope and reference hashes are inspectable in the interface. No universal interaction recall, zero-hallucination or fixed reading-grade claim is made.
 
-The separate **Complex Discharge Evals** corpus has thirty engineering-annotated synthetic dossiers. Both the actual SDK workflow and the complete rule baseline receive the same documents, supported parsers, clinical rules, question set and reference snapshots. Independent scores separate source/atom fidelity, proper withholding, structural issues, selected-label review coverage and context-question precision/recall. Corpus labels and expected answers are not sent to the model. Unknown narrative is supported as quoted uncertain evidence in both arms, not rejected to weaken the baseline. Fixture mode deliberately replays the rule planner and cannot demonstrate model advantage. Actual Bedrock results, including failures and unexecuted rows, appear separately in Settings after publication for the exact deployed source. Missing results remain explicitly unmeasured.
+The separate **Complex Discharge Evals** corpus has thirty engineering-annotated synthetic dossiers, scored independently against fixed annotations. Both the actual SDK workflow and the complete rule baseline receive the same documents, supported parsers, literal clinical rules, question set and reference snapshots. The baseline also supplies conservative lexical/context planning. Corpus labels and expected answers are not sent to the model. Unknown narrative remains quoted uncertain evidence in both arms. This comparison tests the two implementations; it does not establish that the task requires an LLM.
+
+Independent scores separate source/atom fidelity, proper withholding, structural issues, selected-label review coverage and context-question precision/recall. Fixture mode deliberately replays the rule planner and cannot demonstrate model advantage. Actual Bedrock results, including failures and unexecuted rows, appear separately in Settings after publication for the exact deployed source. Missing results remain explicitly unmeasured.
+
+### Actual complex results: a mixed known-corpus repeat
+
+The [initial actual run at `84bc49e`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-reconciliation-84bc49e) delivered 30/30 verified cards with exact supported clinical content, but matched none of fifteen annotated contextual relationships: **TP 0, FP 34, FN 15**. The full baseline scored **TP 4, FP 2, FN 11**. These negative results remain available with their raw report and audit.
+
+After that measurement, planner context presentation, tool scheduling and task instructions changed. The model, clinical gate, output schema, complete baseline, corpus, ruler and reference snapshot remained unchanged. The [repeat at `78d6706`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-reconciliation-78d6706) used this now-known corpus. It is not an unseen holdout or a blinded clinical evaluation.
+
+| Metric | Actual Strands / Bedrock at `78d6706` | Full deterministic baseline |
+|---|---|---|
+| Verified clarification cards | 24/30 | 30/30 |
+| Prepublication workflow refusals | 6/30 | 0/30 |
+| Complete source coverage | 24/30 | 30/30 |
+| Exact source citations | 24/30 | 30/30 |
+| Exact supported clinical atoms | 24/30 | 30/30 |
+| Verified card with treatment regimen withheld | 24/30 | 30/30 |
+| Context-question true positives / false positives / misses | 11 / 12 / 4 | 4 / 2 / 11 |
+| Context-question precision | 47.8% | 66.7% |
+| Context-question recall | 73.3% | 26.7% |
+| Context-question F1 | 0.579 | 0.381 |
+| Delivered structural-floor matches | 26/29 | 29/29 |
+| Selected-label pair review coverage | 3/4 | 4/4 |
+
+All **24/24 delivered model cards** preserved exact supported source content. The other six cases were refused before publication and had no patient artifact. Case-level fidelity scores retain all thirty cases: a refusal earns no delivered-card credit, rather than being counted as an unsafe release. Structural and selected-label coverage also include the lost coverage from those refusals. Context-question counts score fifteen annotated relationships, rather than thirty case completions.
+
+The repeat found more annotated context relationships, with lower precision and fewer completed cards. It is a mixed outcome, not a clean model win. Unmatched proposed questions are not automatically unsafe medical advice. These engineering annotations do not establish clinical correctness, comprehensive interaction sensitivity, patient comprehension or health benefit. Token use and inference cost are unmeasured. A green measurement workflow means the measurement ran; inspect its raw outcomes and failures before interpreting capability.
+
+### Follow-up after bounded validation feedback
+
+The [actual follow-up at `473c9f4`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-reconciliation-473c9f4) retains the same model, clinical contracts, baseline, corpus, ruler, references and inference budgets. The context tool now exposes existing code preconditions, and the existing bounded repair receives the exact validator reason. Rejected selections and final failures have bounded private diagnostics; public patient output excludes them. No citations are filled, questions dropped or baseline plan substituted after model output. This is another known-corpus repeat, not a new holdout.
+
+| Metric | Actual Strands / Bedrock at `473c9f4` | Full deterministic baseline |
+|---|---|---|
+| Verified cards | 28/30 | 30/30 |
+| Prepublication workflow refusals | 2/30 | 0/30 |
+| Complete source coverage / exact citations / supported atoms / regimen withheld | 28/30 for each | 30/30 for each |
+| Context TP / FP / FN | 12 / 15 / 3 | 4 / 2 / 11 |
+| Context precision / recall | 44.4% / 80.0% | 66.7% / 26.7% |
+| Context F1 | 0.5714 | 0.3810 |
+| Delivered structural matches / selected-pair prompts | 29/29 / 4/4 | 29/29 / 4/4 |
+
+All 28 delivered model cards preserved exact supported clinical content. The other two had no patient artifact: one exhausted the unchanged model-turn limit; one twice proposed an identity question without a required caregiver-context citation and exhausted the existing structured-repair limit. The full report, partial journal and independent audit retain all thirty case denominators and sixty arm outcomes. Compared with `78d6706`, availability and annotated recall improved while precision and F1 worsened slightly. This remains a mixed result.
+
+One concrete contribution is linking both Metoprolol source passages to the caregiver's indirect phrase "my heart pill" and "XL" in one identity/form question. This asks a pharmacist to confirm the formulation; it does not authorize equivalence or substitution. Another example joins two different recorded owners of the same pending result into one ownership question. The baseline retains those records but misses those particular annotated links. These observations support a bounded contextual-association role, not the necessity of an LLM or a claim of clinical benefit.
 
 Patient views provide larger text, high contrast and manual local-device speech controls with visible unavailable-voice reasons. Speech never starts automatically. This uses the device's supported voices, not Amazon Polly; audio pronunciation and patient comprehension have not been validated. No OCR, unrestricted FHIR import, hospital identity system or autonomous prescribing capability is implied.
 
@@ -75,6 +122,8 @@ An opaque anonymous capability scopes the session. Operator, reviewer, auditor a
 The public AWS route uses Amazon Bedrock Nova Micro and the real `strands-agents==1.53.0` runtime. It has no silent inference fallback. A provider error or an exhausted correction budget withholds patient content. The screen identifies the active model mode.
 
 Strands is load-bearing: its `Agent` loop executes the registered tools, its Pydantic output mechanism validates node results, its lifecycle hooks enforce the publication boundary, and its `Graph` routes the correction cycle. Removing Strands breaks the anonymous execution path.
+
+### Simple-note and shipped-sample Graph
 
 | Strands node | Deterministic tools and output |
 |---|---|
@@ -102,6 +151,29 @@ The gate compares every supported medication and lab by identity, rather than co
 
 The stress injector runs after generation and before the gate. It changes both the structured dose and its patient sentence. This is a deliberate engineering drill, not evidence that Bedrock naturally made that error. The Graph permits a bounded correction and withholds output if it still fails.
 
+### Multisource clarification Graph
+
+| Component | Required tools and output boundary |
+|---|---|
+| `DischargeEvidenceIndexerAgent` | Calls `read_reconciliation_sources` and returns complete source coverage bound to the dossier hash |
+| `CrossDocumentClarificationPlannerAgent` | Calls `check_reconciliation_constraints` and `lookup_reconciliation_references`; proposes bounded question codes and original statement IDs while retaining the mandatory structural floor |
+| `ClarificationCardPublisherAgent` | Calls `build_clarification_card` and references a fresh immutable artifact bound to the current source, request and invocation |
+| `AtroposReconciliationSafetyGate` lifecycle hook | Checks the entire card, original quotes and byte ranges, supported clinical atoms, structural floor, reference binding, null regimen and fresh publication reference |
+
+```mermaid
+flowchart LR
+    I[Evidence indexer Agent] --> C[Cross-document planner Agent]
+    C --> P[Clarification publisher Agent]
+    P --> G{AtroposReconciliationSafetyGate}
+    G -->|Integrity verified| A[Clarification card awaiting exact-artifact review]
+    G -->|Mismatch, correction remains| C
+    G -->|Budget exhausted| R[Refuse publication]
+```
+
+Every completed invocation requires its own fresh tools. A deliberate comparator or dose mutation happens after generation and before the hook, with the original dossier unchanged. A failed candidate can return to the planner and publisher once; a second failure withholds the card. Verification establishes the supported integrity contract, not a resolved treatment plan or the clinical truth of a contextual proposal. Every new dossier requires review, and even a released card keeps `patient_regimen: null`.
+
+### Durable AWS command path
+
 ```mermaid
 flowchart LR
     B[Anonymous React console] -->|Command, HTTP 202| A[FastAPI Lambda]
@@ -125,7 +197,7 @@ A worker independently rechecks saved source, full artifact and receipt integrit
 
 This is a synthetic engineering demonstration, not a medical device or clinical advice. Source fidelity does not establish that a source prescription is appropriate. Do not use these invented medicine plans for your own care.
 
-The supported input is a deliberately narrow discharge table and FHIR `Bundle` profile containing `MedicationRequest` and `Observation` resources, plus a canonical discharge narrative. The API accepts shipped sample identifiers and explicitly confirmed invented notes in the displayed line profile. It independently compiles new notes into that same canonical packet contract. Arbitrary FHIR bundles, PDFs, EHR uploads, hospital portal connections and automatic discharge-finalization triggers are not deployed.
+The simple-note input is a deliberately narrow discharge table and FHIR `Bundle` profile containing `MedicationRequest` and `Observation` resources, plus a canonical discharge narrative. The API accepts shipped sample identifiers and explicitly confirmed invented notes in the displayed line profile. It independently compiles new notes into that same canonical packet contract. The separate multisource profile accepts two to four bounded synthetic text documents and a caregiver concern for a clarification card only, under the limits above. Arbitrary FHIR bundles, PDFs, EHR uploads, hospital portal connections and automatic discharge-finalization triggers are not deployed.
 
 Clinical prose is constrained to source-grounded templates. The agents select and verify tool evidence; unrestricted model-written medical advice is intentionally outside the publication contract. No reading grade, patient comprehension, readmission benefit or clinical outcome has been measured.
 
