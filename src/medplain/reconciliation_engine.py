@@ -21,6 +21,7 @@ from strands.hooks import (
 )
 from strands.models import BedrockModel
 from strands.multiagent import GraphBuilder
+from strands.tools.structured_output.structured_output_tool import StructuredOutputTool
 
 from medplain.fixture_model import FixtureModel
 from medplain.clinical_references import reference_material
@@ -30,7 +31,7 @@ from medplain.reconciliation import (
     gate_errors, render_artifact, source_statements, structural_issues, validate_selection,
 )
 from medplain.reconciliation_models import (
-    QUESTION_CODES, Contract, PublicationSelection, QuestionCode, ReconciliationSelection, SourceIndex,
+    QUESTION_CODES, Contract, PublicationSelection, QuestionCode, QuestionSelection, ReconciliationSelection, SourceIndex,
 )
 from medplain.required_tool_model import RequiredToolModel
 
@@ -69,7 +70,89 @@ class PlanningDraft(Contract):
     review: list[RelationshipReview] = Field(min_length=1, max_length=60)
 
 
-_OUTPUT_MODELS = {INDEXER: SourceIndex, PLANNER: PlanningDraft, PUBLISHER: PublicationSelection}
+PLANNING_WIRE_VERSION = "question-owned-review-v1"
+
+
+class ReasonedQuestion(QuestionSelection):
+    """One model-authored public question with its own private action note."""
+
+    reason: str = Field(min_length=1, max_length=160,
+                        description="Private action justification for this exact question. Aim for at most 80 characters; hard limit 160.")
+
+
+class ReasonedSelection(Contract):
+    source_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    questions: list[ReasonedQuestion] = Field(max_length=12)
+    teachback: list[QuestionSelection] = Field(min_length=1, max_length=6)
+
+
+class NonAskReview(Contract):
+    disposition: Literal["covered", "resolved"]
+    intent: QuestionCode
+    statement_ids: list[str] = Field(min_length=1, max_length=8)
+    reason: str = Field(min_length=1, max_length=160)
+
+
+class PlanningWire(Contract):
+    """Question-owned private notes; no duplicate ask intent, citations or index."""
+
+    selection: ReasonedSelection
+    nonask_review: list[NonAskReview] = Field(max_length=60)
+
+
+_OUTPUT_MODELS = {INDEXER: SourceIndex, PLANNER: PlanningWire, PUBLISHER: PublicationSelection}
+
+
+def planning_wire_schema_sha256() -> str:
+    """Hash the actual pinned SDK tool schema, not a provider acceptance claim."""
+    return canonical_hash(StructuredOutputTool(PlanningWire).tool_spec["inputSchema"]["json"])
+
+
+def _compile_planning_wire(payload: dict) -> tuple[dict, str]:
+    """Project every authored question unchanged; derive private linkage only."""
+    wire = PlanningWire.model_validate(payload).model_dump(mode="json")
+    authored = wire["selection"]
+    selection = {"source_hash": authored["source_hash"],
+                 "questions": [{"code": row["code"], "statement_ids": list(row["statement_ids"])}
+                               for row in authored["questions"]],
+                 "teachback": authored["teachback"]}
+    review = [{"disposition": "ask", "intent": row["code"], "statement_ids": list(row["statement_ids"]),
+               "reason": row["reason"], "question_index": index}
+              for index, row in enumerate(authored["questions"])]
+    review.extend({**row, "question_index": None} for row in wire["nonask_review"])
+    # The original PlanningDraft and source validator enforce the combined
+    # review bound and every public contract. No question is removed or fixed.
+    return {"selection": selection, "review": review}, canonical_hash(wire)
+
+
+def _fixture_planning_wire(dossier: dict, selection: dict) -> dict:
+    """Private replay encoding; the complete baseline-selected plan is untouched."""
+    draft = _fixture_planning_draft(dossier, selection)
+    reasons = {row["question_index"]: row["reason"] for row in draft["review"] if row["disposition"] == "ask"}
+    questions = selection.get("questions")
+    authored = ([{**row, "reason": reasons[index]} for index, row in enumerate(questions)]
+                if isinstance(questions, list) else questions)
+    return {"selection": {"source_hash": selection["source_hash"],
+                          "questions": authored,
+                          "teachback": selection["teachback"]},
+            "nonask_review": [{key: row[key] for key in ("disposition", "intent", "statement_ids", "reason")}
+                              for row in draft["review"] if row["disposition"] != "ask"]}
+
+
+def _literal_subject_groups(statements: list[dict]) -> list[dict]:
+    """Organize exact parsed subjects; never infer equivalence or disagreement."""
+    groups = {}
+    for row in statements:
+        clinical = row["clinical"]
+        subjects = []
+        if clinical["pending_test"]:
+            subjects.append(("pending_test", clinical["pending_test"]))
+        subjects.extend(("medicine", item["name"]) for item in clinical["medications"])
+        subjects.extend(("medicine", clinical[key]) for key in ("taper_medicine", "hold_medicine") if clinical[key])
+        for kind, literal in dict.fromkeys(subjects):
+            group = groups.setdefault((kind, literal), {"subject_kind": kind, "literal_subject": literal, "statements": []})
+            group["statements"].append(row)
+    return list(groups.values())
 
 
 def configured_model_ids() -> dict[str, str]:
@@ -129,7 +212,7 @@ def _bounded_text(value, limit=512):
 def _validator_details(exc):
     """Accept only known validator messages or bounded Pydantic metadata."""
     if isinstance(exc, ValidationError):
-        fields = {"source_hash", "questions", "teachback", "code", "statement_ids", "selection", "review",
+        fields = {"source_hash", "questions", "teachback", "code", "statement_ids", "selection", "review", "nonask_review",
                   "disposition", "intent", "reason", "question_index"}
         types = {"literal_error", "string_type", "string_pattern_mismatch", "string_unicode",
                  "list_type", "too_short", "too_long", "missing", "extra_forbidden", "model_type"}
@@ -253,6 +336,8 @@ class Context:
     index_verified: bool = False
     selection: dict | None = None
     planning_review: list[dict] | None = None
+    planning_wire_sha256: str | None = None
+    planning_draft_sha256: str | None = None
     attempts: int = 0
     errors: list[str] = field(default_factory=list)
     candidate: dict | None = None
@@ -289,6 +374,9 @@ def _record_native_output_attempt(context: Context, role: str, tool_use: dict, r
     record = {"agent": role, "invocation_index": len(context.nodes),
               "tool": _OUTPUT_MODELS[role].__name__, "status": "success" if success else "error",
               "input_sha256": input_hash}
+    if role == PLANNER:
+        record.update(wire_version=PLANNING_WIRE_VERSION,
+                      schema_sha256=planning_wire_schema_sha256())
     try:
         validated = _OUTPUT_MODELS[role].model_validate(payload)
     except (TypeError, ValueError) as exc:
@@ -393,6 +481,8 @@ def _tools(context: Context) -> dict[str, list]:
         return {"source_hash": canonical_hash(context.dossier),
                 "source_documents": [dict(document) for document in context.dossier["documents"]],
                 "source_statement_order": [row["statement_id"] for row in statements],
+                "literal_subject_groups": _literal_subject_groups(statements),
+                "literal_subject_groups_scope": "Exact parsed literal subjects only, with complete original statements. Groups do not establish equivalence, conflict, supersession, resolution or a recommended question. Read all source and caregiver context as well.",
                 "clinical_source_statements": [row for row in statements if row["document_kind"] != "caregiver_note"],
                 "caregiver_context": [row for row in statements if row["document_kind"] == "caregiver_note"],
                 "already_rendered_checks": [{**row,
@@ -509,6 +599,7 @@ class ReconciliationHook(HookProvider):
         if self.role == PLANNER:
             context.selection = None
             context.planning_review = None
+            context.planning_wire_sha256 = context.planning_draft_sha256 = None
         if self.role == PUBLISHER:
             context.clear_publication()
         if callable(getattr(event.agent.model, "begin_invocation", None)):
@@ -575,15 +666,20 @@ class ReconciliationHook(HookProvider):
                 return
             context.index_verified = True
         elif self.role == PLANNER:
+            draft = None
             try:
-                selection, review = _validate_planning_draft(context.dossier, payload)
+                draft, wire_hash = _compile_planning_wire(payload)
+                selection, review = _validate_planning_draft(context.dossier, draft)
             except (TypeError, ValueError) as exc:
-                draft_preview = payload if isinstance(payload, dict) else {}
+                preview = draft if draft is not None else payload
+                draft_preview = preview if isinstance(preview, dict) else {}
                 reason = _record_planner_rejection(context, draft_preview.get("selection"), exc,
                                                    review=draft_preview.get("review"))
                 self._repair(event, reason, FailureCode.PLANNER_CONTRACT)
                 return
             context.selection, context.planning_review = selection, review
+            context.planning_wire_sha256 = wire_hash
+            context.planning_draft_sha256 = canonical_hash({"selection": selection, "review": review})
         else:
             try:
                 candidate = resolve_publication(context, payload)
@@ -618,7 +714,7 @@ def _model(mode: str, context: Context, role: str, tools: list, output_model):
             if role == INDEXER:
                 return dict(context.expected_index)
             if role == PLANNER:
-                return _fixture_planning_draft(context.dossier, baseline_selection(context.dossier))
+                return _fixture_planning_wire(context.dossier, baseline_selection(context.dossier))
             return dict(context.publication_plan)
         return FixtureModel([item.tool_name for item in tools], output_model, payload)
     if mode == "bedrock":
@@ -654,17 +750,18 @@ def _make_graph(context: Context, mode: str):
             "evidence group. Agreement, explicit resolution or an explicit handoff may resolve a relationship; a later "
             "timestamp alone does not. Do not mark the joint relationship covered merely because each passage has a "
             "rendered check. Keep questions empty when no additional supported uncertainty remains. "
-            "Return PlanningDraft with selection FIRST and review LAST. Each private review item has disposition covered/resolved/ask, "
-            "intent using an existing question code, exact statement_ids, a brief source-bound action justification in reason, "
-            "and question_index only for ask. These notes are untrusted proposals, not verified reasoning or clinical advice. "
-            "Use covered for an existing rendered check, resolved for no additional uncertainty supported by the passages, "
-            "and ask for an additional unresolved relationship. Author the final ReconciliationSelection yourself under selection. "
-            "Every selected question must have exactly one ask item with the identical intent/code, ordered statement_ids and "
-            "zero-based question_index into selection.questions ONLY, never selection.teachback or structural floor checks. "
-            "For covered/resolved use literal JSON null or omit question_index; NEVER use 0 for a non-ask item, even when "
-            "another ask item correctly uses 0. When selection.questions is empty, every review index must be null/omitted. "
-            "Keep at least one selection.teachback item regardless of additional questions. Reasons should preferably have "
-            "at most 80 characters and must stay within the existing 160-character limit. Do not silently drop or repair a selected question. "
+            "literal_subject_groups puts complete original assertions with the same exact parsed label together. "
+            "A shared label does not establish identity, conflict or resolution. Read every source document, caregiver "
+            "note and unscoped addendum too; they may relate to a group without repeating its label. "
+            "Return PlanningWire with selection FIRST and nonask_review LAST. Author each additional question ONCE "
+            "inside selection.questions with code, complete ordered statement_ids and its own private reason. "
+            "Being in questions means you propose asking it; do not duplicate it in another ask ledger. "
+            "nonask_review contains only covered/resolved items with intent, statement_ids and reason. "
+            "Neither section accepts question_index; the application derives private linkage from question position. "
+            "Use covered for an existing rendered relationship and resolved for no supported additional uncertainty. "
+            "Keep at least one private question reason or nonask_review item and at least one selection.teachback. "
+            "Reasons are untrusted action notes, not verified reasoning or clinical advice. Prefer at most 80 "
+            "characters; the hard limit remains 160. Do not silently drop or repair a selected question. "
             "The question_catalog shows exactly what each code asks. already_rendered_checks shows questions that "
             "the card will include automatically. Eligibility is only a validity precondition, never a recommendation. "
             "Read agreement, explicit explanations, uncertainty and NEGATION in whole passages. An unchanged plan, "
@@ -694,7 +791,8 @@ def _make_graph(context: Context, mode: str):
             "Use caregiver_question only for a genuine unresolved concern when no specific question meaning fits. "
             "Do not move an irrelevant specific question into this generic code. Teachback is separate from question "
             "selection and does not imply an unresolved discrepancy. The nested selection keeps the exact source_hash, "
-            "model-selected questions and teachback; each question has only code and statement_ids. "
+            "model-selected questions and teachback; questions have code, statement_ids and private reason; "
+            "teachback has only code and statement_ids. "
             "Follow code_eligibility without inventing witnesses or IDs. These are proposals, not verified clinical errors. "
             "Pinned references are limited review context, not comprehensive clearance. Never infer a new prescription, "
             "automatic stop, restart or latest-document authority. No new advice, clinical fields or extra keys."
@@ -758,6 +856,10 @@ def run(dossier: dict, session_id: str, mode: str | None = None, stress: bool = 
                         "hook_invocations": len(context.nodes), "structured_output_repairs": context.repairs,
                         "source_index_verified": context.index_verified, "selection": context.selection,
                         "planning_review": context.planning_review,
+                        "planning_wire_version": PLANNING_WIRE_VERSION,
+                        "planning_wire_schema_sha256": planning_wire_schema_sha256(),
+                        "planning_wire_sha256": context.planning_wire_sha256,
+                        "planning_draft_sha256": context.planning_draft_sha256,
                         "planning_review_scope": "Private untrusted action justifications, not verified reasoning or clinical clearance.",
                         "planner_rejections": context.planner_rejections, "repair_diagnostics": context.repair_diagnostics,
                         "native_output_attempts": context.native_output_attempts,
