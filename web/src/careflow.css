@@ -286,7 +286,7 @@
 .careflow [aria-busy="true"] {
   opacity: 0.75;
 }
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .app-shell .main-shell {
     transition: none;
   }
