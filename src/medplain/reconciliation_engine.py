@@ -621,8 +621,11 @@ def _model(mode: str, context: Context, role: str, tools: list, output_model):
         return FixtureModel([item.tool_name for item in tools], output_model, payload)
     if mode == "bedrock":
         from botocore.config import Config
+        provider_fields = ({"additional_request_fields": {"inferenceConfig": {"topK": 1}}}
+                           if role == PLANNER else {})
         delegate = BedrockModel(model_id=configured_model_ids()[role],
                                 region_name=os.getenv("AWS_REGION", "us-east-1"), max_tokens=4096, temperature=0.0,
+                                **provider_fields,
                                 boto_client_config=Config(connect_timeout=5, read_timeout=45,
                                                           retries={"total_max_attempts": 1}))
         call_order = [item.tool_name for item in tools if item.tool_name in REQUIRED_TOOLS[role]]
