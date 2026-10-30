@@ -196,7 +196,8 @@ def test_fixture_discloses_configured_models_separately_from_actual_replay(monke
     result = run_reconciliation(examples()[0]["dossier"], "configured-is-not-inferred", mode="fixture")
     assert result["status"] == "verified", result
     assert result["runtime"]["configured_model_ids"] == engine.configured_model_ids()
-    assert result["runtime"]["inference_model_ids"] == {role: "medplain-synthetic-replay" for role in engine.AGENT_NAMES}
+    assert result["runtime"]["model_adapter_ids"] == {role: "medplain-synthetic-replay" for role in engine.AGENT_NAMES}
+    assert "not evidence every node completed inference" in result["runtime"]["model_identity_scope"]
     assert result["model_mode"] == "fixture"
 
 

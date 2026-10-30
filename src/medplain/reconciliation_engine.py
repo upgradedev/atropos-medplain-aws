@@ -598,7 +598,8 @@ def run(dossier: dict, session_id: str, mode: str | None = None, stress: bool = 
                         "native_output_attempts": context.native_output_attempts,
                         "native_output_attempts_dropped": context.native_output_attempts_dropped,
                         "configured_model_ids": configured_model_ids(),
-                        "inference_model_ids": (configured_model_ids() if mode == "bedrock" else
-                                                {role: "medplain-synthetic-replay" for role in AGENT_NAMES}),
+                        "model_adapter_ids": (configured_model_ids() if mode == "bedrock" else
+                                              {role: "medplain-synthetic-replay" for role in AGENT_NAMES}),
+                        "model_identity_scope": "Configured adapters, not evidence every node completed inference; inspect the invocation and tool trace. Usage and cost are not collected.",
                         "failure": context.failure,
                         "publication_plan": context.publication_plan, "semantic_relevance_verified": False}}
