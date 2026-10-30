@@ -445,6 +445,45 @@ def test_private_draft_schema_bounds_action_metadata_without_changing_public_sch
         engine.PlanningDraft.model_validate(draft)
 
 
+@pytest.mark.parametrize("disposition", ["covered", "resolved"])
+@pytest.mark.parametrize("index_format", ["null", "omit", "zero"])
+def test_nonask_index_guidance_does_not_coerce_zero_or_change_null_omission_contract(disposition, index_format):
+    source = examples()[0]["dossier"]
+    draft = _private_draft(source, [{"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"]}])
+    item = {"disposition": disposition, "intent": "compare_instructions", "statement_ids": ["home:L1", "discharge:L1"],
+            "reason": "Existing comparison is separate from the selected context question."}
+    if index_format != "omit":
+        item["question_index"] = 0 if index_format == "zero" else None
+    draft["review"].append(item)
+    original = copy.deepcopy(draft)
+    if index_format == "zero":
+        with pytest.raises(ValueError, match=r"review\[1\]: Non-ask review cannot reference a selected question"):
+            engine._validate_planning_draft(source, draft)
+    else:
+        selection, review = engine._validate_planning_draft(source, draft)
+        assert selection == draft["selection"]
+        assert review[0]["question_index"] == 0
+        assert review[1]["question_index"] is None
+    assert draft == original
+
+
+def test_reason_target_is_guidance_while_original_hard_bound_and_teachback_remain_strict():
+    source = examples()[0]["dossier"]
+    draft = _private_draft(source, [{"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"]}])
+    draft["review"][0]["reason"] = "x" * 81
+    selection, review = engine._validate_planning_draft(source, draft)
+    assert selection == draft["selection"] and review[0]["reason"] == "x" * 81
+    too_long = copy.deepcopy(draft)
+    too_long["review"][0]["reason"] = "x" * 161
+    with pytest.raises(ValueError):
+        engine._validate_planning_draft(source, too_long)
+    no_teachback = copy.deepcopy(draft)
+    no_teachback["selection"]["teachback"] = []
+    with pytest.raises(ValueError):
+        engine._validate_planning_draft(source, no_teachback)
+    assert len(draft["selection"]["teachback"]) == 1
+
+
 def test_empty_concerns_still_exposes_original_caregiver_document_context():
     source = copy.deepcopy(examples()[0]["dossier"])
     source["caregiver_concerns"] = ""
@@ -575,6 +614,19 @@ def test_pinned_sdk_forwards_planner_top_k_to_converse_request_without_changing_
                              if item["toolSpec"]["name"] == "PlanningDraft")
             assert list(wire_spec["inputSchema"]["json"]["properties"]) == ["selection", "review"]
             assert wire_spec["inputSchema"]["json"]["required"] == ["selection", "review"]
+            review_schema = wire_spec["inputSchema"]["json"]["properties"]["review"]["items"]
+            index_schema = review_schema["properties"]["question_index"]
+            assert index_schema["type"] == ["integer", "null"]
+            assert index_schema["minimum"] == 0 and index_schema["maximum"] == 11
+            assert "question_index" not in review_schema["required"]
+            assert "selection.questions" in index_schema["description"]
+            assert "covered/resolved use JSON null or omit" in index_schema["description"]
+            assert "never use 0" in index_schema["description"]
+            assert "teachback" in index_schema["description"] and "structural floor" in index_schema["description"]
+            reason_schema = review_schema["properties"]["reason"]
+            assert reason_schema["minLength"] == 1 and reason_schema["maxLength"] == 160
+            assert "80" in reason_schema["description"] and "160" in reason_schema["description"]
+            assert wire_spec["inputSchema"]["json"]["properties"]["selection"]["properties"]["teachback"]["minItems"] == 1
         else:
             assert request.get("additionalModelRequestFields", {}) == {}
         assert "topK" not in request["inferenceConfig"]

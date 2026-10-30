@@ -56,8 +56,10 @@ class RelationshipReview(Contract):
     disposition: Literal["covered", "resolved", "ask"]
     intent: QuestionCode
     statement_ids: list[str] = Field(min_length=1, max_length=8)
-    reason: str = Field(min_length=1, max_length=160)
-    question_index: int | None = Field(default=None, ge=0, le=11, strict=True)
+    reason: str = Field(min_length=1, max_length=160,
+                        description="Brief private action justification. Aim for at most 80 characters; the hard limit remains 160. Not clinical advice.")
+    question_index: int | None = Field(default=None, ge=0, le=11, strict=True,
+        description="For ask only: zero-based index into selection.questions. For covered/resolved use JSON null or omit; never use 0 for those dispositions. Never index teachback or the structural floor.")
 
 
 class PlanningDraft(Contract):
@@ -649,7 +651,11 @@ def _make_graph(context: Context, mode: str):
             "Use covered for an existing rendered check, resolved for no additional uncertainty supported by the passages, "
             "and ask for an additional unresolved relationship. Author the final ReconciliationSelection yourself under selection. "
             "Every selected question must have exactly one ask item with the identical intent/code, ordered statement_ids and "
-            "zero-based question_index. Non-ask items have question_index:null. Do not silently drop or repair a selected question. "
+            "zero-based question_index into selection.questions ONLY, never selection.teachback or structural floor checks. "
+            "For covered/resolved use literal JSON null or omit question_index; NEVER use 0 for a non-ask item, even when "
+            "another ask item correctly uses 0. When selection.questions is empty, every review index must be null/omitted. "
+            "Keep at least one selection.teachback item regardless of additional questions. Reasons should preferably have "
+            "at most 80 characters and must stay within the existing 160-character limit. Do not silently drop or repair a selected question. "
             "The question_catalog shows exactly what each code asks. already_rendered_checks shows questions that "
             "the card will include automatically. Eligibility is only a validity precondition, never a recommendation. "
             "Read agreement, explicit explanations, uncertainty and NEGATION in whole passages. An unchanged plan, "
