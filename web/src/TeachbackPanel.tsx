@@ -347,6 +347,7 @@ export function TeachbackReview({
           <label>
             Response awaiting reviewer
             <select
+              aria-label="Response awaiting reviewer"
               value={attemptId}
               onChange={(event) => setAttemptId(event.target.value)}
             >
@@ -361,6 +362,7 @@ export function TeachbackReview({
           <label>
             Review decision
             <select
+              aria-label="Review decision"
               value={effectiveDecision}
               onChange={(event) =>
                 setDecision(event.target.value as "acknowledged" | "follow_up")

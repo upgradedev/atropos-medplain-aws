@@ -37,6 +37,12 @@ def open_case(page, url, case_id, expect):
     return drawer
 
 
+def select_task(panel, task, expect):
+    control = panel.get_by_test_id("careflow-task-" + task["id"])
+    expect(control).to_contain_text(task["prompt"])
+    control.click()
+
+
 def wait_attempt(page, panel, expect, count=1):
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
@@ -76,7 +82,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     assert selected.value.status == 200
     view = client.call(path)
     task = next(row for row in view["tasks"] if row["code"] == "confirm_pending_owner")
-    panel.get_by_role("button", name=task["prompt"], exact=False).click()
+    select_task(panel, task, expect)
     panel.get_by_label("Assign synthetic staff", exact=True).select_option(actor["id"])
     with page.expect_response(lambda r: r.url.endswith("/careflow/assign") and r.request.method == "POST") as assigned:
         panel.get_by_role("button", name="Assign follow-up", exact=True).click()
@@ -87,7 +93,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     change_role(page, "reviewer", expect)
     drawer = open_case(page, url, case_id, expect)
     panel = drawer.get_by_test_id("careflow-panel")
-    panel.get_by_role("button", name=task["prompt"], exact=False).click()
+    select_task(panel, task, expect)
     with page.expect_response(lambda r: r.url.endswith("/careflow/accept") and r.request.method == "POST") as accepted:
         panel.get_by_role("button", name="Accept responsibility", exact=True).click()
     assert accepted.value.status == 200
@@ -114,7 +120,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     client.call("/api/ops/session/role", {"role": "reviewer"})
     drawer = open_case(page, url, case_id, expect)
     panel = drawer.get_by_test_id("careflow-panel")
-    panel.get_by_role("button", name=task["prompt"], exact=False).click()
+    select_task(panel, task, expect)
     panel.get_by_label("Separately verified source revision", exact=True).select_option(revision_id)
     with page.expect_response(lambda r: r.url.endswith("/careflow/link-revision") and r.request.method == "POST") as linked:
         panel.get_by_role("button", name="Link verified revision", exact=True).click()

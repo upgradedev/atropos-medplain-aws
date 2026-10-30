@@ -94,6 +94,7 @@ export function EvidenceSearch() {
           <label>
             Evidence language
             <select
+              aria-label="Evidence language"
               value={language}
               onChange={(event) => setLanguage(event.target.value)}
             >
@@ -104,6 +105,7 @@ export function EvidenceSearch() {
           <label>
             Guidance jurisdiction
             <select
+              aria-label="Guidance jurisdiction"
               value={jurisdiction}
               onChange={(event) => setJurisdiction(event.target.value)}
             >
@@ -435,6 +437,7 @@ export default function CareflowPanel({
         <label>
           Act as synthetic staff
           <select
+            aria-label="Act as synthetic staff"
             value={actorId || ""}
             disabled={busy || stale || !canAssign}
             onChange={(event) => void chooseActor(event.target.value)}
@@ -466,6 +469,7 @@ export default function CareflowPanel({
           <nav className="careflow-list" aria-label="Clarification tasks">
             {flow.tasks.map((item, index) => (
               <button
+                data-testid={`careflow-task-${item.id}`}
                 className="careflow-item"
                 aria-pressed={task.id === item.id}
                 key={item.id}
@@ -566,6 +570,7 @@ export default function CareflowPanel({
                   <label>
                     Assign synthetic staff
                     <select
+                      aria-label="Assign synthetic staff"
                       value={assignee}
                       onChange={(event) => setAssignee(event.target.value)}
                     >
@@ -681,6 +686,7 @@ export default function CareflowPanel({
                 <label>
                   Separately verified source revision
                   <select
+                    aria-label="Separately verified source revision"
                     value={revisionId}
                     onChange={(event) => setRevisionId(event.target.value)}
                   >
