@@ -1,0 +1,98 @@
+name: MedPlain Targeted Complex Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      judge_url:
+        description: Public AWS judge URL
+        type: string
+        required: true
+        default: https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws
+      expected_commit:
+        description: Exact deployed source, matching this workflow ref
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  changed-complex-journeys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JUDGE_URL: ${{ inputs.judge_url }}
+      EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+      MEDPLAIN_MODEL_MODE: fixture
+      MEDPLAIN_COMMIT: ${{ github.sha }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require anonymous HTTP 200 and exact deployed source before model work
+        id: source_guard
+        run: |
+          python - <<'PY'
+          import datetime,json,os,re
+          from pathlib import Path
+          from urllib.request import urlopen
+          url=os.environ['JUDGE_URL'].rstrip('/')
+          commit=os.environ['EXPECTED_COMMIT']
+          assert url=='https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws'
+          assert re.fullmatch('[0-9a-f]{40}',commit) and commit==os.environ['GITHUB_SHA']
+          with urlopen(url,timeout=30) as response:
+              assert response.status==200
+              response.read(1000001)
+          with urlopen(url+'/api/health',timeout=30) as response:
+              assert response.status==200
+              health=json.load(response)
+          assert health['commit']==commit and health['model_mode']=='bedrock'
+          proof={'status':'passed','anonymous_http_status':200,'source_commit':commit,
+              'observed_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'scope':'Targeted complex journeys only; historical legacy readiness is not rerun.'}
+          Path('artifacts').mkdir(exist_ok=True)
+          Path('artifacts/complex-live-precondition.json').write_text(json.dumps(proof,indent=2)+'\n')
+          PY
+      - name: Install browser dependencies in CI only
+        run: |
+          python -m pip install --no-cache-dir '.[test,eval]' playwright
+          python -m playwright install --with-deps chromium
+      - name: Execute unchanged two-case complex revision and accessible patient journey
+        run: python scripts/reconciliation_browser_smoke.py --url "$JUDGE_URL" --output artifacts/live-reconciliation-browser
+      - name: Require anonymous HTTP 200 and the same source after the journey
+        if: ${{ always() && steps.source_guard.outcome == 'success' }}
+        run: |
+          python - <<'PY'
+          import datetime,json,os,re
+          from pathlib import Path
+          from urllib.request import urlopen
+          url=os.environ['JUDGE_URL'].rstrip('/')
+          commit=os.environ['EXPECTED_COMMIT']
+          assert url=='https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws'
+          assert re.fullmatch('[0-9a-f]{40}',commit) and commit==os.environ['GITHUB_SHA']
+          with urlopen(url,timeout=30) as response:
+              assert response.status==200
+              response.read(1000001)
+          with urlopen(url+'/api/health',timeout=30) as response:
+              assert response.status==200
+              health=json.load(response)
+          assert health['commit']==commit and health['model_mode']=='bedrock'
+          proof={'status':'passed','anonymous_http_status':200,'source_commit':commit,
+              'observed_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'scope':'Targeted complex journeys only; historical legacy readiness is not rerun.'}
+          Path('artifacts/complex-live-postcondition.json').write_text(json.dumps(proof,indent=2)+'\n')
+          PY
+      - name: Retain targeted evidence including failed journeys
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: complex-readiness-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            artifacts/complex-live-precondition.json
+            artifacts/complex-live-postcondition.json
+            artifacts/live-reconciliation-browser/
+          retention-days: 14
+          if-no-files-found: error
