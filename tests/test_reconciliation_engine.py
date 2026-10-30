@@ -2,6 +2,7 @@
 
 import asyncio
 import copy
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +15,7 @@ from medplain.reconciliation import (
     validate_reconciliation_result,
 )
 from medplain.reconciliation_models import ReconciliationSelection
+from medplain.ops_domain import OpsService
 
 
 @pytest.mark.parametrize("example", examples(), ids=lambda row: row["example_id"])
@@ -221,8 +223,109 @@ def test_bad_semantic_citation_gets_one_bounded_repair_without_exposing_output(m
     assert result["runtime"]["nodes_executed"] == [engine.INDEXER, engine.PLANNER, engine.PLANNER]
     assert result["runtime"]["structured_output_repairs"] == 1
     assert result["receipts"] == []
-    assert "foreign:L1" not in str(result)
+    assert len(result["runtime"]["planner_rejections"]) == 2
+    assert result["runtime"]["planner_rejections"][-1]["rejected_typed_selection"]["questions"][0]["statement_ids"] == ["foreign:L1"]
+    assert result["runtime"]["repair_diagnostics"][-1]["exhausted"] is True
+    assert result["runtime"]["repair_diagnostics"][-1]["reason"] == "questions[0]: Question citations are missing, duplicated or outside this source"
+    assert result["runtime"]["failure"] == {"code": "structured_repair_exhausted", "agent": engine.PLANNER,
+                                              "contract_code": "planner_contract"}
+    assert "foreign:L1" not in json.dumps(result["trace"])
     validate_reconciliation_result(source, result, "bad-proposal")
+
+
+def test_actual_validator_reason_requires_fresh_model_repair_and_stays_private(monkeypatch):
+    original_model = engine._model
+    source = copy.deepcopy(examples()[0]["dossier"])
+    valid = {"source_hash": canonical_hash(source), "questions": [
+        {"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1", "home:L1"]}],
+        "teachback": [{"code": "teachback", "statement_ids": ["discharge:L1"]}]}
+    bad = copy.deepcopy(valid)
+    bad["questions"][0] = {"code": "confirm_taper", "statement_ids": ["home:L1"]}
+    seen = []
+
+    class CapturingModel(FixtureModel):
+        async def stream(self, messages, *args, **kwargs):
+            seen.append(json.dumps(messages))
+            async for event in super().stream(messages, *args, **kwargs):
+                yield event
+
+    def model(mode, context, role, tools, output_model):
+        if role == engine.PLANNER:
+            holder = {}
+            replay = CapturingModel([item.tool_name for item in tools], output_model,
+                                    lambda: copy.deepcopy(bad if holder["model"]._invocation == 1 else valid))
+            holder["model"] = replay
+            return replay
+        return original_model(mode, context, role, tools, output_model)
+
+    monkeypatch.setattr(engine, "_model", model)
+    result = run_reconciliation(source, "fresh-model-repair", mode="fixture")
+    assert result["status"] == "verified", result
+    assert result["runtime"]["selection"] == valid
+    assert result["runtime"]["structured_output_repairs"] == 1
+    assert result["runtime"]["nodes_executed"] == [engine.INDEXER, engine.PLANNER, engine.PLANNER, engine.PUBLISHER]
+    assert result["runtime"]["invocation_outcomes"] == ["completed", "repair", "completed", "completed"]
+    assert result["runtime"]["failure"] is None
+    reason = "questions[0]: A taper question requires cited taper phases"
+    assert any(reason in message for message in seen)
+    rejection = result["runtime"]["planner_rejections"][0]
+    assert rejection["reason"] == reason and rejection["rejected_typed_selection"] == bad
+    assert rejection["selection_sha256"] == canonical_hash(bad)
+    for index in [2, 3]:
+        records = [row for row in result["runtime"]["tools_executed"] if row["invocation_index"] == index]
+        assert {row["tool"] for row in records if row["success"]} == set(engine.REQUIRED_TOOLS[engine.PLANNER])
+    validate_reconciliation_result(source, result)
+    share = {"execution_id": result["session_id"], "source_profile": "medplain-reconciliation-v1",
+             "source": source, "result": result, "intake": None,
+             "case": {"status": "released", "source_hash": canonical_hash(source), "artifact_hash": result["artifact_hash"]}}
+    public = OpsService(SimpleNamespace(get=lambda *_: copy.deepcopy(share))).patient("a" * 32)
+    assert "runtime" not in public["result"]
+    assert "planner_rejections" not in json.dumps(public)
+    assert "rejected_typed_selection" not in json.dumps(public)
+
+
+def test_private_diagnostics_bound_untrusted_ids_and_keep_unknown_messages_type_only():
+    source = copy.deepcopy(examples()[0]["dossier"])
+    context = engine.Context(source, "bounded-diagnostics", False)
+    context.nodes = [engine.INDEXER, engine.PLANNER]
+    payload = {"source_hash": canonical_hash(source), "questions": [
+        {"code": "caregiver_question", "statement_ids": ["long-" + "x" * 50000] * 8} for _ in range(12)],
+        "teachback": [{"code": "teachback", "statement_ids": ["wide-" + "λ" * 50000] * 8} for _ in range(6)]}
+    for _ in range(engine.MAX_PRIVATE_REJECTIONS + 2):
+        reason = engine._record_planner_rejection(context, payload, ValueError("provider-secret-must-not-appear"))
+        assert "provider-secret" not in reason
+    assert len(context.planner_rejections) == engine.MAX_PRIVATE_REJECTIONS
+    for record in context.planner_rejections:
+        assert len(json.dumps(record, ensure_ascii=False).encode("utf-8")) <= engine.MAX_PRIVATE_REJECTION_BYTES
+        assert record["selection_truncated"] is True
+        assert record["selection_counts"] == {"questions": 12, "teachback": 6}
+        assert record["validator"] == {"kind": "exception_type", "exception_type": "ValueError"}
+    assert "provider-secret" not in json.dumps(context.planner_rejections)
+
+
+def test_pydantic_diagnostics_omit_raw_input_and_context():
+    try:
+        ReconciliationSelection.model_validate({"source_hash": "private-input-should-not-be-copied", "questions": [], "teachback": []})
+    except ValueError as exc:
+        details = engine._validator_details(exc)
+    assert details["kind"] == "pydantic"
+    assert details["errors"]
+    assert all(set(row) == {"loc", "type", "msg"} for row in details["errors"])
+    assert "private-input-should-not-be-copied" not in json.dumps(details)
+
+
+def test_tool_eligibility_exposes_only_existing_preconditions_not_a_plan():
+    source = copy.deepcopy(examples()[0]["dossier"])
+    context = engine.Context(source, "eligibility-not-relevance", False)
+    context.index_verified = True
+    tool = next(item for item in engine._tools(context)[engine.PLANNER] if item.tool_name == "check_reconciliation_constraints")
+    evidence = tool()["code_eligibility"]
+    assert "Eligibility is not relevance" in evidence["scope"]
+    assert evidence["codes"]["confirm_taper"]["requires_any_witness"] == []
+    assert evidence["codes"]["confirm_identity_form"]["requires_any_witness"] == ["caregiver-concerns:L1"]
+    assert evidence["codes"]["compare_instructions"]["minimum_distinct_citations"] == 2
+    assert evidence["codes"]["teachback"]["section"] == "teachback_only"
+    assert "questions" not in evidence
 
 
 def test_a_valid_nonbaseline_semantic_plan_is_used_not_silently_replaced(monkeypatch):
@@ -325,4 +428,5 @@ def test_runtime_has_no_silent_provider_fallback(monkeypatch):
     assert result["model_mode"] == "bedrock"
     assert result["artifact"] is None
     assert "provider diagnostic" not in str(result)
+    assert result["runtime"]["failure"] == {"code": "external_error", "exception_type": "RuntimeError"}
     validate_reconciliation_result(source, result, "provider-failed")
