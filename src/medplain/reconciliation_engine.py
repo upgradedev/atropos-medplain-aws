@@ -193,17 +193,24 @@ def _record_planner_rejection(context, payload, exc, review=None):
                 preview[section].append({"code": _bounded_text(row.get("code"), 48), "statement_ids": values})
         if not selection_is_object:
             preview = {"unavailable": "Selection payload is not an object"}
+        preview_hash = canonical_hash(preview)
+        truncated |= original_hash is None or preview_hash != original_hash
         review_preview = []
-        review_truncated = not isinstance(review, list) or len(review_rows) > 12
+        review_metadata_truncated = not isinstance(review, list) or len(review_rows) > 12
         for row in review_rows[:12]:
+            review_metadata_truncated |= not isinstance(row, dict)
             row = row if isinstance(row, dict) else {}
             ids = row.get("statement_ids", [])
+            review_metadata_truncated |= not isinstance(ids, list)
             ids = ids if isinstance(ids, list) else []
             values = [_bounded_text(value, width) if isinstance(value, str)
                       and re.fullmatch(r"[a-z][a-z0-9_-]{0,39}:L[1-9][0-9]{0,5}", value)
                       else "invalid_statement_id" for value in ids[:8]]
-            review_truncated |= len(ids) > 8 or any(value != original for value, original in zip(values, ids))
+            review_metadata_truncated |= len(ids) > 8 or any(value != original for value, original in zip(values, ids))
             index = row.get("question_index")
+            review_metadata_truncated |= (row.get("disposition") not in ("covered", "resolved", "ask")
+                or row.get("intent") not in QUESTION_CODES or "question_index" not in row
+                or index is not None and not (type(index) is int and 0 <= index <= 11))
             review_preview.append({
                 "disposition": row.get("disposition") if row.get("disposition") in ("covered", "resolved", "ask") else "unknown",
                 "intent": row.get("intent") if row.get("intent") in QUESTION_CODES else "unknown",
@@ -212,18 +219,23 @@ def _record_planner_rejection(context, payload, exc, review=None):
         record = {"invocation_index": len(context.nodes), "failure_code": FailureCode.PLANNER_CONTRACT.value,
                   "validator": details, "reason": reason, "rejected_typed_selection": preview,
                   "selection_sha256": original_hash, "selection_payload_type": selection_type,
+                  "selection_preview_sha256": preview_hash,
                   "selection_counts": counts, "selection_truncated": truncated,
                   "rejected_review": review_preview, "review_sha256": review_hash,
+                  "review_preview_sha256": canonical_hash(review_preview),
+                  "review_preview_scope": "Metadata-only projection; reason and arbitrary provider text are excluded.",
                   "review_counts": {"items": len(review_rows), "previewed": len(review_preview)},
-                  "review_truncated": review_truncated}
+                  "review_truncated": True, "review_metadata_truncated": review_metadata_truncated}
         if len(json.dumps(record, ensure_ascii=False, allow_nan=False).encode("utf-8")) <= MAX_PRIVATE_REJECTION_BYTES:
             break
         width //= 2
         if width < 6:
             record["rejected_typed_selection"] = {"omitted": "Diagnostic serialized-size limit"}
             record["selection_truncated"] = True
+            record["selection_preview_sha256"] = canonical_hash(record["rejected_typed_selection"])
             record["rejected_review"] = {"omitted": "Diagnostic serialized-size limit"}
-            record["review_truncated"] = True
+            record["review_preview_sha256"] = canonical_hash(record["rejected_review"])
+            record["review_metadata_truncated"] = True
             record["review_counts"]["previewed"] = 0
             break
     if len(context.planner_rejections) < MAX_PRIVATE_REJECTIONS:

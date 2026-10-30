@@ -259,6 +259,47 @@ def test_rejected_review_preview_retains_bounded_metadata_and_full_hash_without_
     assert "provider-" not in serialized
 
 
+@pytest.mark.parametrize("mutation", ["missing_teachback", "nonlist_questions", "long_source_hash", "forbidden_extra_key"])
+def test_malformed_selection_projection_is_never_labelled_complete(mutation):
+    source = examples()[0]["dossier"]
+    selection = _private_draft(source, [{"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"]}])["selection"]
+    if mutation == "missing_teachback":
+        selection.pop("teachback")
+    elif mutation == "nonlist_questions":
+        selection["questions"] = None
+    elif mutation == "long_source_hash":
+        selection["source_hash"] = "a" * 65
+    else:
+        selection["private-extra-key"] = "private-extra-value"
+    original = copy.deepcopy(selection)
+    context = engine.Context(source, "malformed-selection-preview", False)
+    engine._record_planner_rejection(context, selection, ValueError("untrusted exception"))
+    record = context.planner_rejections[0]
+    assert selection == original
+    assert record["selection_sha256"] == canonical_hash(original)
+    assert record["selection_truncated"] is True
+    assert record["selection_preview_sha256"] == canonical_hash(record["rejected_typed_selection"])
+    assert record["selection_preview_sha256"] != record["selection_sha256"]
+    assert len(json.dumps(record, ensure_ascii=False).encode("utf-8")) <= engine.MAX_PRIVATE_REJECTION_BYTES
+
+
+def test_complete_valid_selection_preview_and_redacted_review_have_distinct_hash_scopes():
+    source = examples()[0]["dossier"]
+    draft = _private_draft(source, [{"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"]}])
+    context = engine.Context(source, "explicit-preview-hash-scopes", False)
+    engine._record_planner_rejection(context, draft["selection"], ValueError("untrusted exception"), review=draft["review"])
+    record = context.planner_rejections[0]
+    assert record["selection_truncated"] is False
+    assert record["selection_sha256"] == record["selection_preview_sha256"] == canonical_hash(record["rejected_typed_selection"])
+    assert record["review_truncated"] is True
+    assert record["review_metadata_truncated"] is False
+    assert "Metadata-only" in record["review_preview_scope"]
+    assert record["review_sha256"] == canonical_hash(draft["review"])
+    assert record["review_preview_sha256"] == canonical_hash(record["rejected_review"])
+    assert record["review_sha256"] != record["review_preview_sha256"]
+    assert all("reason" not in item for item in record["rejected_review"])
+
+
 def test_native_success_records_raw_and_pydantic_normalized_hashes_without_mutating_optional_fields():
     source = examples()[0]["dossier"]
     draft = _private_draft(source, [])
