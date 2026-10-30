@@ -126,6 +126,12 @@ The 17 false positives comprise ten already-covered floor questions, three redun
 
 All 30 delivered cards preserve the supported source content. Structural matches remain 29/29 and selected label-pair prompts 4/4. Completed live roles have 90 successful native outputs and 30 publisher schema-error attempts recovered inside the existing SDK budget. Zero graph-level structured repairs does not mean zero native errors. Model configuration and the SDK trajectory do not independently attest provider-returned model identity. This is a repeat on inspected synthetic cases, not a holdout, clinical validation or a comparison with commercial products. Token use, cost and patient outcomes remain unmeasured.
 
+### Subsequent planner draft: model effectiveness unmeasured
+
+The subsequent source introduces a private `PlanningDraft`: a bounded relationship review precedes the unchanged model-authored `ReconciliationSelection`. The review distinguishes already-covered checks, claimed resolution and proposed questions. Each proposed question must match exactly one `ask` record by intent, ordered source IDs and index. These brief private notes are untrusted action justifications, not verified clinical reasoning, and do not enter the patient artifact.
+
+The planner must repair an inconsistent draft or an exact repeat of an already-rendered fixed question with the same code and complete cited-ID set. The runtime never removes questions, remaps codes, fills citations or substitutes a baseline plan. A new relevant caregiver witness, combined conflicting-owner evidence or a distinct relationship with overlapping citations remains allowed. The clinical gate, baseline, public schema, renderer and execution limits remain unchanged. Offline fixtures preserve their complete baseline-backed public plans; they cannot establish improved model relevance. The latest actual measurement above is `38313f8`, which predates this private draft. No accuracy improvement from the new source is claimed.
+
 Patient views provide larger text, high contrast and manual local-device speech controls with visible unavailable-voice reasons. Speech never starts automatically. This uses the device's supported voices, not Amazon Polly; audio pronunciation and patient comprehension have not been validated. No OCR, unrestricted FHIR import, hospital identity system or autonomous prescribing capability is implied.
 
 ## Operations console
