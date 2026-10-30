@@ -6,6 +6,20 @@ Built as a prototype for adults leaving hospital with changed medicines and limi
 
 [Open the anonymous AWS demo](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/) · [Source and CI](https://github.com/upgradedev/atropos-medplain-aws/actions)
 
+## Separate V3 careflow version
+
+The [careflow branch](https://github.com/upgradedev/atropos-medplain-aws/tree/codex/medplain-careflow-v3), package version `0.2.0` and API profile `medplain-careflow-v3`, adds a separate synthetic workflow. It is **not deployed at the public URL above**. That URL and the scheduled source-bound comparison remain on frozen `e277167`.
+
+In a completed reconciliation case, the **Clarifications** tab supports assignment, explicit acceptance by the selected demo actor, a private source-bound answer and linkage to a separately verified source revision. Closing a clarification requires the linked revision and an explicit reviewer confirmation. Answer text alone cannot become a prescription or replace a source. Demo actors are selectable roles, not authenticated hospital staff.
+
+The evidence panel retrieves relevant sections from a separate, versioned educational workflow snapshot. It shows exact excerpts, publisher links, snapshot hashes, applicability and lexical matching scores. A retrieved reference cannot supply a missing patient dose, start date or owner. These engineering-reviewed educational snapshots are not a clinically approved patient-care corpus; lexical matching does not prove semantic support.
+
+After release, a reviewer can issue a separate **response link**. The ordinary patient link remains read-only. The response capability permits bounded synthetic teach-back submissions and the corresponding public history, without exposing private clinician answers. A submitted answer is queued through the transactional outbox and the existing shared daily allowance. A bounded Strands assessment proposes missing or misunderstood source passages, using exact released quotations for follow-up. Assessment remains provisional and requires reviewer review. It neither certifies comprehension nor closes a clarification. Each recheck remains a separate retained attempt.
+
+For source-only CI, the API uses the existing explicit memory/fixture mode. A future AWS deployment of this version must select `medplain.careflow_worker.handler` and `medplain.careflow_relay.handler`; they dispatch original case jobs through the unchanged legacy handlers. The API role also needs `dynamodb:ConditionCheckItem` on its exact operations table, so parent closure and the linked revision's version are checked atomically, as described in [AWS transaction permissions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis-iam.html). Existing deployment scripts and live IAM stay unchanged. `MEDPLAIN_CAREFLOW_MODEL_MODE` selects `fixture` or `bedrock`, defaulting to the existing model mode. No separate model call, deployment, quota change or benchmark run is authorized by building this branch.
+
+The new isolation check, `python scripts/check_careflow_isolation.py`, pins the original clinical gates, full baseline, reference/corpus snapshots, original tests and measurement instruments to their exact parent bytes. New tests and browser journeys exercise the added workflow separately. The original comparison does not measure these V3 capabilities.
+
 ## Try the safety boundary
 
 The first visit opens a collection of **12 prepared synthetic examples** across three desks. The collection includes released, review, rejection and failure scenarios so the table, queues, maps and charts can be explored immediately. Every prepared row is labelled. Available verified artifacts and receipts were prepared with the real Strands SDK and the **offline fixture model in CI**, not a new Bedrock invocation. The prepared failure has no patient artifact. Prepared review decisions and failures are exercises, not visitor actions or reported outages.
