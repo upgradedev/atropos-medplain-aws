@@ -215,7 +215,9 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     review_panel.get_by_label("Response awaiting reviewer", exact=True).select_option(attempts[0]["id"])
     review_panel.get_by_label("Review decision", exact=True).select_option("follow_up")
     review_panel.get_by_label("Private reviewer comment", exact=True).fill("The acknowledgement did not demonstrate understanding. Re-explain only the approved source and request another synthetic response.")
-    review_panel.get_by_role("button", name="Record teach-back review", exact=True).click()
+    with page.expect_response(lambda r: r.url.endswith(f"/teachback/{attempts[0]['id']}/review") and r.request.method == "POST") as review_saved:
+        review_panel.get_by_role("button", name="Record teach-back review", exact=True).click()
+    assert review_saved.value.status == 200
     patient.get_by_role("button", name="Refresh response history", exact=True).click()
     expect(feedback.get_by_text("Reviewer recorded follow-up", exact=False)).to_be_visible()
     feedback.get_by_label("Your synthetic response", exact=True).fill("I would ask the discharge team to confirm who will contact us about the pending potassium result. I would not decide a medication change from this card.")
