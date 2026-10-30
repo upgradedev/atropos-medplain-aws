@@ -5,9 +5,13 @@ from __future__ import annotations
 import importlib.metadata
 import json
 import os
+import re
 import secrets
 from dataclasses import dataclass, field
 from decimal import Decimal
+from enum import Enum
+
+from pydantic import ValidationError
 
 from strands import Agent, tool
 from strands.hooks import (
@@ -36,6 +40,119 @@ REQUIRED_TOOLS = {INDEXER: ("read_reconciliation_sources",),
                   PUBLISHER: ("build_clarification_card",)}
 MAX_CANDIDATES = 2
 MAX_MODEL_TURNS = 5
+MAX_PRIVATE_REJECTIONS = 4
+MAX_PRIVATE_REJECTION_BYTES = 16384
+
+
+class FailureCode(str, Enum):
+    PLANNER_CONTRACT = "planner_contract"
+    REQUIRED_TOOL = "required_tool_missing"
+    TYPED_OUTPUT = "typed_output_missing"
+    SOURCE_INDEX = "source_index_contract"
+    PUBLICATION_REFERENCE = "publication_reference_contract"
+    MODEL_TURN_BUDGET = "model_turn_budget"
+    REPAIR_EXHAUSTED = "structured_repair_exhausted"
+    GRAPH_FAILED = "graph_failed"
+    EXTERNAL_ERROR = "external_error"
+
+
+class WorkflowFailure(RuntimeError):
+    """Only this application's finite failure code, never provider prose."""
+
+    def __init__(self, code: FailureCode):
+        self.code = code
+        super().__init__(code.value)
+
+
+_VALIDATOR_MESSAGES = frozenset({
+    "Question citations are missing, duplicated or outside this source",
+    "Only teachback questions belong in the teachback section",
+    "Teachback questions belong in the separate teachback section",
+    "Comparison requires at least two distinct cited source statements",
+    "An intentional-change question requires the explicitly documented change",
+    "A taper question requires cited taper phases",
+    "A hold question requires a cited hold condition",
+    "A pending-result question requires a cited pending result",
+    "An identity question requires cited caregiver context and does not assert equivalence",
+    "An interaction-review question requires both sources of a selected label-backed pair",
+    "Duplicate question",
+})
+
+
+def _bounded_text(value, limit=512):
+    text = value if isinstance(value, str) else type(value).__name__
+    return text.encode("utf-8", errors="backslashreplace").decode("utf-8")[:limit]
+
+
+def _validator_details(exc):
+    """Accept only known validator messages or bounded Pydantic metadata."""
+    if isinstance(exc, ValidationError):
+        fields = {"source_hash", "questions", "teachback", "code", "statement_ids"}
+        types = {"literal_error", "string_type", "string_pattern_mismatch", "string_unicode",
+                 "list_type", "too_short", "too_long", "missing", "extra_forbidden", "model_type"}
+        errors = []
+        for error in exc.errors(include_input=False, include_url=False, include_context=False)[:8]:
+            location = [part if type(part) is int and 0 <= part <= 10000 else
+                        part if isinstance(part, str) and part in fields else "unknown_field"
+                        for part in error.get("loc", ())[:8]]
+            kind = _bounded_text(error.get("type", "unknown"), 48)
+            errors.append({"loc": location, "type": kind,
+                           "msg": _bounded_text(error.get("msg", ""), 160) if kind in types else "Schema validation failed"})
+        return {"kind": "pydantic", "errors": errors}
+    if type(exc) is ValueError:
+        text = str(exc)
+        if len(text) > 2048:
+            return {"kind": "exception_type", "exception_type": "ValueError"}
+        if text == "Plan source_hash differs from this dossier":
+            return {"kind": "contract", "messages": [text]}
+        messages = text.split("; ")
+        if len(messages) <= 8 and all(
+                (match := re.fullmatch(r"(?:questions|teachback)\[\d{1,2}\]: (.+)", message))
+                and match[1] in _VALIDATOR_MESSAGES for message in messages):
+            return {"kind": "contract", "messages": messages}
+    return {"kind": "exception_type", "exception_type": _bounded_text(type(exc).__name__, 64)}
+
+
+def _record_planner_rejection(context, payload, exc):
+    details = _validator_details(exc)
+    reason = ("; ".join(details["messages"]) if details["kind"] == "contract"
+              else json.dumps(details, ensure_ascii=True, separators=(",", ":")))
+    reason = _bounded_text(reason, 2048)
+    try:
+        original_hash = canonical_hash(payload)
+    except (TypeError, ValueError, UnicodeError):
+        original_hash = None
+    counts = {key: len(payload.get(key, [])) if isinstance(payload.get(key), list) else 0
+              for key in ["questions", "teachback"]}
+    width = 96
+    while True:
+        preview = {"source_hash": _bounded_text(payload.get("source_hash"), 64)}
+        truncated = False
+        for section, maximum in [("questions", 12), ("teachback", 6)]:
+            rows = payload.get(section, [])
+            rows = rows if isinstance(rows, list) else []
+            preview[section] = []
+            truncated |= len(rows) > maximum
+            for row in rows[:maximum]:
+                row = row if isinstance(row, dict) else {}
+                ids = row.get("statement_ids", [])
+                ids = ids if isinstance(ids, list) else []
+                values = [_bounded_text(value, width) for value in ids[:8]]
+                truncated |= len(ids) > 8 or any(value != original for value, original in zip(values, ids))
+                preview[section].append({"code": _bounded_text(row.get("code"), 48), "statement_ids": values})
+        record = {"invocation_index": len(context.nodes), "failure_code": FailureCode.PLANNER_CONTRACT.value,
+                  "validator": details, "reason": reason, "rejected_typed_selection": preview,
+                  "selection_sha256": original_hash, "selection_counts": counts, "selection_truncated": truncated}
+        if len(json.dumps(record, ensure_ascii=False, allow_nan=False).encode("utf-8")) <= MAX_PRIVATE_REJECTION_BYTES:
+            break
+        width //= 2
+        if width < 6:
+            record["rejected_typed_selection"] = {"omitted": "Diagnostic serialized-size limit"}
+            record["selection_truncated"] = True
+            break
+    if len(context.planner_rejections) < MAX_PRIVATE_REJECTIONS:
+        context.planner_rejections.append(record)
+    return reason
 
 
 @dataclass
@@ -61,6 +178,9 @@ class Context:
     snapshot_hash: str | None = None
     binding: dict | None = None
     repairs: int = 0
+    planner_rejections: list[dict] = field(default_factory=list)
+    repair_diagnostics: list[dict] = field(default_factory=list)
+    failure: dict | None = None
 
     def clear_publication(self):
         self.publication_plan = self.snapshot = self.snapshot_hash = self.binding = None
@@ -84,12 +204,28 @@ def _tools(context: Context) -> dict[str, list]:
         if not context.index_verified:
             raise ValueError("Original source coverage has not been verified")
         statements = source_statements(context.dossier)
+        floor = structural_issues(statements)
+        eligibility = {
+            "compare_instructions": {"minimum_distinct_citations": 2},
+            "confirm_intentional_change": {"requires_any_witness": [row["statement_id"] for row in statements
+                if row["citation"]["quote"].startswith("Intentional change:")]},
+            "confirm_taper": {"requires_any_witness": [row["statement_id"] for row in statements if row["clinical"]["taper_phases"]]},
+            "confirm_hold_restart": {"requires_any_witness": [row["statement_id"] for row in statements if row["clinical"]["condition_text"]]},
+            "confirm_pending_owner": {"requires_any_witness": [row["statement_id"] for row in statements if row["clinical"]["pending_test"]]},
+            "confirm_identity_form": {"requires_any_witness": [row["statement_id"] for row in statements if row["document_kind"] == "caregiver_note"]},
+            "confirm_interaction_review": {"requires_all_citations_of_one_witness_set": [row["statement_ids"] for row in floor
+                if row["code"] == "selected_label_interaction_review"]},
+            "caregiver_question": {"minimum_distinct_citations": 1},
+            "teachback": {"minimum_distinct_citations": 1, "section": "teachback_only"},
+        }
         return {"source_hash": canonical_hash(context.dossier),
                 "source_documents": [dict(document) for document in context.dossier["documents"]],
                 "source_statement_order": [row["statement_id"] for row in statements],
                 "clinical_source_statements": [row for row in statements if row["document_kind"] != "caregiver_note"],
                 "caregiver_context": [row for row in statements if row["document_kind"] == "caregiver_note"],
-                "already_rendered_checks": structural_issues(statements),
+                "already_rendered_checks": floor,
+                "code_eligibility": {"scope": "Unchanged validator preconditions only. Eligibility is not relevance, a gold answer or a recommended question plan. Empty witness lists mean that code cannot be supported by this source. All citations must be distinct current source IDs; teachback belongs only in its own section.",
+                                     "codes": eligibility},
                 "caregiver_concerns": context.dossier["caregiver_concerns"],
                 "allowed_question_codes": ["compare_instructions", "confirm_intentional_change", "confirm_taper",
                     "confirm_hold_restart", "confirm_identity_form", "confirm_pending_owner", "caregiver_question", "teachback", "confirm_interaction_review"],
@@ -207,7 +343,8 @@ class ReconciliationHook(HookProvider):
     def before_model_call(self, event):
         self.turns += 1
         if self.turns > MAX_MODEL_TURNS:
-            raise RuntimeError("Reconciliation node model-turn budget exhausted")
+            self.context.failure = {"code": FailureCode.MODEL_TURN_BUDGET.value, "agent": self.role}
+            raise WorkflowFailure(FailureCode.MODEL_TURN_BUDGET)
 
     def after_tool_call(self, event):
         name = event.tool_use.get("name")
@@ -219,14 +356,23 @@ class ReconciliationHook(HookProvider):
         self.context.tools.append({"agent": self.role, "tool": name, "success": success,
                                    "invocation_index": len(self.context.nodes)})
 
-    def _repair(self, event, diagnostic):
-        if self.repairs >= 1:
-            raise RuntimeError("Reconciliation structured evidence failed after bounded repair")
+    def _repair(self, event, diagnostic, code=FailureCode.TYPED_OUTPUT):
+        diagnostic = _bounded_text(diagnostic, 2048)
+        exhausted = self.repairs >= 1
+        if len(self.context.repair_diagnostics) < 10:
+            self.context.repair_diagnostics.append({"invocation_index": len(self.context.nodes), "agent": self.role,
+                                                    "code": code.value, "reason": diagnostic, "exhausted": exhausted})
+        self.context.trace.append({"agent": self.role, "status": "exhausted" if exhausted else "repair",
+                                   "message": diagnostic})
+        if exhausted:
+            self.context.invocation_outcomes[-1] = "failed"
+            self.context.failure = {"code": FailureCode.REPAIR_EXHAUSTED.value, "agent": self.role,
+                                    "contract_code": code.value}
+            raise WorkflowFailure(FailureCode.REPAIR_EXHAUSTED)
         self.repairs += 1
         self.context.repairs += 1
         self.repair_pending = True
         self.context.invocation_outcomes[-1] = "repair"
-        self.context.trace.append({"agent": self.role, "status": "repair", "message": diagnostic})
         event.resume = ("This invocation failed its bounded source/reference contract: " + diagnostic
                         + " Call the required tool again now. Use only current exact source IDs and the allowed "
                           "question codes. Questions are proposals, not clinical facts. Do not add advice or invent source IDs.")
@@ -236,29 +382,30 @@ class ReconciliationHook(HookProvider):
         if event.result is None:
             return
         if not set(REQUIRED_TOOLS[self.role]) <= context.completed[self.role]:
-            self._repair(event, "A fresh required tool did not succeed.")
+            self._repair(event, "A fresh required tool did not succeed.", FailureCode.REQUIRED_TOOL)
             return
         output = event.result.structured_output
         if output is None:
             self._repair(event, "A typed structured result is required.")
             return
-        payload = output.model_dump(mode="json")
+        payload = output.model_dump(mode="python" if self.role == PLANNER else "json")
         if self.role == INDEXER:
             if payload != context.expected_index:
-                self._repair(event, "SourceIndex must cover every original statement exactly once in source order.")
+                self._repair(event, "SourceIndex must cover every original statement exactly once in source order.", FailureCode.SOURCE_INDEX)
                 return
             context.index_verified = True
         elif self.role == PLANNER:
             try:
                 context.selection = validate_selection(context.dossier, payload)
-            except (TypeError, ValueError):
-                self._repair(event, "Question selection has an invalid source hash, citation, section or allowed-code precondition.")
+            except (TypeError, ValueError) as exc:
+                reason = _record_planner_rejection(context, payload, exc)
+                self._repair(event, reason, FailureCode.PLANNER_CONTRACT)
                 return
         else:
             try:
                 candidate = resolve_publication(context, payload)
             except (TypeError, ValueError, KeyError):
-                self._repair(event, "PublicationSelection must reference this fresh invocation's exact immutable artifact.")
+                self._repair(event, "PublicationSelection must reference this fresh invocation's exact immutable artifact.", FailureCode.PUBLICATION_REFERENCE)
                 return
             context.attempts += 1
             if context.stress and context.attempts == 1:
@@ -384,8 +531,13 @@ def run(dossier: dict, session_id: str, mode: str | None = None, stress: bool = 
         graph_status = result.status.value
         if result.failed_nodes or graph_status != "completed":
             error = "A Strands node failed. No clarification card was published."
+            if context.failure is None:
+                context.failure = {"code": FailureCode.GRAPH_FAILED.value}
     except Exception as exc:
         error = f"The {mode} reconciliation workflow could not complete ({type(exc).__name__}). Publication refused."
+        if context.failure is None:
+            context.failure = {"code": exc.code.value if isinstance(exc, WorkflowFailure) else FailureCode.EXTERNAL_ERROR.value,
+                               "exception_type": _bounded_text(type(exc).__name__, 64)}
     verified = context.attempts > 0 and not context.errors and error is None
     if not verified:
         context.trace.append({"agent": "AtroposReconciliationSafetyGate", "status": "refused",
@@ -403,4 +555,6 @@ def run(dossier: dict, session_id: str, mode: str | None = None, stress: bool = 
                         "invocation_outcomes": context.invocation_outcomes,
                         "hook_invocations": len(context.nodes), "structured_output_repairs": context.repairs,
                         "source_index_verified": context.index_verified, "selection": context.selection,
+                        "planner_rejections": context.planner_rejections, "repair_diagnostics": context.repair_diagnostics,
+                        "failure": context.failure,
                         "publication_plan": context.publication_plan, "semantic_relevance_verified": False}}
