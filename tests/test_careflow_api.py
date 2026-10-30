@@ -113,6 +113,7 @@ def test_real_sdk_clarification_acceptance_response_and_reviewer_journey(client)
     assert attempt["assessment"]["status"] == "provisional"
     assert attempt["assessment"]["requires_reviewer"] is True
     assert attempt["assessment"]["patient_regimen"] is None
+    assert attempt["assessment"]["response_sha256"] == attempt["response_sha256"]
     assert attempt["assessment"]["assessment"]["missing_statement_ids"]
     view = client.get(path, headers=headers).json()
     reviewed = client.post(path + f"/teachback/{attempt['id']}/review", headers=headers, json={
