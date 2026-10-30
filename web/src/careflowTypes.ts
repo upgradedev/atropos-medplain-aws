@@ -23,13 +23,35 @@ export interface ClarificationTask {
   code: string;
   statement_ids: string[];
   prompt: string;
-  status: "open" | "assigned" | "accepted" | "answered" | "revision_linked" | "closed";
+  status:
+    | "open"
+    | "assigned"
+    | "accepted"
+    | "answered"
+    | "revision_linked"
+    | "closed";
   assignee_id: string | null;
   due_at: string | null;
   accepted_at: string | null;
-  answer: { text: string; actor_id: string; at: string; authoritative: false } | null;
-  revision: { case_id: string; source_hash: string; artifact_hash: string; generation: number } | null;
-  closure: { actor_id: string; at: string; revision_case_id: string; revision_source_hash: string; revision_artifact_hash: string } | null;
+  answer: {
+    text: string;
+    actor_id: string;
+    at: string;
+    authoritative: false;
+  } | null;
+  revision: {
+    case_id: string;
+    source_hash: string;
+    artifact_hash: string;
+    generation: number;
+  } | null;
+  closure: {
+    actor_id: string;
+    at: string;
+    revision_case_id: string;
+    revision_source_hash: string;
+    revision_artifact_hash: string;
+  } | null;
   events: CareflowEvent[];
 }
 export interface CandidateRevision {
@@ -56,9 +78,17 @@ export interface TeachbackAssessment {
     missing_statement_ids: string[];
     misunderstood_statement_ids: string[];
     evidence_ids: string[];
-    follow_up_code: "repeat_in_own_words" | "review_misunderstanding" | "review_response";
+    follow_up_code:
+      | "repeat_in_own_words"
+      | "review_misunderstanding"
+      | "review_response";
   } | null;
-  follow_up: { code: string; text: string; statement_ids: string[]; source_quotes: { statement_id: string; quote: string }[] } | null;
+  follow_up: {
+    code: string;
+    text: string;
+    statement_ids: string[];
+    source_quotes: { statement_id: string; quote: string }[];
+  } | null;
 }
 export interface TeachbackAttempt {
   id: string;
@@ -68,7 +98,12 @@ export interface TeachbackAttempt {
   response_sha256: string;
   assessment: TeachbackAssessment | null;
   error: string | null;
-  review: { decision: "acknowledged" | "follow_up"; actor_id?: string; at: string; comment?: string } | null;
+  review: {
+    decision: "acknowledged" | "follow_up";
+    actor_id?: string;
+    at: string;
+    comment?: string;
+  } | null;
 }
 export interface CareflowView {
   case_id: string;
@@ -80,7 +115,11 @@ export interface CareflowView {
   notice: string;
   selected_actor_id: string | null;
   tasks: ClarificationTask[];
-  teachback: { enabled: boolean; prompt: TeachbackPrompt | null; attempts: TeachbackAttempt[] };
+  teachback: {
+    enabled: boolean;
+    prompt: TeachbackPrompt | null;
+    attempts: TeachbackAttempt[];
+  };
   candidate_revisions: CandidateRevision[];
 }
 export interface PatientTeachbackView {
@@ -95,8 +134,20 @@ export interface PatientTeachbackView {
 }
 export interface EvidenceResult {
   status: "supported" | "no_support";
-  query: { query: string; language: "en" | "el"; population: "adult" | "all"; jurisdiction: "US" | "EU" | "GR" | "any"; as_of: string; limit: number };
-  corpus: { version: string; sha256: string; scope: string; snapshot_date: string };
+  query: {
+    query: string;
+    language: "en" | "el";
+    population: "adult" | "all";
+    jurisdiction: "US" | "EU" | "GR" | "any";
+    as_of: string;
+    limit: number;
+  };
+  corpus: {
+    version: string;
+    sha256: string;
+    scope: string;
+    snapshot_date: string;
+  };
   entries: {
     evidence_id: string;
     source_id: string;

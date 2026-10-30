@@ -1,61 +1,315 @@
-.careflow { display: grid; gap: 20px; min-width: 0; }
-.careflow * { min-width: 0; }
-.careflow h3 { font-size: 16px; }
-.careflow h4 { margin: 0; font-size: 14px; }
-.careflow p, .careflow li, .careflow blockquote { overflow-wrap: anywhere; }
-.careflow-heading, .careflow-title, .careflow-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-.careflow-heading p { color: var(--muted); margin-top: 6px; max-width: 62ch; }
-.careflow-label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
-.careflow-notice { border: 1px solid var(--line); border-left: 3px solid var(--accent); padding: 14px 16px; border-radius: 10px; background: var(--canvas); }
-.careflow-notice p { margin-top: 4px; color: var(--muted); font-size: 12px; }
-.careflow-notice.warning { border-left-color: var(--warning); }
-.careflow-grid { display: grid; grid-template-columns: minmax(150px, .75fr) minmax(0, 2fr); gap: 18px; align-items: start; }
-.careflow-list { display: grid; gap: 8px; }
-.careflow-item { text-align: left; display: grid; gap: 9px; background: var(--canvas); border: 1px solid var(--line); border-radius: 10px; padding: 14px; color: var(--ink); width: 100%; }
-.careflow-item[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--canvas)); box-shadow: inset 3px 0 var(--accent); }
-.careflow-item strong { line-height: 1.5; font-size: 12px; }
-.careflow-item small { color: var(--muted); }
-.careflow-status { display: inline-flex; width: fit-content; align-items: center; gap: 6px; color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); padding: 4px 8px; border-radius: 20px; font-size: 10px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; }
-.careflow-status.closed, .careflow-status.completed, .careflow-status.reviewed { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
-.careflow-status::before { content: ""; height: 5px; width: 5px; border-radius: 50%; background: currentColor; }
-.careflow-card { display: grid; gap: 16px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); }
-.careflow-card > p { color: var(--muted); }
-.careflow-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
-.careflow-facts dt { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
-.careflow-facts dd { margin: 5px 0 0; overflow-wrap: anywhere; font-size: 12px; }
-.careflow-steps { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 0; }
-.careflow-steps li { font-size: 10px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); }
-.careflow-steps li[data-complete="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
-.careflow-form { display: grid; gap: 14px; }
-.careflow-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.careflow .control-reason { font-size: 11px; line-height: 1.55; color: var(--muted); }
-.careflow .button { min-height: 44px; justify-content: center; }
-.careflow textarea { width: 100%; resize: vertical; min-height: 100px; }
-.careflow input:not([type="checkbox"]), .careflow select { width: 100%; min-height: 44px; }
-.careflow blockquote { margin: 8px 0; padding: 12px; border-left: 2px solid var(--line); background: var(--panel); font-size: 12px; line-height: 1.7; white-space: pre-wrap; }
-.careflow details { border-top: 1px solid var(--line); padding-top: 12px; }
-.careflow summary { cursor: pointer; font-size: 12px; font-weight: 600; }
-.careflow-witness { padding-top: 12px; }
-.careflow-meta { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 10px; }
-.careflow-meta code { overflow-wrap: anywhere; white-space: normal; }
-.careflow-evidence { display: grid; gap: 12px; }
-.careflow-evidence a { text-decoration: underline; text-underline-offset: 3px; color: var(--accent); }
-.careflow-empty { padding: 22px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; }
-.careflow-history { display: grid; gap: 12px; list-style: none; padding: 0; margin: 0; }
-.careflow-history > li { border-left: 2px solid var(--line); padding: 3px 0 3px 14px; }
-.careflow-history time { color: var(--muted); font-size: 10px; }
-.careflow-feedback { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; }
-.careflow-check { flex-direction: row; align-items: start; line-height: 1.65; }
-.careflow-check input { flex-shrink: 0; margin-top: 3px; }
-.careflow-response-url { display: block; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; font-size: 11px; }
-.patient-document > .careflow { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line); }
-.careflow [aria-busy="true"] { opacity: .75; }
+.careflow {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.careflow * {
+  min-width: 0;
+}
+.careflow h3 {
+  font-size: 16px;
+}
+.careflow h4 {
+  margin: 0;
+  font-size: 14px;
+}
+.careflow p,
+.careflow li,
+.careflow blockquote {
+  overflow-wrap: anywhere;
+}
+.careflow-heading,
+.careflow-title,
+.careflow-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.careflow-heading p {
+  color: var(--muted);
+  margin-top: 6px;
+  max-width: 62ch;
+}
+.careflow-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 650;
+}
+.careflow-notice {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--canvas);
+}
+.careflow-notice p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.careflow-notice.warning {
+  border-left-color: var(--warning);
+}
+.careflow-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.75fr) minmax(0, 2fr);
+  gap: 18px;
+  align-items: start;
+}
+.careflow-list {
+  display: grid;
+  gap: 8px;
+}
+.careflow-item {
+  text-align: left;
+  display: grid;
+  gap: 9px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  color: var(--ink);
+  width: 100%;
+}
+.careflow-item[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--canvas));
+  box-shadow: inset 3px 0 var(--accent);
+}
+.careflow-item strong {
+  line-height: 1.5;
+  font-size: 12px;
+}
+.careflow-item small {
+  color: var(--muted);
+}
+.careflow-status {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.careflow-status.closed,
+.careflow-status.completed,
+.careflow-status.reviewed {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.careflow-status::before {
+  content: "";
+  height: 5px;
+  width: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.careflow-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--canvas);
+}
+.careflow-card > p {
+  color: var(--muted);
+}
+.careflow-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.careflow-facts dt {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.careflow-facts dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.careflow-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.careflow-steps li {
+  font-size: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+}
+.careflow-steps li[data-complete="true"] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+.careflow-form {
+  display: grid;
+  gap: 14px;
+}
+.careflow-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.careflow .control-reason {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.careflow .button {
+  min-height: 44px;
+  justify-content: center;
+}
+.careflow textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 100px;
+}
+.careflow input:not([type="checkbox"]),
+.careflow select {
+  width: 100%;
+  min-height: 44px;
+}
+.careflow blockquote {
+  margin: 8px 0;
+  padding: 12px;
+  border-left: 2px solid var(--line);
+  background: var(--panel);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.careflow details {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.careflow summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.careflow-witness {
+  padding-top: 12px;
+}
+.careflow-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.careflow-meta code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.careflow-evidence {
+  display: grid;
+  gap: 12px;
+}
+.careflow-evidence a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--accent);
+}
+.careflow-empty {
+  padding: 22px;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+.careflow-history {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.careflow-history > li {
+  border-left: 2px solid var(--line);
+  padding: 3px 0 3px 14px;
+}
+.careflow-history time {
+  color: var(--muted);
+  font-size: 10px;
+}
+.careflow-feedback {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+.careflow-check {
+  flex-direction: row;
+  align-items: start;
+  line-height: 1.65;
+}
+.careflow-check input {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.careflow-response-url {
+  display: block;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.patient-document > .careflow {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.careflow [aria-busy="true"] {
+  opacity: 0.75;
+}
 @media (max-width: 600px) {
-  .careflow-grid, .careflow-fields, .careflow-facts { grid-template-columns: minmax(0, 1fr); }
-  .careflow-list { grid-template-columns: minmax(0, 1fr); }
-  .careflow-card { padding: 15px; }
-  .careflow-toolbar { align-items: stretch; }
-  .careflow-toolbar > label, .careflow-toolbar > button { flex: 1 1 100%; }
-  .careflow .action-row { flex-direction: column; align-items: stretch; }
-  .careflow .action-row .button { width: 100%; }
+  .careflow-grid,
+  .careflow-fields,
+  .careflow-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .careflow-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .careflow-card {
+    padding: 15px;
+  }
+  .careflow-toolbar {
+    align-items: stretch;
+  }
+  .careflow-toolbar > label,
+  .careflow-toolbar > button {
+    flex: 1 1 100%;
+  }
+  .careflow .action-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .careflow .action-row .button {
+    width: 100%;
+  }
 }

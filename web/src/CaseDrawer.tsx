@@ -180,9 +180,10 @@ export default function CaseDrawer({
   const canReview = role === "reviewer" || role === "admin";
   const canRetry = role === "operator" || role === "admin";
   const reconciliation = Boolean(data && isReconciliationDossier(data.source));
-  const tabs: readonly Tab[] = reconciliation && data?.result?.status === "verified"
-    ? [...TABS, "Clarifications"]
-    : TABS;
+  const tabs: readonly Tab[] =
+    reconciliation && data?.result?.status === "verified"
+      ? [...TABS, "Clarifications"]
+      : TABS;
   const openSource = (sourceId: string) => {
     setTab("Source");
     window.requestAnimationFrame(() => {
@@ -363,7 +364,12 @@ export default function CaseDrawer({
             aria-labelledby={`tab-${tab}`}
           >
             {tab === "Clarifications" && reconciliation ? (
-              <CareflowPanel data={data} role={role} toast={toast} changed={refresh} />
+              <CareflowPanel
+                data={data}
+                role={role}
+                toast={toast}
+                changed={refresh}
+              />
             ) : null}
             {tab === "Source" ? <SourceEvidence data={data} /> : null}
             {tab === "Explanation" ? (
