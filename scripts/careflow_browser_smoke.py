@@ -155,7 +155,9 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     evidence.get_by_role("button", name="Search reviewed evidence", exact=True).click()
     expect(evidence.get_by_text("Matching reviewed passages", exact=True)).to_be_visible()
     page.set_viewport_size({"width": 375, "height": 812})
-    assert not page.evaluate("document.documentElement.scrollWidth > innerWidth"), "careflow drawer overflows375px"
+    width_proof = output / "drawer-width"
+    width_proof.mkdir(exist_ok=True)
+    assert_patient_width(page, width_proof)
     page.screenshot(path=str(output / "careflow-mobile-375.png"), full_page=True)
 
     # Releasing a clarification does not resolve every task or certify understanding.

@@ -287,6 +287,9 @@
   opacity: 0.75;
 }
 @media (max-width: 600px) {
+  .app-shell .main-shell {
+    transition: none;
+  }
   .careflow-grid,
   .careflow-fields,
   .careflow-facts {
