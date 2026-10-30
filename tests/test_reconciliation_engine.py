@@ -36,7 +36,7 @@ def _resolved_dossier():
     }
 
 
-def _forced_native_planner(monkeypatch, payload):
+def _forced_native_planner(monkeypatch, payload, *, wire=False):
     """Exercise the unchanged live tool-choice wrapper inside the actual offline SDK."""
     original = engine._model
     calls = []
@@ -57,7 +57,8 @@ def _forced_native_planner(monkeypatch, payload):
             arguments = {}
             if name == self._output_model.__name__:
                 self.output_attempts += 1
-                arguments = engine._fixture_planning_draft(self.context.dossier, payload(self.context, self.output_attempts))
+                authored = payload(self.context, self.output_attempts)
+                arguments = authored if wire else engine._fixture_planning_wire(self.context.dossier, authored)
             calls.append({"invocation_index": invocation, "name": name})
             yield {"messageStart": {"role": "assistant"}}
             yield {"contentBlockStart": {"contentBlockIndex": 0,
@@ -81,8 +82,18 @@ def _forced_native_planner(monkeypatch, payload):
     return calls
 
 
+def _pin_legacy_planner_protocol(monkeypatch):
+    """Keep original legacy-validator/repair controls, explicitly separate from the new wire tests."""
+    monkeypatch.setitem(engine._OUTPUT_MODELS, engine.PLANNER, engine.PlanningDraft)
+    monkeypatch.setattr(engine, "_compile_planning_wire", lambda payload: (payload, canonical_hash(payload)))
+    monkeypatch.setattr(engine, "PLANNING_WIRE_VERSION", "legacy-draft-test-only")
+    monkeypatch.setattr(engine, "planning_wire_schema_sha256", lambda: canonical_hash(
+        engine.StructuredOutputTool(engine.PlanningDraft).tool_spec["inputSchema"]["json"]))
+
+
 def _planner_draft_replay(monkeypatch, draft_at_invocation):
-    """Model-authored test drafts, including deliberate contract/semantic failures."""
+    """Original legacy drafts exercise the unchanged validator and repair budget only."""
+    _pin_legacy_planner_protocol(monkeypatch)
     original = engine._model
     emitted = []
 
@@ -114,6 +125,169 @@ def _private_draft(source, questions):
         review = [{"disposition": "resolved", "intent": "caregiver_question", "statement_ids": [source_statements(source)[0]["statement_id"]],
                    "question_index": None, "reason": "No additional uncertainty proposed in this test draft."}]
     return {"review": review, "selection": selection}
+
+
+def _owned_wire(source, questions):
+    return {"selection": {"source_hash": canonical_hash(source), "questions": copy.deepcopy(questions),
+                          "teachback": [{"code": "teachback", "statement_ids": ["home:L1"]}]},
+            "nonask_review": []}
+
+
+def test_question_owned_wire_projection_is_lossless_reversible_and_source_validated():
+    source = examples()[0]["dossier"]
+    wire = _owned_wire(source, [
+        {"code": "compare_instructions", "statement_ids": ["discharge:L1", "home:L1"], "reason": "Compare the complete cited passages."},
+        {"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"], "reason": "Retain this distinct context question."},
+    ])
+    wire["nonask_review"] = [{"disposition": "covered", "intent": "caregiver_question",
+                              "statement_ids": ["home:L1"], "reason": "Private covered action note."}]
+    saved = copy.deepcopy(wire)
+    draft, wire_hash = engine._compile_planning_wire(wire)
+    selected, review = engine._validate_planning_draft(source, draft)
+    assert wire == saved and wire_hash == canonical_hash(saved)
+    assert selected == {"source_hash": saved["selection"]["source_hash"],
+                        "questions": [{"code": "compare_instructions", "statement_ids": ["discharge:L1", "home:L1"]},
+                                      {"code": "caregiver_question", "statement_ids": ["caregiver-concerns:L1"]}],
+                        "teachback": saved["selection"]["teachback"]}
+    assert [row["question_index"] for row in review] == [0, 1, None]
+    assert [row["reason"] for row in review] == [row["reason"] for row in saved["selection"]["questions"]] + ["Private covered action note."]
+    rebuilt = {"selection": {**selected, "questions": [
+        {**question, "reason": review[index]["reason"]} for index, question in enumerate(selected["questions"])]},
+        "nonask_review": [{key: row[key] for key in ("disposition", "intent", "statement_ids", "reason")}
+                          for row in review if row["disposition"] != "ask"]}
+    assert rebuilt == saved and canonical_hash(rebuilt) == wire_hash
+    assert canonical_hash(draft) != wire_hash
+
+
+@pytest.mark.parametrize("section", ["root", "question", "nonask"])
+def test_owned_wire_forbids_redundant_index_instead_of_coercing_it(section):
+    source = examples()[0]["dossier"]
+    wire = _owned_wire(source, [{"code": "caregiver_question", "statement_ids": ["home:L1"], "reason": "Private note."}])
+    wire["nonask_review"] = [{"disposition": "covered", "intent": "caregiver_question",
+                              "statement_ids": ["home:L1"], "reason": "No extra question here."}]
+    target = wire if section == "root" else wire["selection"]["questions"][0] if section == "question" else wire["nonask_review"][0]
+    target["question_index"] = 0
+    saved = copy.deepcopy(wire)
+    with pytest.raises(ValueError):
+        engine._compile_planning_wire(wire)
+    assert wire == saved
+
+
+@pytest.mark.parametrize("mutation", ["source", "foreign_id", "duplicate_id", "duplicate_question", "unknown_code", "empty_teachback", "no_review", "foreign_nonask", "duplicate_nonask", "reason_long"])
+def test_owned_wire_never_repairs_invalid_public_or_nonask_content(mutation):
+    source = examples()[0]["dossier"]
+    wire = _owned_wire(source, [{"code": "caregiver_question", "statement_ids": ["home:L1"], "reason": "Private note."}])
+    if mutation == "source":
+        wire["selection"]["source_hash"] = "0" * 64
+    elif mutation == "foreign_id":
+        wire["selection"]["questions"][0]["statement_ids"] = ["foreign:L1"]
+    elif mutation == "duplicate_id":
+        wire["selection"]["questions"][0]["statement_ids"] *= 2
+    elif mutation == "duplicate_question":
+        wire["selection"]["questions"].append(copy.deepcopy(wire["selection"]["questions"][0]))
+    elif mutation == "unknown_code":
+        wire["selection"]["questions"][0]["code"] = "invented_advice"
+    elif mutation == "empty_teachback":
+        wire["selection"]["teachback"] = []
+    elif mutation == "no_review":
+        wire["selection"]["questions"] = []
+    elif mutation in {"foreign_nonask", "duplicate_nonask"}:
+        wire["nonask_review"] = [{"disposition": "resolved", "intent": "caregiver_question",
+                                  "statement_ids": ["foreign:L1"] if mutation == "foreign_nonask" else ["home:L1", "home:L1"],
+                                  "reason": "Untrusted nonask note."}]
+    else:
+        wire["selection"]["questions"][0]["reason"] = "x" * 161
+    original = copy.deepcopy(wire)
+    with pytest.raises(ValueError):
+        draft, _ = engine._compile_planning_wire(wire)
+        engine._validate_planning_draft(source, draft)
+    assert wire == original
+
+
+def test_owned_wire_combined_review_bound_remains_sixty_without_truncation():
+    source = examples()[0]["dossier"]
+    wire = _owned_wire(source, [{"code": "caregiver_question", "statement_ids": ["home:L1"], "reason": "x" * 81}])
+    note = {"disposition": "covered", "intent": "caregiver_question", "statement_ids": ["home:L1"], "reason": "Private source note."}
+    wire["nonask_review"] = [copy.deepcopy(note) for _ in range(59)]
+    draft, _ = engine._compile_planning_wire(wire)
+    assert len(engine._validate_planning_draft(source, draft)[1]) == 60
+    wire["nonask_review"].append(copy.deepcopy(note))
+    saved = copy.deepcopy(wire)
+    draft, _ = engine._compile_planning_wire(wire)
+    assert len(draft["review"]) == 61
+    with pytest.raises(ValueError):
+        engine._validate_planning_draft(source, draft)
+    assert wire == saved
+
+
+def test_actual_sdk_owned_wire_binds_raw_native_and_compiled_hashes_without_patient_notes(monkeypatch):
+    source = examples()[0]["dossier"]
+    wire = _owned_wire(source, [{"code": "caregiver_question", "statement_ids": ["home:L1"],
+                                "reason": "private-wire-note-not-for-patient"}])
+    malformed = copy.deepcopy(wire)
+    malformed["selection"]["questions"][0]["question_index"] = 0
+    calls = _forced_native_planner(monkeypatch, lambda context, attempt: copy.deepcopy(malformed if attempt == 1 else wire), wire=True)
+    result = run_reconciliation(source, "actual-owned-wire", mode="fixture")
+    assert result["status"] == "verified", result
+    runtime = result["runtime"]
+    assert runtime["structured_output_repairs"] == 0
+    assert [row["name"] for row in calls] == ["lookup_reconciliation_references", "check_reconciliation_constraints", "PlanningWire", "PlanningWire"]
+    attempts = [row for row in runtime["native_output_attempts"] if row["agent"] == engine.PLANNER]
+    assert [row["status"] for row in attempts] == ["error", "success"]
+    assert "validated_input_sha256" not in attempts[0]
+    assert attempts[0]["input_sha256"] == canonical_hash(malformed)
+    assert attempts[1]["input_sha256"] == attempts[1]["validated_input_sha256"] == runtime["planning_wire_sha256"] == canonical_hash(wire)
+    compiled = {"selection": runtime["selection"], "review": runtime["planning_review"]}
+    assert runtime["planning_draft_sha256"] == canonical_hash(compiled) != runtime["planning_wire_sha256"]
+    assert runtime["planning_wire_version"] == "question-owned-review-v1"
+    assert all(row["schema_sha256"] == runtime["planning_wire_schema_sha256"] == engine.planning_wire_schema_sha256() for row in attempts)
+    assert "private-wire-note" not in json.dumps(result["artifact"]) + result["explanation_text"]
+    assert runtime["selection"]["questions"] == [{"code": "caregiver_question", "statement_ids": ["home:L1"]}]
+    validate_reconciliation_result(source, result)
+
+
+def test_actual_sdk_owned_wire_invalid_nonask_gets_same_bounded_fresh_repair(monkeypatch):
+    source = examples()[0]["dossier"]
+    wire = _owned_wire(source, [{"code": "caregiver_question", "statement_ids": ["home:L1"], "reason": "Unchanged model question."}])
+    wire["nonask_review"] = [{"disposition": "covered", "intent": "caregiver_question",
+                              "statement_ids": ["foreign:L1"], "reason": "Invalid nonask evidence."}]
+    calls = _forced_native_planner(monkeypatch, lambda context, attempt: copy.deepcopy(wire), wire=True)
+    result = run_reconciliation(source, "owned-wire-private-refusal", mode="fixture")
+    assert result["status"] == "refused" and result["artifact"] is None and result["receipts"] == []
+    assert result["runtime"]["structured_output_repairs"] == 1
+    assert result["runtime"]["failure"]["code"] == "structured_repair_exhausted"
+    assert len(result["runtime"]["planner_rejections"]) == 2
+    assert result["runtime"]["planning_wire_sha256"] is result["runtime"]["planning_draft_sha256"] is None
+    assert [row["name"] for row in calls] == ["lookup_reconciliation_references", "check_reconciliation_constraints", "PlanningWire"] * 2
+    assert all(row["rejected_typed_selection"]["questions"] == [{"code": "caregiver_question", "statement_ids": ["home:L1"]}]
+               for row in result["runtime"]["planner_rejections"])
+    validate_reconciliation_result(source, result)
+
+
+def test_exact_literal_groups_keep_original_assertions_and_all_unscoped_context():
+    source = _resolved_dossier()
+    source["documents"][0]["text"] = "Pending test: sample A; owner: clinic; follow-up: within 3 days\nTake Brand-A 5 mg by mouth QD."
+    source["documents"][1]["text"] = "Pending test: sample A; owner: ward; follow-up: within 3 days\nTake Brand-A 2.5 mg by mouth BID.\nTake Brand-B 2.5 mg by mouth BID."
+    source["documents"].append({"document_id": "unscoped", "kind": "addendum", "issued_at": "2026-10-30T10:00:00Z",
+                                "effective_at": None, "text": "The explanation refers to the earlier printed sheet."})
+    original = copy.deepcopy(source)
+    context = engine.Context(source, "literal-navigation-not-verdict", False)
+    context.index_verified = True
+    evidence = next(item for item in engine._tools(context)[engine.PLANNER] if item.tool_name == "check_reconciliation_constraints")()
+    statements = source_statements(source)
+    groups = evidence["literal_subject_groups"]
+    pending = next(row for row in groups if row["subject_kind"] == "pending_test")
+    assert pending["literal_subject"] == "sample A"
+    assert pending["statements"] == [row for row in statements if row["statement_id"] in {"home:L1", "discharge:L1"}]
+    assert [row["clinical"]["owner"] for row in pending["statements"]] == ["clinic", "ward"]
+    assert all(set(group) == {"subject_kind", "literal_subject", "statements"} for group in groups)
+    brand_a = next(row for row in groups if row["literal_subject"] == "Brand-A")
+    assert [row["statement_id"] for row in brand_a["statements"]] == ["home:L2", "discharge:L2"]
+    assert any(row["literal_subject"] == "Brand-B" for row in groups)
+    assert any(row["statement_id"] == "unscoped:L1" for row in evidence["clinical_source_statements"])
+    assert evidence["caregiver_context"][0]["citation"]["quote"] == source["documents"][2]["text"]
+    assert evidence["source_documents"] == source["documents"] and source == original
+    assert evidence["question_catalog"] and evidence["already_rendered_checks"]
 
 
 @pytest.mark.parametrize("example", examples(), ids=lambda row: row["example_id"])
@@ -150,6 +324,12 @@ def test_private_fixture_protocol_preserves_every_complete_baseline_plan_and_art
     assert canonical_hash(build_artifact(source, validated, baseline=True)) == artifact_hash
     assert draft["selection"] == original and review
     assert all("Offline" in row["reason"] for row in review)
+    wire = engine._fixture_planning_wire(source, selected)
+    compiled, wire_hash = engine._compile_planning_wire(wire)
+    wire_selected, _ = engine._validate_planning_draft(source, compiled)
+    assert wire_hash == canonical_hash(wire)
+    assert wire_selected == original
+    assert canonical_hash(build_artifact(source, wire_selected, baseline=True)) == artifact_hash
 
 
 def test_private_envelope_mapping_order_does_not_change_hashes_validation_or_model_selected_values():
@@ -324,7 +504,8 @@ def test_complete_valid_selection_preview_and_redacted_review_have_distinct_hash
     assert all("reason" not in item for item in record["rejected_review"])
 
 
-def test_native_success_records_raw_and_pydantic_normalized_hashes_without_mutating_optional_fields():
+def test_native_success_records_raw_and_pydantic_normalized_hashes_without_mutating_optional_fields(monkeypatch):
+    _pin_legacy_planner_protocol(monkeypatch)
     source = examples()[0]["dossier"]
     draft = _private_draft(source, [])
     draft["review"][0].pop("question_index")
@@ -606,15 +787,24 @@ def test_pinned_sdk_forwards_planner_top_k_to_converse_request_without_changing_
         assert request["toolConfig"]["toolChoice"] == choice
         if role == engine.PLANNER:
             assert request["additionalModelRequestFields"] == {"inferenceConfig": {"topK": 1}}
-            native_spec = next(spec for spec in specs if spec["name"] == "PlanningDraft")
+            native_spec = next(spec for spec in specs if spec["name"] == "PlanningWire")
             schema = native_spec["inputSchema"]["json"]
-            assert list(schema["properties"]) == ["selection", "review"]
-            assert schema["required"] == ["selection", "review"]
+            assert list(schema["properties"]) == ["selection", "nonask_review"]
+            assert schema["required"] == ["selection", "nonask_review"]
             wire_spec = next(item["toolSpec"] for item in request["toolConfig"]["tools"]
-                             if item["toolSpec"]["name"] == "PlanningDraft")
-            assert list(wire_spec["inputSchema"]["json"]["properties"]) == ["selection", "review"]
-            assert wire_spec["inputSchema"]["json"]["required"] == ["selection", "review"]
-            review_schema = wire_spec["inputSchema"]["json"]["properties"]["review"]["items"]
+                             if item["toolSpec"]["name"] == "PlanningWire")
+            assert wire_spec["inputSchema"]["json"] == schema
+            assert engine.planning_wire_schema_sha256() == canonical_hash(schema)
+            question_schema = schema["properties"]["selection"]["properties"]["questions"]["items"]
+            assert set(question_schema["properties"]) == {"code", "statement_ids", "reason"}
+            assert set(question_schema["required"]) == {"code", "statement_ids", "reason"}
+            nonask_schema = schema["properties"]["nonask_review"]["items"]
+            assert nonask_schema["properties"]["disposition"]["enum"] == ["covered", "resolved"]
+            assert "question_index" not in nonask_schema["properties"]
+            # Legacy compatibility metadata remains unchanged, but is no longer
+            # misrepresented as the new native tool schema.
+            legacy_schema = StructuredOutputTool(engine.PlanningDraft).tool_spec["inputSchema"]["json"]
+            review_schema = legacy_schema["properties"]["review"]["items"]
             index_schema = review_schema["properties"]["question_index"]
             assert index_schema["type"] == ["integer", "null"]
             assert index_schema["minimum"] == 0 and index_schema["maximum"] == 11
@@ -698,7 +888,7 @@ def test_model_questions_are_not_filtered_or_repaired_into_better_citation_group
     def model(mode, context, role, tools, output_model):
         if role == engine.PLANNER:
             return FixtureModel([item.tool_name for item in tools], output_model,
-                                lambda: engine._fixture_planning_draft(context.dossier, copy.deepcopy(selected)))
+                                lambda: engine._fixture_planning_wire(context.dossier, copy.deepcopy(selected)))
         return original(mode, context, role, tools, output_model)
 
     monkeypatch.setattr(engine, "_model", model)
@@ -734,14 +924,14 @@ def test_actual_sdk_named_output_accepts_empty_questions_with_teachback_and_fres
     assert result["runtime"]["structured_output_repairs"] == 0
     assert result["runtime"]["planner_rejections"] == []
     names = [row["name"] for row in calls]
-    expected = ["lookup_reconciliation_references", "check_reconciliation_constraints", "PlanningDraft"]
-    assert names == expected + (["PlanningDraft"] if first_malformed else [])
+    expected = ["lookup_reconciliation_references", "check_reconciliation_constraints", "PlanningWire"]
+    assert names == expected + (["PlanningWire"] if first_malformed else [])
     attempts = [row for row in result["runtime"]["native_output_attempts"] if row["agent"] == engine.PLANNER]
     assert [row["status"] for row in attempts] == (["error", "success"] if first_malformed else ["success"])
     if first_malformed:
         assert attempts[0]["validation"]["kind"] == "pydantic"
         assert attempts[0]["validation"]["errors"][0]["loc"] == ["selection", "questions"]
-    assert attempts[-1]["input_sha256"] == canonical_hash(engine._fixture_planning_draft(source, selected))
+    assert attempts[-1]["input_sha256"] == canonical_hash(engine._fixture_planning_wire(source, selected))
     planner_tools = [row for row in result["runtime"]["tools_executed"] if row["agent"] == engine.PLANNER]
     assert [row["tool"] for row in planner_tools] == expected[:2]
     assert all(row["success"] for row in planner_tools)
@@ -778,7 +968,7 @@ def test_negative_caregiver_context_is_never_auto_cited_or_semantically_filtered
     def model(mode, context, role, tools, output_model):
         if role == engine.PLANNER:
             return FixtureModel([item.tool_name for item in tools], output_model,
-                                lambda: engine._fixture_planning_draft(context.dossier, copy.deepcopy(selected)))
+                                lambda: engine._fixture_planning_wire(context.dossier, copy.deepcopy(selected)))
         return original(mode, context, role, tools, output_model)
 
     monkeypatch.setattr(engine, "_model", model)
@@ -873,7 +1063,7 @@ def test_bad_semantic_citation_gets_one_bounded_repair_without_exposing_output(m
     def model(mode, context, role, tools, output_model):
         if role == engine.PLANNER:
             return FixtureModel([item.tool_name for item in tools], output_model,
-                                lambda: engine._fixture_planning_draft(context.dossier, {
+                                lambda: engine._fixture_planning_wire(context.dossier, {
                                     "source_hash": canonical_hash(context.dossier), "questions": [
                                     {"code": "caregiver_question", "statement_ids": ["foreign:L1"]}],
                                          "teachback": [{"code": "teachback", "statement_ids": ["home:L1"]}]}))
@@ -916,7 +1106,7 @@ def test_actual_validator_reason_requires_fresh_model_repair_and_stays_private(m
         if role == engine.PLANNER:
             holder = {}
             replay = CapturingModel([item.tool_name for item in tools], output_model,
-                                    lambda: engine._fixture_planning_draft(context.dossier,
+                                    lambda: engine._fixture_planning_wire(context.dossier,
                                         copy.deepcopy(bad if holder["model"]._invocation == 1 else valid)))
             holder["model"] = replay
             return replay
@@ -978,7 +1168,8 @@ def test_pydantic_diagnostics_omit_raw_input_and_context():
     assert "private-input-should-not-be-copied" not in json.dumps(details)
 
 
-def test_native_output_diagnostics_are_redacted_bounded_observations_without_mutations():
+def test_native_output_diagnostics_are_redacted_bounded_observations_without_mutations(monkeypatch):
+    _pin_legacy_planner_protocol(monkeypatch)
     source = examples()[0]["dossier"]
     context = engine.Context(source, "private-native-attempts", False)
     context.nodes = [engine.INDEXER, engine.PLANNER]
@@ -1040,7 +1231,7 @@ def test_a_valid_nonbaseline_semantic_plan_is_used_not_silently_replaced(monkeyp
     def model(mode, context, role, tools, output_model):
         if role == engine.PLANNER:
             return FixtureModel([item.tool_name for item in tools], output_model,
-                                lambda: engine._fixture_planning_draft(context.dossier, copy.deepcopy(selected)))
+                                lambda: engine._fixture_planning_wire(context.dossier, copy.deepcopy(selected)))
         return original(mode, context, role, tools, output_model)
     monkeypatch.setattr(engine, "_model", model)
     result = run_reconciliation(source, "model-owned-context", mode="fixture")

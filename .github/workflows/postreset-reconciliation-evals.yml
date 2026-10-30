@@ -1,0 +1,58 @@
+name: MedPlain Post-reset Reconciliation Measurement
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [bedrock]
+        default: bedrock
+      judge_url:
+        type: string
+        required: true
+        default: https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws
+      expected_commit:
+        type: string
+        required: true
+        description: Exact deployed and checked-out source commit
+      corpus_sha256:
+        type: string
+        required: true
+        default: 9b3a505d607272554100a34713cdd0573cdb542a998f65b8cc5b28d6dd0c5c43
+
+permissions:
+  contents: read
+
+jobs:
+  postreset-paired-evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MEDPLAIN_MODEL_MODE: fixture
+      MEDPLAIN_COMMIT: ${{ github.sha }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned optional Evals dependencies in CI only
+        run: python -m pip install --no-cache-dir -e '.[test,eval]'
+      - name: Complete offline instrument and transport-deadline negative proofs
+        run: |
+          python scripts/evaluate_reconciliation.py --mode fixture --source-commit "$GITHUB_SHA" --output artifacts/reconciliation-fixture.json
+          python scripts/offline_tests.py tests/test_reconciliation_evaluation.py tests/test_postreset_reconciliation.py -q --junitxml=artifacts/postreset-evaluation-tests.xml
+      - name: Measure through per-POST Oct31 UTC admission guard
+        env:
+          JUDGE_URL: ${{ inputs.judge_url }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          CORPUS_SHA256: ${{ inputs.corpus_sha256 }}
+        run: python scripts/evaluate_postreset_reconciliation.py --judge-url "$JUDGE_URL" --source-commit "$EXPECTED_COMMIT" --corpus-sha256 "$CORPUS_SHA256" --output artifacts/reconciliation-bedrock.json
+      - name: Publish raw reports, partial evidence and admission receipts including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reconciliation-evaluation-${{ github.sha }}-${{ github.run_id }}
+          path: artifacts/
+          retention-days: 14
