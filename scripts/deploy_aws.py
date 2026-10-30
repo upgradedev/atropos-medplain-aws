@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 from aws_request import request
-from ops_infra import operations_plan, preflight, provision, table_permissions
+from ops_infra import DEFAULT_PLANNER_MODEL_ID, PLANNER_MODEL_IDS, operations_plan, preflight, provision, table_permissions
 
 
 PROJECT = "AtroposMedPlain"
@@ -96,6 +96,17 @@ def cli(args: argparse.Namespace, *command: str, missing: str | tuple[str, ...] 
     return json.loads(result.stdout) if result.stdout.strip() else {}
 
 
+def api_runtime_policy(args: argparse.Namespace, plan: dict) -> dict:
+    """The legacy API invokes the base model only; planning belongs to the worker."""
+    return {
+        "Version": "2012-10-17", "Statement": [
+            {"Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], "Resource": [f"arn:aws:logs:{args.region}:{args.account}:log-group:/aws/lambda/{args.function}", f"arn:aws:logs:{args.region}:{args.account}:log-group:/aws/lambda/{args.function}:*"]},
+            {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], "Resource": f"arn:aws:bedrock:{args.region}::foundation-model/{args.model_id}"},
+            table_permissions(plan),
+        ],
+    }
+
+
 def deploy(args: argparse.Namespace) -> dict:
     if not re.fullmatch(r"atropos-medplain(?:-[a-z0-9-]+)?", args.function):
         raise ValueError("function must use the dedicated atropos-medplain prefix")
@@ -114,10 +125,12 @@ def deploy(args: argparse.Namespace) -> dict:
     plan = {
         "account": args.account, "region": args.region, "function": args.function,
         "runtime_role": role_name, "model_mode": args.model_mode, "model_id": args.model_id,
+        "planner_model_id": getattr(args, "planner_model_id", DEFAULT_PLANNER_MODEL_ID),
         "commit": args.commit, "package_sha256": digest,
         "public_url": True, "reserved_concurrency": RESERVED_CONCURRENCY, "timeout_seconds": 180,
         "log_retention_days": 7,
-        "operations": operations_plan(args.account, args.region, args.function, args.model_id),
+        "operations": operations_plan(args.account, args.region, args.function, args.model_id,
+                                      getattr(args, "planner_model_id", DEFAULT_PLANNER_MODEL_ID)),
         **staging_plan(args.account, args.region, args.commit, digest, getattr(args, "staging_bucket", None)),
     }
     if not args.apply:
@@ -131,13 +144,7 @@ def deploy(args: argparse.Namespace) -> dict:
     if role is None:
         trust = {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"}, "Action": "sts:AssumeRole"}]}
         role = cli(args, "iam", "create-role", "--role-name", role_name, "--assume-role-policy-document", json.dumps(trust), "--tags", f"Key=Project,Value={PROJECT}")
-    policy = {
-        "Version": "2012-10-17", "Statement": [
-            {"Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], "Resource": [f"arn:aws:logs:{args.region}:{args.account}:log-group:/aws/lambda/{args.function}", f"arn:aws:logs:{args.region}:{args.account}:log-group:/aws/lambda/{args.function}:*"]},
-            {"Effect": "Allow", "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"], "Resource": f"arn:aws:bedrock:{args.region}::foundation-model/{args.model_id}"},
-            table_permissions(plan),
-        ],
-    }
+    policy = api_runtime_policy(args, plan)
     cli(args, "iam", "put-role-policy", "--role-name", role_name, "--policy-name", "medplain-runtime", "--policy-document", json.dumps(policy))
     existing = cli(args, "lambda", "get-function", "--function-name", args.function, missing="ResourceNotFoundException")
     if existing is not None and existing.get("Tags", {}).get("Project") != PROJECT:
@@ -189,7 +196,7 @@ def deploy(args: argparse.Namespace) -> dict:
             "operations_runtime": {key: value for key, value in operational.items() if key != "environment"}}
 
 
-if __name__ == "__main__":
+def argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--account", required=True)
     parser.add_argument("--profile", default="default")
@@ -200,5 +207,11 @@ if __name__ == "__main__":
     parser.add_argument("--commit", required=True)
     parser.add_argument("--model-mode", choices=["bedrock", "fixture"], default="bedrock")
     parser.add_argument("--model-id", default="amazon.nova-micro-v1:0")
+    parser.add_argument("--planner-model-id", choices=sorted(PLANNER_MODEL_IDS), default=DEFAULT_PLANNER_MODEL_ID,
+                        help="Explicit model for reconciliation planning only; worker permission remains scoped")
     parser.add_argument("--apply", action="store_true")
-    print(json.dumps(deploy(parser.parse_args()), indent=2))
+    return parser
+
+
+if __name__ == "__main__":
+    print(json.dumps(deploy(argument_parser().parse_args()), indent=2))

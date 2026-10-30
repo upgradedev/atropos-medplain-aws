@@ -76,10 +76,13 @@ def packet_demo():
 
 @app.get("/api/health")
 def health():
+    from medplain.reconciliation_engine import configured_model_ids
+
     return {
         "status": "ok", "version": __version__, "commit": deployed_commit(),
         "model_mode": os.getenv("MEDPLAIN_MODEL_MODE", "fixture"),
         "model_id": os.getenv("MEDPLAIN_BEDROCK_MODEL_ID", "amazon.nova-micro-v1:0"),
+        "reconciliation_model_ids": configured_model_ids(),
         "data": "synthetic packets only",
         "session_storage": "DynamoDB with TTL" if os.getenv("MEDPLAIN_OPS_TABLE") else "local synthetic memory",
         "transport_mode": "DynamoDB Streams to SQS" if os.getenv("MEDPLAIN_OPS_TABLE") else "local background task",
