@@ -856,7 +856,8 @@ def test_live_adapter_forces_references_then_case_context_without_changing_froze
     tools = engine._tools(context)[engine.PLANNER]
     assert engine.REQUIRED_TOOLS[engine.PLANNER] == ("check_reconciliation_constraints", "lookup_reconciliation_references")
     model = engine._model("bedrock", context, engine.PLANNER, tools, engine.PlanningDraft)
-    specs = [{"name": name} for name in ["lookup_reconciliation_references", "check_reconciliation_constraints", "PlanningDraft"]]
+    specs = [{"name": name, "inputSchema": {"json": {"type": "object", "properties": {}}}}
+             for name in ["lookup_reconciliation_references", "check_reconciliation_constraints", "PlanningDraft"]]
 
     async def exercise():
         for name in ["lookup_reconciliation_references", "check_reconciliation_constraints"]:
