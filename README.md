@@ -192,6 +192,18 @@ The planner has a provider-only compatibility projection for Nova1 tool requests
 
 This corrects a documented outgoing-request mismatch. It does not by itself prove that the retained invalid-ToolUse failure is repaired. Actual-provider reliability and contextual accuracy require a new source-bound measurement with the same strict gate and complete baseline.
 
+### Current H4 diagnostic: faithful cards, one intent-selection miss
+
+The [stopped diagnostic at deployed `6f742b2`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-tooluse-diagnostic-6f742b2) delivered four source-faithful, clinically verified cards requiring review. Three strict checks passed. `taper-missing-anchor` linked the correct discharge and caregiver passages, but selected a generic caregiver question instead of the matching taper-specific question. Its private note identified the start-day uncertainty while separately marking the single-source taper check covered.
+
+The all-thirteen-pass guard stopped the cycle. Nine diagnostics and the full thirty-case comparison remain unexecuted. The partial context counts are TP1 / FP0 / FN1 plus one generic question; no new overall precision score or thirty-card/twelve-TP success is established. Native evidence retains four Publisher schema errors and one private planner-contract repair. Earlier reports and every original denominator remain unchanged. The first two previously stopped diagnostics passed in this sample; that observation does not prove a general or causal reliability improvement.
+
+### Source-only H5 candidate, not merged or deployed
+
+This separate candidate changes only the planner instruction priority: identify the complete unresolved relationship, select the most specific eligible catalog meaning, then compare that meaning and the complete evidence scope with existing checks. An already-rendered code does not reserve that code for every context. New citations alone do not create an unresolved relationship, and generic questions remain available when no specific meaning fits.
+
+The model still authors every selection. No keyword-to-code detector, forced question, post-processing remap, gate, baseline, scorer, native schema, model or execution budget changes. SDK contract tests deliberately preserve a generic miss and a coherent floor repeat for the unchanged scorer, accept a specific question with complete contextual scope, and retain duplicate-authored-question refusal. Injected SDK responses test contract preservation; they do not measure LLM accuracy. The stopped H4 cycle stays closed, and this candidate has no live measurement or deployment.
+
 ## Operations console
 
 React, TypeScript, Tailwind and TanStack Table provide a responsive shell with a collapsible sidebar, counter badges, workspace switcher, `/` search and a user menu. Overview, Cases, Queues, Maps and Settings use the same server-scoped synthetic session. Cases support server filtering, sorting and pagination, with a tabbed detail drawer. Action results use toasts; unavailable APIs, empty cohorts and loading requests have explicit states. Disabled actions state their reason.
