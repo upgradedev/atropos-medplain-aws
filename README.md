@@ -210,6 +210,18 @@ The [H5 cycle at deployed `e3a8e71`](https://github.com/upgradedev/atropos-medpl
 
 The strict guard stopped the cycle with **3/4 verified cards and one workflow refusal**. The attempted subset has **TP1 / FP0 / FN1**, counting the missing relationship in the withheld case. Nine diagnostics and all thirty comparison cases remain unexecuted. No full H5 precision score or achievement of the 30/30 and twelve-TP targets is claimed. The latest complete paired result remains `43d6244` above. No gate, baseline, scorer, corpus, references, schema, model or per-case budget changed, and no accepted POST was repeated. The natural daily counter rose from6/120 to10/120; this counts accepted jobs, not provider requests or cost.
 
+### H6 actual diagnostic: faithful cards, retained semantic miss
+
+The [H6 diagnostic at deployed `282d313`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-binding-diagnostic-282d313) produced **four verified source-faithful clarification cards and three strict passes**. Its fourth case, `taper-missing-anchor`, selected `caregiver_question` instead of the taper-specific question over the correct discharge and caregiver passages. The private action note mentions the start-day concern, while a separate item marks the discharge-only taper check covered. That note does not establish clinical understanding. Its selection, public artifact and rendered text are identical to the earlier H4 result for this case.
+
+The attempted subset scored **TP1 / FP0 / FN1 plus one generic question**. The strict guard stopped the cycle; nine diagnostics and all thirty comparison cases remain unexecuted. The source hash and native planner output were valid in this attempt, but that does not establish general or causal reliability improvement. No new full-comparison precision or success against the thirty-card/twelve-TP targets is measured. The stopped cycle, earlier reports and every denominator remain unchanged.
+
+### H7 source-only hypothesis: components of a catalog meaning
+
+This separate branch is **not deployed**, and its model accuracy is **unmeasured**. It changes only planner wording to clarify that one unresolved, compatible component of a compound catalog question can justify the specific intent even when its other components are known. This applies uniformly to every specific intent. Complete evidence scope, genuine additional uncertainty and the existing floor-repeat instructions still apply. The model must author the code and citations; no source keyword rule, forced question, output remapping or filtering is added.
+
+The H6 trusted source-binding prompt, SDK/Pydantic schemas, clinical and private validators, complete baseline, scorer, corpus, references, tools, models and execution budgets are unchanged. Existing SDK contract tests are retained without alteration; they verify contract preservation rather than LLM accuracy. Deployed source `282d313` remains frozen independently of this source-only hypothesis and the pending decision about a full comparison with its diagnostic miss retained.
+
 ## Operations console
 
 React, TypeScript, Tailwind and TanStack Table provide a responsive shell with a collapsible sidebar, counter badges, workspace switcher, `/` search and a user menu. Overview, Cases, Queues, Maps and Settings use the same server-scoped synthetic session. Cases support server filtering, sorting and pagination, with a tabbed detail drawer. Action results use toasts; unavailable APIs, empty cohorts and loading requests have explicit states. Disabled actions state their reason.
