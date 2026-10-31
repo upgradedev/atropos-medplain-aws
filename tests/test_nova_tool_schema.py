@@ -235,6 +235,37 @@ def test_real_sdk_still_rejects_extra_output_key_then_requires_new_authored_payl
     assert result["runtime"]["structured_output_repairs"] == 0
 
 
+@pytest.mark.parametrize("invalid", ["missing_teachback", "unsupported_extra"])
+def test_real_sdk_persistent_malformed_output_stays_refused_within_existing_budget(monkeypatch, invalid):
+    authored = []
+
+    def payload(context, attempt):
+        wire = _wire(context.dossier)
+        if invalid == "missing_teachback":
+            del wire["selection"]["teachback"]
+        else:
+            wire["unsupported_extra"] = "must remain invalid on every attempt"
+        authored.append(deepcopy(wire))
+        return wire
+
+    requests = _offline_sdk(monkeypatch, payload)
+    result = run_reconciliation(_source(), "nova-persistent-native-refusal-" + invalid, mode="bedrock")
+    assert result["status"] == "refused"
+    assert all(result[key] is None for key in ["artifact", "artifact_hash", "explanation_text", "patient_regimen"])
+    assert result["receipts"] == []
+    assert 0 < len(requests) <= engine.MAX_MODEL_TURNS * engine.MAX_CANDIDATES
+    assert result["runtime"]["structured_output_repairs"] <= 1
+    planner_attempts = [row for row in result["runtime"]["native_output_attempts"] if row["agent"] == engine.PLANNER]
+    assert planner_attempts and all(row["status"] == "error" for row in planner_attempts)
+    assert len(planner_attempts) == len(authored)
+    assert result["runtime"]["selection"] is None
+    assert result["runtime"]["planning_wire_sha256"] is None
+    if invalid == "missing_teachback":
+        assert all("teachback" not in wire["selection"] for wire in authored)
+    else:
+        assert all(wire["unsupported_extra"] == "must remain invalid on every attempt" for wire in authored)
+
+
 def test_real_sdk_projection_does_not_make_invalid_source_citations_acceptable(monkeypatch):
     def payload(context, attempt):
         wire = _wire(context.dossier)
