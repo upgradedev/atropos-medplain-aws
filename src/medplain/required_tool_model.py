@@ -58,7 +58,10 @@ class _SingleConverseClient:
     def __getattr__(self, name: str) -> Any:
         if name.startswith(("converse", "invoke_model")):
             raise RuntimeError("Only Converse is permitted by this transport profile; publication refused")
-        return getattr(self.client, name)
+        value = getattr(self.client, name)
+        if callable(value):
+            raise RuntimeError("Only Converse is permitted by this transport profile; publication refused")
+        return value
 
 
 def nova_tool_specs(tool_specs: list[dict[str, Any]]) -> list[dict[str, Any]]:

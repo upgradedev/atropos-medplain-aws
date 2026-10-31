@@ -469,3 +469,45 @@ def test_engine_optin_is_only_planner_and_preserves_boto_retry_and_other_role_tr
     assert "streaming" not in made[0] and made[1]["streaming"] is False and "streaming" not in made[2]
     assert all(row["temperature"] == 0.0 and row["max_tokens"] == 4096 for row in made)
     assert all(row["boto_client_config"].retries == {"total_max_attempts": 1} for row in made)
+
+
+@pytest.mark.parametrize("operation", ["start_async_invoke", "get_async_invoke", "renamed_generation_operation"])
+@pytest.mark.parametrize("with_ledger", [False, True])
+def test_unexpected_callable_apis_are_denied_twice_without_delegation_or_reservation(operation, with_ledger):
+    client = _Client()
+    forwarded = []
+    setattr(client, operation, lambda **kwargs: forwarded.append(deepcopy(kwargs)))
+    model = _wrapper(client)
+    with model._provider_turn():
+        proxy = model.delegate.client
+    def attempt():
+        for _ in range(2):
+            with pytest.raises(RuntimeError, match="Only Converse"):
+                getattr(proxy, operation)(invented="must not reach client")
+    if with_ledger:
+        with model._provider_turn():
+            ledger = adapter._PROVIDER_CALL_LEDGER.get()
+            attempt()
+            assert ledger.attempted is False
+    else:
+        assert adapter._PROVIDER_CALL_LEDGER.get() is None
+        attempt()
+    assert forwarded == client.calls == client.stream_calls == []
+
+
+def test_noncallable_client_metadata_is_preserved_while_unused_rpc_methods_stay_closed():
+    client = _Client()
+    client.operation_names = ("metadata", "only")
+    client.optional_metadata = None
+    client.count_tokens = lambda **kwargs: pytest.fail("An unused RPC must never be delegated")
+    model = _wrapper(client)
+    with model._provider_turn():
+        proxy = model.delegate.client
+        assert proxy.meta is client.meta and proxy.exceptions is client.exceptions
+        assert proxy.operation_names is client.operation_names and proxy.optional_metadata is None
+        with pytest.raises(RuntimeError, match="Only Converse"):
+            proxy.count_tokens()
+        assert adapter._PROVIDER_CALL_LEDGER.get().attempted is False
+    # The existing real-SDK request/conversion tests also exercise this exact proxy.
+    events = asyncio.run(_collect(model))
+    assert events and len(client.calls) == 1 and client.stream_calls == []
