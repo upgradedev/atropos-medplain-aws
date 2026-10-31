@@ -173,6 +173,23 @@ def _offline_sdk(monkeypatch, payload=None, *, provider_error=False, wire_reques
 
 
 def test_real_sdk_wire_projects_only_planner_roots_and_keeps_native_schema(monkeypatch):
+    boundaries = []
+    original_stream = RequiredToolModel.stream
+
+    async def capture_incoming(model, messages, tool_specs=None, system_prompt=None, *, tool_choice=None, **kwargs):
+        # ToolRegistry normalizes descriptions before this wrapper boundary.
+        # Compare provider output to that exact input stage, not a fresh raw
+        # StructuredOutputTool created before SDK registry normalization.
+        before = deepcopy(tool_specs)
+        baseline = model.delegate.format_request(messages=deepcopy(messages), tool_specs=deepcopy(tool_specs),
+                                                 tool_choice=tool_choice)
+        boundaries.append({"incoming": tool_specs, "snapshot": before, "baseline": baseline})
+        async for event in original_stream(model, messages, tool_specs, system_prompt,
+                                           tool_choice=tool_choice, **kwargs):
+            yield event
+        assert tool_specs == before
+
+    monkeypatch.setattr(RequiredToolModel, "stream", capture_incoming)
     requests = _offline_sdk(monkeypatch)
     result = run_reconciliation(_source(), "nova-projection-sdk-dispatch", mode="bedrock")
     assert result["status"] == "verified", result
@@ -185,17 +202,25 @@ def test_real_sdk_wire_projects_only_planner_roots_and_keeps_native_schema(monke
     native_schema = native["inputSchema"]["json"]
     assert {"title", "description"} <= set(native_schema)
     assert engine.planning_wire_schema_sha256() == "b2a2472a7c7d282962d7c13db283580ee8fb6488a9249dd46ed4773d48df6944"
-    for request in requests:
+    assert len(boundaries) == len(requests)
+    for request, boundary in zip(requests, boundaries, strict=True):
+        assert boundary["incoming"] == boundary["snapshot"]
         assert request["modelId"] == "amazon.nova-pro-v1:0"
         assert request["inferenceConfig"] == {"maxTokens": 4096, "temperature": 0.0}
         assert request["additionalModelRequestFields"] == {"inferenceConfig": {"topK": 1}}
-        wire_tool = next(t["toolSpec"] for t in request["toolConfig"]["tools"] if t["toolSpec"]["name"] == "PlanningWire")
-        assert wire_tool["name"] == native["name"] and wire_tool["description"] == native["description"]
-        projected = wire_tool["inputSchema"]["json"]
-        assert list(projected) == [key for key in native_schema if key not in {"$schema", "title", "description"}]
-        assert projected["properties"] == native_schema["properties"]
-        assert projected["required"] == native_schema["required"]
-        assert canonical_hash(projected) != canonical_hash(native_schema)
+        actual_tools = [item["toolSpec"] for item in request["toolConfig"]["tools"]]
+        baseline_tools = [item["toolSpec"] for item in boundary["baseline"]["toolConfig"]["tools"]]
+        assert [item["name"] for item in actual_tools] == [item["name"] for item in baseline_tools]
+        for actual, baseline in zip(actual_tools, baseline_tools, strict=True):
+            assert actual["description"] == baseline["description"]
+            projected, incoming = actual["inputSchema"]["json"], baseline["inputSchema"]["json"]
+            assert projected["type"] == incoming["type"] == "object"
+            assert list(projected) == [key for key in incoming if key not in {"$schema", "title", "description"}]
+            assert projected["properties"] == incoming["properties"]
+            assert projected["required"] == incoming["required"]
+            if actual["name"] == "PlanningWire":
+                assert incoming["properties"]["nonask_review"]["description"] == "Property nonask_review"
+                assert canonical_hash(projected) != canonical_hash(incoming)
     assert result["artifact"]["patient_regimen"] is None
     assert verify_receipts(result["receipts"])
 
