@@ -458,6 +458,22 @@ def _covered_question_scopes(statements: list[dict], floor: list[dict], language
             for row in floor]
 
 
+def _question_decision_inputs(statements: list[dict], floor: list[dict], catalog: dict,
+                              eligibility: dict) -> list[dict]:
+    """Join existing meanings, preconditions and displayed occurrences without deciding relevance."""
+    by_id = {row["statement_id"]: row for row in statements}
+    displayed = {code: [] for code in catalog}
+    for row in floor:
+        code = row["question_code"]
+        displayed[code].append({**deepcopy(row), "question_text": catalog[code]["rendered_text"],
+                                "source_statements": [deepcopy(by_id[sid]) for sid in row["statement_ids"]]})
+    return [{"code": code, **deepcopy(meaning),
+             "output_section": "teachback" if code == "teachback" else "questions",
+             "eligibility_preconditions": deepcopy(eligibility[code]),
+             "displayed_structural_prompts": displayed[code]}
+            for code, meaning in catalog.items()]
+
+
 def _tools(context: Context) -> dict[str, list]:
     @tool
     def read_reconciliation_sources() -> dict:
@@ -490,6 +506,8 @@ def _tools(context: Context) -> dict[str, list]:
             "caregiver_question": {"minimum_distinct_citations": 1},
             "teachback": {"minimum_distinct_citations": 1, "section": "teachback_only"},
         }
+        catalog = {code: {"meaning_en": _TEXT["en"][code],
+                          "rendered_text": _TEXT[context.dossier["language"]][code]} for code in QUESTION_CODES}
         return {"source_hash": canonical_hash(context.dossier),
                 "source_documents": [dict(document) for document in context.dossier["documents"]],
                 "source_statement_order": [row["statement_id"] for row in statements],
@@ -501,8 +519,9 @@ def _tools(context: Context) -> dict[str, list]:
                     "question_text": _TEXT[context.dossier["language"]][row["question_code"]],
                     "question_meaning_en": _TEXT["en"][row["question_code"]]} for row in floor],
                 "covered_question_scopes": _covered_question_scopes(statements, floor, context.dossier["language"]),
-                "question_catalog": {code: {"meaning_en": _TEXT["en"][code],
-                    "rendered_text": _TEXT[context.dossier["language"]][code]} for code in QUESTION_CODES},
+                "question_catalog": catalog,
+                "question_decision_inputs": _question_decision_inputs(statements, floor, catalog, eligibility),
+                "question_decision_inputs_scope": "Lossless inputs, not a question plan or semantic coverage verdict. Assess supported uncertainty and compatible meaning using complete original evidence. Eligibility is mechanical, not relevance. Displayed structural prompts retain their original flags; displaying one does not resolve a concern or reserve its code. Only the same meaning and exact complete citation group can cover a candidate. Consider the generic caregiver meaning only after the eligible specific meanings. Output section is separate from intent selection.",
                 "code_eligibility": {"scope": "Unchanged validator preconditions only. Eligibility is not relevance, a gold answer or a recommended question plan. Empty witness lists mean that code cannot be supported by this source. All citations must be distinct current source IDs; teachback belongs only in its own section.",
                                      "codes": eligibility},
                 "caregiver_concerns": context.dossier["caregiver_concerns"],
@@ -771,13 +790,13 @@ def _make_graph(context: Context, mode: str):
             "uncertainty. Do not invent confusion that the source denies. A later timestamp alone establishes no "
             "clinical authority or resolution. New citations or new wording alone do not create a new relationship. "
             "Zero, one or several additional questions may be appropriate.\n\n"
-            "3. Choose the MOST specific eligible question_catalog meaning compatible with the candidate, "
-            "independently of any floor code. Read the actual catalog meanings rather than guessing from code names. "
+            "3. Choose the MOST specific eligible question_decision_inputs meaning compatible with the candidate, "
+            "independently of floor codes. Read joined meanings and eligibility preconditions, not code names. "
             "A specific meaning may contain several components: one compatible unresolved component can justify it "
             "even when others are known. Compatibility with the COMPLETE meaning does not require all components to "
             "be unknown. code_eligibility gives validity preconditions, not recommendations or evidence of "
             "relevance. Never invent witnesses, source IDs, equivalence or substitution.\n\n"
-            "4. Compare that meaning AND the candidate's COMPLETE citation group against covered_question_scopes. "
+            "4. Compare that meaning AND the candidate's COMPLETE citation group against that row's displayed_structural_prompts. "
             "Mark covered only if ONE rendered check has the same question meaning AND the exact same complete set "
             "of statement_ids. Separate checks over subsets do not cover a joint relationship. A floor code is not "
             "reserved globally. NEVER shrink candidate IDs to fit a floor check, omit context while claiming that "
