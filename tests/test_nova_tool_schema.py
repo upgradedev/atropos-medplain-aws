@@ -17,6 +17,7 @@ from strands.tools.structured_output.structured_output_tool import StructuredOut
 from medplain import reconciliation_engine as engine
 from medplain.gate import canonical_hash, verify_receipts
 from medplain.reconciliation import run_reconciliation
+from medplain.reconciliation_evaluation import TARGETED_CODES, match_focus
 from medplain.required_tool_model import NOVA_TOOL_SCHEMA_PROFILE, RequiredToolModel, nova_tool_specs
 
 
@@ -329,3 +330,88 @@ def test_real_sdk_projection_preserves_clinical_stress_refusal_and_fresh_correct
     assert result["artifact"]["patient_regimen"] is None
     assert [r["toolConfig"]["toolChoice"]["tool"]["name"] for r in requests] == [
         "lookup_reconciliation_references", "check_reconciliation_constraints", "PlanningWire"] * 2
+
+
+def _scope_source():
+    """Fresh synthetic policy-control source, not a benchmark dossier."""
+    return {
+        "profile": "medplain-reconciliation-v1", "patient_alias": "Demo-Scoped", "language": "en",
+        "caregiver_concerns": "", "documents": [
+            {"document_id": "instructions", "kind": "discharge", "issued_at": "2026-10-30T08:00:00Z",
+             "effective_at": None,
+             "text": "Taper Prednisolone: 12 mg by mouth QD on days 1-3; then 6 mg by mouth QD on days 4-6; then stop."},
+            {"document_id": "support", "kind": "caregiver_note", "issued_at": "2026-10-30T08:30:00Z",
+             "effective_at": None,
+             "text": "Which morning should I treat as the start of this sequence?"},
+        ],
+    }
+
+
+def _scope_wire(source, code, ids):
+    return {
+        "selection": {"source_hash": canonical_hash(source),
+                      "questions": [{"code": code, "statement_ids": list(ids),
+                                     "reason": "Clarify the caregiver's uncertainty about the schedule anchor."}],
+                      "teachback": [{"code": "teachback", "statement_ids": ["instructions:L1"]}]},
+        "nonask_review": [{"disposition": "covered", "intent": "confirm_taper",
+                           "statement_ids": ["instructions:L1"],
+                           "reason": "The existing single-source check covers the stated taper sequence."}],
+    }
+
+
+@pytest.mark.parametrize("choice", ["generic", "complete_scope", "floor_repeat"])
+def test_sdk_authored_intent_and_scope_reach_unchanged_gate_and_frozen_scorer(monkeypatch, choice):
+    """Injected SDK output tests contract preservation, not LLM improvement."""
+    source = _scope_source()
+    code = "caregiver_question" if choice == "generic" else "confirm_taper"
+    ids = ["instructions:L1"] if choice == "floor_repeat" else ["instructions:L1", "support:L1"]
+    authored = _scope_wire(source, code, ids)
+    saved = deepcopy(authored)
+    requests = _offline_sdk(monkeypatch, lambda context, attempt: deepcopy(authored))
+    result = run_reconciliation(source, "intent-scope-contract-" + choice, mode="bedrock")
+    assert result["status"] == "verified", result
+    assert authored == saved
+    expected_question = {"code": code, "statement_ids": ids}
+    assert result["runtime"]["selection"]["questions"] == [expected_question]
+    actual = result["artifact"]["proposed_questions"]
+    assert [{"code": row["code"], "statement_ids": row["statement_ids"]} for row in actual] == [expected_question]
+    assert result["artifact"]["structural_issues"][0]["question_code"] == "confirm_taper"
+    assert result["artifact"]["structural_issues"][0]["statement_ids"] == ["instructions:L1"]
+    assert result["runtime"]["structured_output_repairs"] == 0
+    assert result["runtime"]["planner_rejections"] == []
+    assert len(requests) == 3
+    assert verify_receipts(result["receipts"])
+    assert result["artifact"]["patient_regimen"] is None
+    # Same targeted-code filter and matcher as the unchanged score_outcome.
+    focused = [row for row in actual if row["code"] in TARGETED_CODES]
+    target = [{"codes": ["confirm_taper"],
+               "required_statement_ids": ["instructions:L1", "support:L1"],
+               "allowed_statement_ids": ["instructions:L1", "support:L1"]}]
+    focus = match_focus(focused, target)
+    assert focus == {
+        "true_positive": int(choice == "complete_scope"),
+        "false_positive": int(choice == "floor_repeat"),
+        "false_negative": int(choice != "complete_scope"),
+        "predicted": int(choice != "generic"), "expected": 1,
+        "exact": choice == "complete_scope",
+    }
+    if choice == "generic":
+        assert len(actual) == 1 and actual[0]["code"] == "caregiver_question"
+    assert result["runtime"]["planning_wire_schema_sha256"] == "b2a2472a7c7d282962d7c13db283580ee8fb6488a9249dd46ed4773d48df6944"
+
+
+def test_sdk_duplicate_authored_questions_remain_refused_under_existing_validator(monkeypatch):
+    source = _scope_source()
+    authored = _scope_wire(source, "confirm_taper", ["instructions:L1"])
+    authored["selection"]["questions"].append(deepcopy(authored["selection"]["questions"][0]))
+    saved = deepcopy(authored)
+    _offline_sdk(monkeypatch, lambda context, attempt: deepcopy(authored))
+    result = run_reconciliation(source, "intent-scope-duplicate-refusal", mode="bedrock")
+    assert authored == saved
+    assert result["status"] == "refused", result
+    assert all(result[key] is None for key in ["artifact", "artifact_hash", "explanation_text", "patient_regimen"])
+    assert result["receipts"] == []
+    assert result["runtime"]["structured_output_repairs"] == 1
+    assert result["runtime"]["failure"]["code"] == "structured_repair_exhausted"
+    assert len(result["runtime"]["planner_rejections"]) == 2
+    assert all("Duplicate question" in row["reason"] for row in result["runtime"]["planner_rejections"])
