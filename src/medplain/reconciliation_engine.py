@@ -742,7 +742,8 @@ def _model(mode: str, context: Context, role: str, tools: list, output_model):
         call_order = [item.tool_name for item in tools if item.tool_name in REQUIRED_TOOLS[role]]
         return RequiredToolModel(delegate, lambda: [name for name in call_order
                                  if name not in context.completed.get(role, set())], output_model.__name__,
-                                 nova_schema_compatibility=role == PLANNER)
+                                 nova_schema_compatibility=role == PLANNER,
+                                 selected_tool_only=role == PLANNER)
     raise ValueError("Reconciliation mode must be fixture or bedrock")
 
 
