@@ -6,7 +6,7 @@ Built as a prototype for adults leaving hospital with changed medicines and limi
 
 [Open the anonymous AWS demo](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/) · [Source and CI](https://github.com/upgradedev/atropos-medplain-aws/actions)
 
-The latest completed thirty-case comparison remains historical `43d6244`: **25/30 verified cards, TP9 / FP2 / FN6 and 81.8% precision**, versus baseline 30/30 and 66.7%. The later H10 diagnostic produced three source-faithful cards but passed only two strict relevance checks; its full comparison was blocked. The new H11 decision-input representation below has not been measured. Neither the 30/30 nor 12 TP target is claimed.
+The latest completed thirty-case comparison remains historical `43d6244`: **25/30 verified cards, TP9 / FP2 / FN6 and 81.8% precision**, versus baseline 30/30 and 66.7%. H10 later produced three cards with two strict passes; H11 refused its first job before a planner output. Their full comparisons were blocked. The H12 Converse transport and client-call guard below are unmeasured. Neither the 30/30 nor 12 TP target is claimed.
 
 ## Try the safety boundary
 
@@ -265,6 +265,20 @@ The inspected prefix has **TP0 / FP0 / FN1 plus one generic question**. Targeted
 The constraint tool adds one lossless `question_decision_inputs` matrix. Each catalog code is adjacent to its exact English meaning, localized rendered question, existing mechanical eligibility conditions, output section and every matching displayed structural prompt. Those prompts retain the original classification, required flag, complete citation IDs and original quoted statements. A displayed prompt does not resolve a wider relationship. The Planner now consults these joined inputs in its existing meaning and coverage steps.
 
 The matrix chooses no intent, candidate relationship, citation group or coverage verdict. All previous tool views remain unchanged, including false required flags. All prior tests, native schemas, private and clinical validators, full baseline, frozen scorer/corpus/references, models and inference budgets are retained. New synthetic provenance and mutation controls test the mechanical join; they do not measure model comprehension. Input size increases, and effects on semantic accuracy or provider reliability remain unmeasured pending a separately registered strict diagnostic cycle. The deployed commit is available at `/api/health`; source changes and fixture evidence are not live effectiveness results.
+
+### H11 actual diagnostic: refusal before the planning output
+
+The [H11 diagnostic at `65e7d96`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-decision-diagnostic-65e7d96) stopped on its first case. The source index and three required tools completed, but the Planner produced no native output or accepted plan; the Publisher never ran. There was no card, text, receipt or patient URL. A timestamp-bounded worker log reports an invalid ToolUse sequence during ConverseStream. Seven events and a continuation token are retained, with no direct case-ID or causal diagnosis inferred from that excerpt.
+
+The attempted case has no annotated context target, so partial TP/FP/FN are all zero and precision is undefined. Twelve diagnostics and all thirty comparison cases remain unexecuted. The all-thirteen-pass guard stayed false, and the cycle is closed. These observations do not establish the effect of the decision-input matrix on semantic accuracy.
+
+### H12 source hypothesis: Converse with one guarded client invocation
+
+Only the Planner selects the pinned Strands SDK's supported non-streaming `Converse` mode. The SDK converts its response into the same event format; MedPlain does not construct native planning outputs. Model IDs, temperature=0, topK=1, maxTokens=4096, botocore retry attempts=1, exact request/history/tool choice/schema, H11 input matrix and prompt, nativeB2 and every private/clinical validator remain unchanged. The full baseline, frozen scorer/corpus/references and existing graph/repair budgets are retained.
+
+An explicit opt-in guard reserves one SDK client-generation invocation before I/O. Its locked, owner-bound context ledger rejects a second call, unexpected inference APIs, missing or closed scopes, and the SDK's automatic compatibility resubmission. Closing or cancelling the generator closes the ledger and restores the context; copied worker threads retain that closed reservation. Defaults and the other roles keep their prior behavior. The guard bounds SDK client invocations; billed requests and HTTP traffic remain unmeasured. New real-SDK stub tests cover request parity, conversion, errors, concurrent scopes, cancellation and withholding; CI and actual effectiveness remain separate evidence levels.
+
+[Official Strands documentation](https://strandsagents.com/docs/user-guide/sdk/model-providers/amazon-bedrock/) supports this transport mode. However, [AWS troubleshooting](https://docs.aws.amazon.com/nova/latest/userguide/tools-troubleshooting.html) and [Strands issue649](https://github.com/strands-agents/harness-sdk/issues/649) also report invalid ToolUse under non-streaming Converse. The change isolates a transport hypothesis and adds a request-budget guard. Its reliability effect remains unmeasured. No retry, provider substitution, baseline fallback or clinical-gate relaxation is added. Its accuracy and completion targets remain unmeasured until a new exact-source strict trial.
 
 ## Operations console
 

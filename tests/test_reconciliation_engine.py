@@ -844,8 +844,10 @@ def test_live_adapter_forces_references_then_case_context_without_changing_froze
     class RecordingDelegate:
         def __init__(self):
             self.choices = []
+            self.client = SimpleNamespace(converse=lambda **kwargs: None)
 
         async def stream(self, messages, **kwargs):
+            self.client.converse(messages=messages, **kwargs)
             self.choices.append(kwargs["tool_choice"])
             yield {"messageStart": {"role": "assistant"}}
 

@@ -751,7 +751,7 @@ def _model(mode: str, context: Context, role: str, tools: list, output_model):
         return FixtureModel([item.tool_name for item in tools], output_model, payload)
     if mode == "bedrock":
         from botocore.config import Config
-        provider_fields = ({"additional_request_fields": {"inferenceConfig": {"topK": 1}}}
+        provider_fields = ({"additional_request_fields": {"inferenceConfig": {"topK": 1}}, "streaming": False}
                            if role == PLANNER else {})
         delegate = BedrockModel(model_id=configured_model_ids()[role],
                                 region_name=os.getenv("AWS_REGION", "us-east-1"), max_tokens=4096, temperature=0.0,
@@ -762,7 +762,8 @@ def _model(mode: str, context: Context, role: str, tools: list, output_model):
         return RequiredToolModel(delegate, lambda: [name for name in call_order
                                  if name not in context.completed.get(role, set())], output_model.__name__,
                                  nova_schema_compatibility=role == PLANNER,
-                                 selected_tool_only=role == PLANNER)
+                                 selected_tool_only=role == PLANNER,
+                                 single_provider_call=role == PLANNER)
     raise ValueError("Reconciliation mode must be fixture or bedrock")
 
 
