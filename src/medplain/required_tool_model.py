@@ -55,11 +55,13 @@ class RequiredToolModel(Model):
         output_tool: str,
         *,
         nova_schema_compatibility: bool = False,
+        selected_tool_only: bool = False,
     ) -> None:
         self.delegate = delegate
         self.missing_tools = missing_tools
         self.output_tool = output_tool
         self.nova_schema_compatibility = nova_schema_compatibility
+        self.selected_tool_only = selected_tool_only
 
     def update_config(self, **model_config: Any) -> None:
         self.delegate.update_config(**model_config)
@@ -88,10 +90,18 @@ class RequiredToolModel(Model):
     ) -> AsyncGenerator[dict[str, Any], None]:
         missing = self.missing_tools()
         selected_tool = missing[0] if missing else self.output_tool
-        available = {spec["name"] for spec in tool_specs or []}
-        if selected_tool not in available:
-            raise RuntimeError("A required clinical tool is unavailable in the model request; publication refused")
-        provider_specs = nova_tool_specs(tool_specs or []) if self.nova_schema_compatibility else tool_specs
+        if self.selected_tool_only:
+            # Validate every original Nova schema before narrowing availability.
+            # Historical messages and the SDK tool registry remain untouched.
+            projected = nova_tool_specs(tool_specs or []) if self.nova_schema_compatibility else tool_specs or []
+            provider_specs = [spec for spec in projected if spec["name"] == selected_tool]
+            if len(provider_specs) != 1:
+                raise RuntimeError("Exactly one required clinical tool must be available; publication refused")
+        else:
+            available = {spec["name"] for spec in tool_specs or []}
+            if selected_tool not in available:
+                raise RuntimeError("A required clinical tool is unavailable in the model request; publication refused")
+            provider_specs = nova_tool_specs(tool_specs or []) if self.nova_schema_compatibility else tool_specs
         async for event in self.delegate.stream(
             messages,
             tool_specs=provider_specs,

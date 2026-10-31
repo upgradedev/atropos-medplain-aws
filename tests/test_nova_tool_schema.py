@@ -210,7 +210,8 @@ def test_real_sdk_wire_projects_only_planner_roots_and_keeps_native_schema(monke
         assert request["inferenceConfig"] == {"maxTokens": 4096, "temperature": 0.0}
         assert request["additionalModelRequestFields"] == {"inferenceConfig": {"topK": 1}}
         actual_tools = [item["toolSpec"] for item in request["toolConfig"]["tools"]]
-        baseline_tools = [item["toolSpec"] for item in boundary["baseline"]["toolConfig"]["tools"]]
+        baseline_tools = [item["toolSpec"] for item in boundary["baseline"]["toolConfig"]["tools"]
+                          if item["toolSpec"]["name"] == request["toolConfig"]["toolChoice"]["tool"]["name"]]
         assert [item["name"] for item in actual_tools] == [item["name"] for item in baseline_tools]
         for actual, baseline in zip(actual_tools, baseline_tools, strict=True):
             assert actual["description"] == baseline["description"]
@@ -499,3 +500,160 @@ def test_real_sdk_trusted_binding_never_fills_or_rewrites_an_invalid_authored_ha
         assert all(row["rejected_typed_selection"]["source_hash"] == bad_hash
                    and "Plan source_hash differs from this dossier" in row["reason"]
                    for row in result["runtime"]["planner_rejections"])
+
+
+def _availability_specs():
+    return [{"name": name, "description": "Original " + name,
+             "inputSchema": {"json": {"type": "object", "title": "Original " + name,
+                                      "properties": {}, "required": []}}}
+            for name in ["Evidence", "TypedOutput"]]
+
+
+@pytest.mark.parametrize("compatibility", [False, True])
+def test_selected_spec_default_false_preserves_full_legacy_availability(compatibility):
+    calls = []
+
+    class Delegate:
+        async def stream(self, messages, **kwargs):
+            calls.append((messages, kwargs))
+            yield {"messageStart": {"role": "assistant"}}
+
+    specs = _availability_specs()
+    saved = deepcopy(specs)
+    messages = [{"role": "user", "content": [{"text": "Original request"}]}]
+    model = RequiredToolModel(Delegate(), lambda: ["Evidence"], "TypedOutput",
+                              nova_schema_compatibility=compatibility)
+
+    async def exercise():
+        return [event async for event in model.stream(messages, specs, "Original system", request_marker=17)]
+
+    assert asyncio.run(exercise()) == [{"messageStart": {"role": "assistant"}}]
+    assert model.selected_tool_only is False
+    assert calls[0][0] is messages
+    forwarded = calls[0][1]
+    assert forwarded["tool_choice"] == {"tool": {"name": "Evidence"}}
+    assert forwarded["system_prompt"] == "Original system" and forwarded["request_marker"] == 17
+    assert forwarded["tool_specs"] == (nova_tool_specs(saved) if compatibility else saved)
+    assert [row["name"] for row in forwarded["tool_specs"]] == ["Evidence", "TypedOutput"]
+    if not compatibility:
+        assert forwarded["tool_specs"] is specs
+    assert specs == saved
+
+
+@pytest.mark.parametrize("case", ["missing", "duplicate", "unselected_invalid_root", "missing_and_invalid_root"])
+def test_selected_spec_refuses_before_delegate_and_checks_all_original_schemas(case):
+    calls = []
+
+    class Delegate:
+        async def stream(self, messages, **kwargs):
+            calls.append(kwargs)
+            yield {"messageStart": {"role": "assistant"}}
+
+    specs = _availability_specs()
+    if case in {"missing", "missing_and_invalid_root"}:
+        specs = specs[1:]
+    elif case == "duplicate":
+        specs.append(deepcopy(specs[0]))
+    else:
+        specs[1]["inputSchema"]["json"]["additionalProperties"] = False
+    if case == "missing_and_invalid_root":
+        specs[0]["inputSchema"]["json"]["additionalProperties"] = False
+    saved = deepcopy(specs)
+    model = RequiredToolModel(Delegate(), lambda: ["Evidence"], "TypedOutput",
+                              nova_schema_compatibility=True, selected_tool_only=True)
+
+    async def exercise():
+        return [event async for event in model.stream([], specs)]
+
+    message = ("Unsupported Nova tool schema root" if "invalid_root" in case
+               else "Exactly one required clinical tool")
+    with pytest.raises(RuntimeError, match=message):
+        asyncio.run(exercise())
+    assert calls == [] and specs == saved
+
+
+def test_real_sdk_selected_spec_keeps_every_historical_tool_message_and_request_field(monkeypatch):
+    boundaries = []
+    original_stream = RequiredToolModel.stream
+
+    async def capture(model, messages, tool_specs=None, system_prompt=None, *, tool_choice=None, **kwargs):
+        before_messages, before_specs = deepcopy(messages), deepcopy(tool_specs)
+        missing = model.missing_tools()
+        wanted = missing[0] if missing else model.output_tool
+        baseline_kwargs = {key: deepcopy(value) for key, value in kwargs.items()
+                           if key in {"system_prompt_content", "dynamic_trailing_blocks"}}
+        if system_prompt and baseline_kwargs.get("system_prompt_content") is None:
+            baseline_kwargs["system_prompt_content"] = [{"text": system_prompt}]
+        baseline = model.delegate.format_request(
+            messages=deepcopy(messages), tool_specs=deepcopy(tool_specs),
+            tool_choice={"tool": {"name": wanted}}, **baseline_kwargs)
+        boundaries.append({"messages": before_messages, "baseline": baseline, "wanted": wanted})
+        async for event in original_stream(model, messages, tool_specs, system_prompt,
+                                           tool_choice=tool_choice, **kwargs):
+            yield event
+        assert messages == before_messages and tool_specs == before_specs
+
+    monkeypatch.setattr(RequiredToolModel, "stream", capture)
+    requests = _offline_sdk(monkeypatch)
+    source = _source()
+    result = run_reconciliation(source, "selected-spec-history-sdk", mode="bedrock")
+    assert result["status"] == "verified", result
+    expected = ["lookup_reconciliation_references", "check_reconciliation_constraints", "PlanningWire"]
+    assert len(requests) == len(boundaries) == len(expected)
+    for index, (request, boundary) in enumerate(zip(requests, boundaries, strict=True)):
+        assert boundary["wanted"] == expected[index]
+        assert request["toolConfig"]["toolChoice"] == {"tool": {"name": expected[index]}}
+        assert [row["toolSpec"]["name"] for row in request["toolConfig"]["tools"]] == [expected[index]]
+        assert {key: value for key, value in request.items() if key != "toolConfig"} == {
+            key: value for key, value in boundary["baseline"].items() if key != "toolConfig"}
+        uses = [block["toolUse"] for message in request["messages"] for block in message["content"] if "toolUse" in block]
+        results = [block["toolResult"] for message in request["messages"] for block in message["content"] if "toolResult" in block]
+        assert [row["name"] for row in uses] == expected[:index]
+        assert [row["toolUseId"] for row in results] == [row["toolUseId"] for row in uses]
+        assert all(row["name"] != expected[index] for row in uses)
+    assert result["runtime"]["planning_wire_schema_sha256"] == "b2a2472a7c7d282962d7c13db283580ee8fb6488a9249dd46ed4773d48df6944"
+    assert result["runtime"]["selection"] == {key: value for key, value in _wire(source)["selection"].items()}
+    assert result["runtime"]["structured_output_repairs"] == 0
+    assert verify_receipts(result["receipts"])
+
+
+def test_real_sdk_selected_spec_tool_error_keeps_same_missing_tool_until_success(monkeypatch):
+    original_reference = engine.reference_material
+    attempts = []
+
+    def fail_first_reference():
+        attempts.append("reference")
+        if len(attempts) == 1:
+            raise RuntimeError("Offline injected evidence failure")
+        return original_reference()
+
+    monkeypatch.setattr(engine, "reference_material", fail_first_reference)
+    requests = _offline_sdk(monkeypatch)
+    result = run_reconciliation(_source(), "selected-spec-required-error", mode="bedrock")
+    assert result["status"] == "verified", result
+    expected = ["lookup_reconciliation_references", "lookup_reconciliation_references",
+                "check_reconciliation_constraints", "PlanningWire"]
+    assert attempts == ["reference", "reference"]
+    assert [row["toolConfig"]["toolChoice"]["tool"]["name"] for row in requests] == expected
+    assert [[row["toolSpec"]["name"] for row in request["toolConfig"]["tools"]] for request in requests] == [[name] for name in expected]
+    planner_tools = [row for row in result["runtime"]["tools_executed"] if row["agent"] == engine.PLANNER]
+    assert [(row["tool"], row["success"]) for row in planner_tools] == [
+        ("lookup_reconciliation_references", False), ("lookup_reconciliation_references", True),
+        ("check_reconciliation_constraints", True)]
+    assert result["runtime"]["structured_output_repairs"] == 0
+    assert result["runtime"]["planner_rejections"] == []
+    assert verify_receipts(result["receipts"])
+
+
+@pytest.mark.parametrize("role", engine.AGENT_NAMES)
+def test_selected_spec_opt_in_is_planner_only(monkeypatch, role):
+    class Session:
+        region_name = "us-east-1"
+
+        def client(self, **kwargs):
+            return SimpleNamespace(meta=SimpleNamespace(region_name="us-east-1"))
+
+    monkeypatch.setattr(bedrock_sdk.boto3, "Session", Session)
+    context = engine.Context(_source(), "selected-spec-role", False)
+    model = engine._model("bedrock", context, role, engine._tools(context)[role], engine._OUTPUT_MODELS[role])
+    assert model.selected_tool_only is (role == engine.PLANNER)
