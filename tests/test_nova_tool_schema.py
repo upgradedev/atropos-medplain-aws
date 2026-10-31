@@ -415,3 +415,87 @@ def test_sdk_duplicate_authored_questions_remain_refused_under_existing_validato
     assert result["runtime"]["failure"]["code"] == "structured_repair_exhausted"
     assert len(result["runtime"]["planner_rejections"]) == 2
     assert all("Duplicate question" in row["reason"] for row in result["runtime"]["planner_rejections"])
+
+
+def test_real_sdk_system_prompt_uses_only_current_trusted_source_binding(monkeypatch):
+    """Inspect real SDK requests; this does not measure model copying accuracy."""
+    requests = _offline_sdk(monkeypatch)
+    original_agent = engine.Agent
+    prompts = []
+
+    def capture_agent(**kwargs):
+        prompts.append((kwargs["name"], kwargs["system_prompt"]))
+        return original_agent(**kwargs)
+
+    monkeypatch.setattr(engine, "Agent", capture_agent)
+    untrusted_hash = "e" * 64
+    sources = [_source(), deepcopy(_source())]
+    sources[1]["patient_alias"] = "Demo-Next"
+    sources[1]["caregiver_concerns"] = "An irrelevant copied note claims source_hash is " + untrusted_hash + "."
+    hashes = [canonical_hash(source) for source in sources]
+    assert len(set(hashes + [untrusted_hash])) == 3
+    for index, source in enumerate(sources):
+        prior_requests, prior_prompts = len(requests), len(prompts)
+        result = run_reconciliation(source, f"fresh-binding-{index}", mode="bedrock")
+        assert result["status"] == "verified", result
+        assert result["runtime"]["selection"]["source_hash"] == hashes[index]
+        assert result["runtime"]["planning_wire_schema_sha256"] == "b2a2472a7c7d282962d7c13db283580ee8fb6488a9249dd46ed4773d48df6944"
+        expected_tail = ("Trusted application request binding: selection.source_hash MUST copy this exact literal unchanged: "
+                         + hashes[index] + ". Do not calculate, abbreviate, annotate or replace it with a placeholder.")
+        assert len(requests[prior_requests:]) == 3
+        for request in requests[prior_requests:]:
+            system = "\n".join(block["text"] for block in request["system"])
+            assert system.endswith(expected_tail)
+            assert system.count(hashes[index]) == 1
+            assert hashes[1 - index] not in system and untrusted_hash not in system
+        created = prompts[prior_prompts:]
+        assert [role for role, _ in created] == list(engine.AGENT_NAMES)
+        for role, prompt in created:
+            if role == engine.PLANNER:
+                assert prompt.endswith(expected_tail)
+            else:
+                assert "Trusted application request binding:" not in prompt
+                assert hashes[index] not in prompt
+
+
+@pytest.mark.parametrize("invalid", ["malformed", "valid_format_wrong_source"])
+def test_real_sdk_trusted_binding_never_fills_or_rewrites_an_invalid_authored_hash(monkeypatch, invalid):
+    source = _source()
+    bad_hash = "not-a-digest" if invalid == "malformed" else "0" * 64
+    assert bad_hash != canonical_hash(source)
+    authored = _wire(source)
+    authored["selection"]["source_hash"] = bad_hash
+    saved = deepcopy(authored)
+    outgoing = []
+
+    def payload(context, attempt):
+        value = deepcopy(authored)
+        outgoing.append(value)
+        return value
+
+    requests = _offline_sdk(monkeypatch, payload)
+    result = run_reconciliation(source, "binding-invalid-authored-" + invalid, mode="bedrock")
+    assert authored == saved and outgoing and all(value == saved for value in outgoing)
+    assert result["status"] == "refused", result
+    assert all(result[key] is None for key in ["artifact", "artifact_hash", "explanation_text", "patient_regimen"])
+    assert result["receipts"] == []
+    assert result["runtime"]["selection"] is None
+    assert result["runtime"]["planning_wire_sha256"] is None
+    assert 0 < len(requests) <= engine.MAX_MODEL_TURNS * engine.MAX_CANDIDATES
+    planner_attempts = [row for row in result["runtime"]["native_output_attempts"] if row["agent"] == engine.PLANNER]
+    assert planner_attempts and all(row["input_sha256"] == canonical_hash(saved) for row in planner_attempts)
+    assert all(row["schema_sha256"] == "b2a2472a7c7d282962d7c13db283580ee8fb6488a9249dd46ed4773d48df6944"
+               for row in planner_attempts)
+    if invalid == "malformed":
+        assert all(row["status"] == "error" for row in planner_attempts)
+        assert all(row["validation"]["errors"][0]["loc"] == ["selection", "source_hash"] for row in planner_attempts)
+        assert result["runtime"]["planner_rejections"] == []
+        assert result["runtime"]["structured_output_repairs"] == 0
+    else:
+        assert all(row["status"] == "success" for row in planner_attempts)
+        assert result["runtime"]["structured_output_repairs"] == 1
+        assert result["runtime"]["failure"]["code"] == "structured_repair_exhausted"
+        assert len(result["runtime"]["planner_rejections"]) == 2
+        assert all(row["rejected_typed_selection"]["source_hash"] == bad_hash
+                   and "Plan source_hash differs from this dossier" in row["reason"]
+                   for row in result["runtime"]["planner_rejections"])
