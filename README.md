@@ -186,6 +186,12 @@ The all-thirteen-pass guard blocked the full thirty-case comparison. Eleven diag
 
 Fresh read-only checks confirmed anonymous HTTP200, all three exact package/source bindings and standard120 limits, natural daily counter zero, green source CI and the scheduled rollback's three120 noops. The counter after stopping was2/120. No cap increase, counter reset/refund, blind retry, fallback or change to the safety gate, full baseline, scorer, corpus, references, models or per-case budgets occurred. Remaining allowance does not authorize another cycle. Independent audits, exact acknowledgements/terminal bytes, source binding and bounded provider-error evidence are public; session creation/bootstrap envelopes are omitted. The one-shot automation was deleted after the guard failure. No current-source live UI readiness or clinical benefit is claimed.
 
+### Nova planner request compatibility
+
+The planner has a provider-only compatibility projection for Nova1 tool requests. It removes root schema metadata (`$schema`, `title`, `description`) that the pinned SDK emits and the [Nova tool guide](https://docs.aws.amazon.com/nova/latest/userguide/tools-troubleshooting.html) excludes from supported root fields. Tool descriptions, every nested constraint, original SDK/Pydantic schemas, forced tool order, model settings and execution limits remain unchanged. Unexpected root constraints refuse the request. Other agents and the simple-note profile retain their existing adapter behavior.
+
+This corrects a documented outgoing-request mismatch. It does not by itself prove that the retained invalid-ToolUse failure is repaired. Actual-provider reliability and contextual accuracy require a new source-bound measurement with the same strict gate and complete baseline.
+
 ## Operations console
 
 React, TypeScript, Tailwind and TanStack Table provide a responsive shell with a collapsible sidebar, counter badges, workspace switcher, `/` search and a user menu. Overview, Cases, Queues, Maps and Settings use the same server-scoped synthetic session. Cases support server filtering, sorting and pagination, with a tabbed detail drawer. Action results use toasts; unavailable APIs, empty cohorts and loading requests have explicit states. Disabled actions state their reason.
