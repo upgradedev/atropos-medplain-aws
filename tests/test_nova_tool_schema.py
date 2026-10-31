@@ -122,6 +122,27 @@ def _offline_sdk(monkeypatch, payload=None, *, provider_error=False, wire_reques
     class Client:
         meta = SimpleNamespace(region_name="us-east-1")
 
+        def converse(self, **request):
+            requests.append(deepcopy(request))
+            for tool in request["toolConfig"]["tools"]:
+                schema = tool["toolSpec"]["inputSchema"]["json"]
+                assert schema["type"] == "object"
+                assert set(schema) <= {"type", "properties", "required"}
+            name = request["toolConfig"]["toolChoice"]["tool"]["name"]
+            context = holder["context"]
+            invocation = len(context.nodes)
+            arguments = {}
+            if name == "PlanningWire":
+                counts[invocation] = counts.get(invocation, 0) + 1
+                arguments = (payload(context, counts[invocation]) if payload else _wire(context.dossier))
+            if name == "PlanningWire" and provider_error:
+                raise EventStreamError({"Error": {"Code": "modelStreamErrorException",
+                    "Message": "Offline injected provider ToolUse failure"}}, "ConverseStream")
+            return {"output": {"message": {"role": "assistant", "content": [{"toolUse": {
+                "toolUseId": f"offline-{len(requests)}", "name": name, "input": arguments}}]}},
+                "stopReason": "tool_use", "usage": {"inputTokens": 0, "outputTokens": 0, "totalTokens": 0},
+                "metrics": {"latencyMs": 0}}
+
         def converse_stream(self, **request):
             requests.append(deepcopy(request))
             for tool in request["toolConfig"]["tools"]:

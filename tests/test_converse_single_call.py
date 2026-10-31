@@ -174,7 +174,8 @@ def test_sdk_compatibility_resubmission_is_blocked_before_second_client_io_witho
     messages = [{"role": "assistant", "content": [{"toolUse": {
         "toolUseId": "previous", "name": "EarlierTool", "input": {}}}]},
         {"role": "user", "content": [{"toolResult": {"toolUseId": "previous", "status": "success",
-            "content": [{"text": "Original result"}]}}, {"text": "Original adjacent conversation"}]}]
+            "content": [{"text": "Original result"}]}}]},
+        {"role": "user", "content": [{"text": "Original adjacent conversation"}]}]
     saved = deepcopy(messages)
     with pytest.raises(RuntimeError, match="single Converse client-call budget"):
         asyncio.run(_collect(model, messages))
@@ -511,3 +512,22 @@ def test_noncallable_client_metadata_is_preserved_while_unused_rpc_methods_stay_
     # The existing real-SDK request/conversion tests also exercise this exact proxy.
     events = asyncio.run(_collect(model))
     assert events and len(client.calls) == 1 and client.stream_calls == []
+
+
+def test_mixed_single_user_message_does_not_trigger_sdk_adjacent_turn_compatibility_resubmission():
+    def fail(request):
+        raise ClientError({"Error": {"Code": "ValidationException",
+                                     "Message": sdk._TOOL_RESULT_TURN_VALIDATION_MESSAGE}}, "Converse")
+    client = _Client(fail)
+    model = _wrapper(client)
+    messages = [{"role": "assistant", "content": [{"toolUse": {
+        "toolUseId": "previous", "name": "EarlierTool", "input": {}}}]},
+        {"role": "user", "content": [{"toolResult": {"toolUseId": "previous", "status": "success",
+            "content": [{"text": "Original result"}]}}, {"text": "Original adjacent conversation"}]}]
+    saved = deepcopy(messages)
+    assert model.delegate._separate_tool_result_turns(messages) == messages
+    with pytest.raises(ClientError):
+        asyncio.run(_collect(model, messages))
+    assert len(client.calls) == 1 and client.stream_calls == []
+    assert messages == saved and model.delegate._tool_result_turn_separation_model_id is None
+    assert adapter._PROVIDER_CALL_LEDGER.get() is None
