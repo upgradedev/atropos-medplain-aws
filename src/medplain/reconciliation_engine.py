@@ -7,6 +7,7 @@ import json
 import os
 import re
 import secrets
+from copy import deepcopy
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
@@ -446,6 +447,17 @@ def _fixture_planning_draft(dossier: dict, selection: dict) -> dict:
     return {"selection": selection, "review": review}
 
 
+def _covered_question_scopes(statements: list[dict], floor: list[dict], language: str) -> list[dict]:
+    """Join each rendered question to only its existing original citations."""
+    by_id = {row["statement_id"]: row for row in statements}
+    return [{"issue_id": row["issue_id"], "question_code": row["question_code"],
+             "question_text": _TEXT[language][row["question_code"]],
+             "question_meaning_en": _TEXT["en"][row["question_code"]],
+             "statement_ids": list(row["statement_ids"]),
+             "source_statements": [deepcopy(by_id[sid]) for sid in row["statement_ids"]]}
+            for row in floor]
+
+
 def _tools(context: Context) -> dict[str, list]:
     @tool
     def read_reconciliation_sources() -> dict:
@@ -460,7 +472,7 @@ def _tools(context: Context) -> dict[str, list]:
 
     @tool
     def check_reconciliation_constraints() -> dict:
-        """Read caregiver context, clinical passages and already-rendered checks separately; plan additional relationships."""
+        """Read complete evidence and each rendered question's exact cited scope; assess additional relationships."""
         if not context.index_verified:
             raise ValueError("Original source coverage has not been verified")
         statements = source_statements(context.dossier)
@@ -488,6 +500,7 @@ def _tools(context: Context) -> dict[str, list]:
                 "already_rendered_checks": [{**row,
                     "question_text": _TEXT[context.dossier["language"]][row["question_code"]],
                     "question_meaning_en": _TEXT["en"][row["question_code"]]} for row in floor],
+                "covered_question_scopes": _covered_question_scopes(statements, floor, context.dossier["language"]),
                 "question_catalog": {code: {"meaning_en": _TEXT["en"][code],
                     "rendered_text": _TEXT[context.dossier["language"]][code]} for code in QUESTION_CODES},
                 "code_eligibility": {"scope": "Unchanged validator preconditions only. Eligibility is not relevance, a gold answer or a recommended question plan. Empty witness lists mean that code cannot be supported by this source. All citations must be distinct current source IDs; teachback belongs only in its own section.",
@@ -495,7 +508,7 @@ def _tools(context: Context) -> dict[str, list]:
                 "caregiver_concerns": context.dossier["caregiver_concerns"],
                 "allowed_question_codes": ["compare_instructions", "confirm_intentional_change", "confirm_taper",
                     "confirm_hold_restart", "confirm_identity_form", "confirm_pending_owner", "caregiver_question", "teachback", "confirm_interaction_review"],
-                "scope": "Select additional relationships among original passages, including caregiver_note documents even when caregiver_concerns is empty. Already-rendered checks already have questions. Proposed links are not verified clinical errors or resolved prescriptions."}
+                "scope": "Select additional relationships among original passages, including caregiver_note documents even when caregiver_concerns is empty. Each rendered question applies only to its stated meaning and cited statement_ids. A check does not establish coverage or resolution of uncited caregiver or source context. Assess additional relationships using their complete evidence groups. Proposed links are not verified clinical errors or resolved prescriptions."}
 
     @tool
     def lookup_reconciliation_references() -> dict:
