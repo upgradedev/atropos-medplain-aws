@@ -6,6 +6,8 @@ Built as a prototype for adults leaving hospital with changed medicines and limi
 
 [Open the anonymous AWS demo](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/) · [Source and CI](https://github.com/upgradedev/atropos-medplain-aws/actions)
 
+[Download the narrated walkthrough, 2:48](https://github.com/upgradedev/atropos-medplain-aws/releases/download/medplain-demo-video-20261102/medplain-demo.mp4), with [captions and media verification](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-demo-video-20261102). Current prepared examples, historical actual Bedrock drills and retained measurement failures carry separate source labels. Public YouTube hosting and the Builder Center article/submission are pending. Technical and sampled visual checks passed; semantic audio listening remains unverified.
+
 The latest completed thirty-case comparison remains historical `43d6244`: **25/30 verified cards, TP9 / FP2 / FN6 and 81.8% precision**, versus baseline 30/30 and 66.7%. H10 later produced three cards with two strict passes; H11 refused its first job before a planner output. Their full comparisons were blocked. The [H12 diagnostic at `efe6c3e`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-converse-diagnostic-efe6c3e) delivered one verified card and then refused the second case after a provider ToolUse error. Eleven diagnostics and all thirty comparison cases remain unexecuted. Neither the 30/30 nor 12 TP target is claimed.
 
 ## Try the safety boundary
