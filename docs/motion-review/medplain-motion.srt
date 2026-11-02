@@ -1,0 +1,164 @@
+1
+00:00:00,000 --> 00:00:04,191
+The hardest discharge question can arrive after the patient gets home.
+
+2
+00:00:04,574 --> 00:00:08,916
+A caregiver has an old medicine bottle, a new discharge sheet, and
+
+3
+00:00:08,975 --> 00:00:10,902
+a test result still to come.
+
+4
+00:00:11,285 --> 00:00:15,116
+The family needs to understand the changes while helping someone recover.
+
+5
+00:00:15,627 --> 00:00:21,212
+Which instruction needs clarification, and who owns the next step?
+
+6
+00:00:22,024 --> 00:00:25,275
+Atropos MedPlain brings those questions into one review.
+
+7
+00:00:25,716 --> 00:00:29,907
+In this synthetic prototype, you bring the original documents and the
+caregiver's
+
+8
+00:00:29,953 --> 00:00:31,033
+concern together.
+
+9
+00:00:31,358 --> 00:00:36,803
+Strands coordinates agents that index the evidence, connect relevant
+passages, and build
+
+10
+00:00:36,850 --> 00:00:38,951
+an inspectable clarification card.
+
+11
+00:00:39,392 --> 00:00:44,431
+In another retained case, it linked a caregiver's "heart pill" and "XL"
+
+12
+00:00:44,640 --> 00:00:48,378
+to source passages that raised an identity or formulation question.
+
+13
+00:00:48,761 --> 00:00:52,593
+Deterministic rules preserve the supported clinical facts throughout.
+
+14
+00:00:53,034 --> 00:00:56,668
+The review screen separates mandatory checks from AI proposals.
+
+15
+00:00:56,993 --> 00:01:00,441
+Each question points back to its sources, so the care team can
+
+16
+00:01:00,487 --> 00:01:03,599
+inspect the evidence and decide what needs clarification.
+
+17
+00:01:03,924 --> 00:01:08,336
+The card keeps the original wording and leaves the medication regimen
+unresolved,
+
+18
+00:01:08,463 --> 00:01:10,391
+with the decision in human hands.
+
+19
+00:01:11,087 --> 00:01:14,315
+The safety gate then checks what can reach the patient.
+
+20
+00:01:14,826 --> 00:01:19,365
+In an earlier test, we deliberately changed a pressure condition after
+generation.
+
+21
+00:01:19,748 --> 00:01:24,834
+The gate refused it, and Strands sent the work through fresh verification
+and correction.
+
+22
+00:01:25,437 --> 00:01:27,968
+Linked receipts retain both outcomes.
+
+23
+00:01:28,351 --> 00:01:31,555
+If verification cannot finish, the card stays withheld.
+
+24
+00:01:32,159 --> 00:01:35,596
+A complex card reaches the public view only after review of that
+
+25
+00:01:35,642 --> 00:01:36,838
+exact artifact.
+
+26
+00:01:37,349 --> 00:01:40,971
+Patients can choose larger text or start local device speech.
+
+27
+00:01:41,668 --> 00:01:47,124
+Bounded English or Greek questions appear alongside unchanged original
+quotations.
+
+28
+00:01:47,565 --> 00:01:52,534
+This release displays teach-back prompts; patient responses are not
+assessed in the
+
+29
+00:01:52,569 --> 00:01:53,811
+deployed application.
+
+30
+00:01:54,137 --> 00:01:55,704
+The results are mixed.
+
+31
+00:01:56,145 --> 00:02:01,811
+On thirty known synthetic cases, the agents found nine annotated
+relationships versus
+
+32
+00:02:01,904 --> 00:02:04,923
+four for the full baseline, with higher precision.
+
+33
+00:02:05,201 --> 00:02:09,439
+They delivered twenty-five cards, and five refusals remained.
+
+34
+00:02:09,764 --> 00:02:14,652
+The latest diagnostic also stopped after one verified card and one
+refusal,
+
+35
+00:02:14,931 --> 00:02:17,055
+leaving its comparison unrun.
+
+36
+00:02:17,659 --> 00:02:20,608
+We publish those limits alongside the successes.
+
+37
+00:02:20,991 --> 00:02:22,825
+Clinical benefit is unmeasured.
+
+38
+00:02:23,150 --> 00:02:27,481
+Try the anonymous demo, trace a card back to its sources, and
+
+39
+00:02:27,690 --> 00:02:29,954
+inspect the complete evidence.
