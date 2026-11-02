@@ -1,0 +1,12 @@
+{
+  "status": "root_requested_after_independent_source_and_input_review",
+  "independent_review_sha256": "29736d52a9493fda5a58aaf2783f7c0e59c30bf56541724dba40f00e1a22e8e1",
+  "source_tag": "medplain-video-inputs-20261102-v3",
+  "source_archive_sha256": "2ff29133ea75662a1371df91dab353dd6cf3a4ace468b84496cca062bcba5828",
+  "source_manifest_sha256": "9e5ead2d7df0542ce85a61f3122ef894051e37711d4e6d450bf9424c07f08e29",
+  "renderer_sha256": "14592d9d41dfe43977c8718862d8daf62982924949f2a4f1779b8674b65e75cc",
+  "checker_sha256": "eb88b4f106b6cbff2ada609768e958730697dbdcc415e5ea8f2181fad4f7b3a4",
+  "live_readiness_sha256": "d212df24aca93f3167fe28d0792a6fea6a80c61d7d4f1bf4f1a25a053fbccd4a",
+  "request_validator_sha256": "b014928e2a6a1bf9f388d20309b8362ac30c6ab2c9c77b8d6f5db25d78667659",
+  "workflow_sha256": "0f3e8182750a8e60509bf2f8877b683755dbd36679de735763be17c33f644cbc"
+}
