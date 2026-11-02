@@ -1,0 +1,13 @@
+{
+  "status": "root_requested_after_independent_source_and_input_review",
+  "mode": "prototype",
+  "independent_review_sha256": "854e8abf3a149d3dedd3f94e26b2239c81f481b759d4ddf8233c02849e5783f2",
+  "graphics_sha256": "cafc87a88ce797e450d73cc5533a9b265250a4dc3b3115a6c8bff58caa5d2baa",
+  "renderer_sha256": "a0f736a2feea8eab5342d0778ee4a34ca31031b31770b7297ba42e03cba12095",
+  "checker_sha256": "310ab285a227e4f52fa6fd3277850953d06059ef2de27170dd1fe2f89756c0b2",
+  "request_validator_sha256": "0fb9ed2fb44dee4ef3988f88d0ba4590ee219d55ac796a3626057e301199829a",
+  "workflow_sha256": "64edebd04aa884293a52cbe83394d187fdf9dd8edc75aa282a8875380b95f338",
+  "audio_helpers_sha256": "808d7428b122e5fcd3810013bd9462dff103cf5c3922204a7fd0a7108d41f269",
+  "legacy_helpers_sha256": "14592d9d41dfe43977c8718862d8daf62982924949f2a4f1779b8674b65e75cc",
+  "live_readiness_sha256": "d212df24aca93f3167fe28d0792a6fea6a80c61d7d4f1bf4f1a25a053fbccd4a"
+}
