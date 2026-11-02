@@ -1,0 +1,85 @@
+name: MedPlain Continuous Pitch Video
+
+on:
+  push:
+    branches:
+      - codex/medplain-video-pitch-20261102
+      - codex/medplain-pitch-render-20261102
+    paths:
+      - video/pitch-render-request.json
+      - scripts/pitch_video.py
+      - scripts/check_pitch_video_source.py
+      - scripts/prepare_pitch_video_request.py
+      - .github/workflows/pitch-video.yml
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: Exact tag in the independently reviewed committed pitch request
+        required: true
+        type: string
+      source_archive_sha256:
+        description: Exact reviewed medplain-pitch-source.zip SHA-256
+        required: true
+        type: string
+      source_manifest_sha256:
+        description: Exact reviewed manifest.json SHA-256
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  continuous-pitch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SOURCE_TAG: ${{ inputs.source_tag }}
+      SOURCE_ARCHIVE_SHA: ${{ inputs.source_archive_sha256 }}
+      SOURCE_MANIFEST_SHA: ${{ inputs.source_manifest_sha256 }}
+      GH_TOKEN: ${{ github.token }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify independent source controls without media or dependencies
+        run: python -B scripts/check_pitch_video_source.py
+      - name: Validate root-reviewed request and exact code/input pins
+        id: request
+        run: python -B scripts/prepare_pitch_video_request.py
+      - name: Read only the reviewed media input archive
+        if: steps.request.outputs.render == 'true'
+        run: |
+          mkdir -p artifacts/input-download
+          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --pattern medplain-pitch-source.zip --dir artifacts/input-download
+          python -B scripts/pitch_video.py unpack --archive artifacts/input-download/medplain-pitch-source.zip --sha256 "$SOURCE_ARCHIVE_SHA" --output artifacts/pitch-inputs
+          python -B scripts/pitch_video.py validate-inputs --inputs artifacts/pitch-inputs --manifest-sha256 "$SOURCE_MANIFEST_SHA"
+      - name: Prepare FFmpeg in CI only
+        if: steps.request.outputs.render == 'true'
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -version
+          ffprobe -version
+      - name: Require anonymous HTTP200 and exact frozen runtime
+        if: steps.request.outputs.render == 'true'
+        run: python -B scripts/check_demo_video_live.py --output artifacts/readiness/pitch-live-source.json
+      - name: Render one continuous narration and aligned captured images
+        if: steps.request.outputs.render == 'true'
+        run: python -B scripts/pitch_video.py render --inputs artifacts/pitch-inputs --manifest-sha256 "$SOURCE_MANIFEST_SHA" --output artifacts/pitch-render
+      - name: Retain complete inputs, raw diagnostics, output and failed partials
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medplain-continuous-pitch-${{ github.sha }}
+          path: |
+            artifacts/input-download/
+            artifacts/pitch-inputs/
+            artifacts/pitch-render/
+            artifacts/readiness/
+          if-no-files-found: warn
+          retention-days: 14
