@@ -8,7 +8,11 @@ import re
 FILES = {"graphics_sha256": "scripts/motion_graphics.py", "renderer_sha256": "scripts/motion_video.py",
          "checker_sha256": "scripts/check_motion_video_source.py", "request_validator_sha256": "scripts/prepare_motion_video_request.py",
          "workflow_sha256": ".github/workflows/motion-video.yml", "audio_helpers_sha256": "scripts/pitch_video.py",
-         "legacy_helpers_sha256": "scripts/demo_video.py", "live_readiness_sha256": "scripts/check_demo_video_live.py"}
+         "legacy_helpers_sha256": "scripts/demo_video.py", "live_readiness_sha256": "scripts/check_demo_video_live.py",
+         "replay_stage_sha256": "scripts/motion-replay-v1/motion-replay-stage-v1.py",
+         "replay_capture_sha256": "scripts/motion-replay-v1/motion-replay-capture-v1.py",
+         "replay_harness_sha256": "scripts/motion-replay-v1/motion-replay-harness-v1.tsx",
+         "replay_transport_sha256": "scripts/motion-replay-v1/motion-replay-api-v1.ts"}
 
 
 def main():
@@ -32,9 +36,9 @@ def main():
     pins = {"MOTION_MODE": value["mode"]}
     if value["mode"] == "full":
         pins.update(SOURCE_TAG=value["source_tag"], SOURCE_ARCHIVE_SHA=value["source_archive_sha256"],
-                    SOURCE_MANIFEST_SHA=value["source_manifest_sha256"])
+                    SOURCE_MANIFEST_SHA=value["source_manifest_sha256"], REPLAY_PROJECTION_SHA=value["replay_projection_sha256"])
         assert re.fullmatch(r"medplain-motion-inputs-[a-zA-Z0-9._-]{1,60}", pins["SOURCE_TAG"])
-        assert all(re.fullmatch(r"[0-9a-f]{64}", pins[key]) for key in ("SOURCE_ARCHIVE_SHA", "SOURCE_MANIFEST_SHA"))
+        assert all(re.fullmatch(r"[0-9a-f]{64}", pins[key]) for key in ("SOURCE_ARCHIVE_SHA", "SOURCE_MANIFEST_SHA", "REPLAY_PROJECTION_SHA"))
         if event == "workflow_dispatch":
             assert all(os.environ[key] == value for key, value in pins.items()), "Dispatch changed reviewed motion inputs"
     with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:

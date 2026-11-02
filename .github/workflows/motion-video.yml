@@ -11,6 +11,7 @@ on:
       - scripts/motion_video.py
       - scripts/check_motion_video_source.py
       - scripts/prepare_motion_video_request.py
+      - scripts/motion-replay-v1/**
       - .github/workflows/motion-video.yml
   workflow_dispatch:
     inputs:
@@ -28,6 +29,9 @@ on:
       source_manifest_sha256:
         description: Reviewed full-input manifest digest; empty for prototype
         type: string
+      replay_projection_sha256:
+        description: Reviewed immutable original English artifact projection; empty for prototype
+        type: string
 
 permissions:
   contents: read
@@ -41,6 +45,7 @@ jobs:
       SOURCE_TAG: ${{ inputs.source_tag }}
       SOURCE_ARCHIVE_SHA: ${{ inputs.source_archive_sha256 }}
       SOURCE_MANIFEST_SHA: ${{ inputs.source_manifest_sha256 }}
+      REPLAY_PROJECTION_SHA: ${{ inputs.replay_projection_sha256 }}
       GH_TOKEN: ${{ github.token }}
       AWS_EC2_METADATA_DISABLED: 'true'
     steps:
@@ -82,9 +87,69 @@ jobs:
       - name: Require anonymous HTTP200 and exact frozen application source
         if: steps.request.outputs.render == 'true' && env.MOTION_MODE == 'full'
         run: python -B scripts/check_demo_video_live.py --output artifacts/readiness/motion-live-source.json
+      - uses: actions/setup-node@v4
+        if: steps.request.outputs.render == 'true' && env.MOTION_MODE == 'full'
+        with:
+          node-version: '22'
+      - name: Stage an immutable historical replay in a temporary CI web copy
+        if: steps.request.outputs.render == 'true' && env.MOTION_MODE == 'full'
+        run: |
+          python -B scripts/motion-replay-v1/motion-replay-stage-v1.py \
+            --repository "$GITHUB_WORKSPACE" \
+            --projection artifacts/motion-inputs/historical-english-383.json \
+            --projection-sha256 "$REPLAY_PROJECTION_SHA" \
+            --templates scripts/motion-replay-v1 \
+            --output "$RUNNER_TEMP/medplain-replay-$GITHUB_RUN_ID"
+      - name: Build the temporary replay with the unchanged existing lock
+        if: steps.request.outputs.render == 'true' && env.MOTION_MODE == 'full'
+        run: |
+          npm ci --prefix "$RUNNER_TEMP/medplain-replay-$GITHUB_RUN_ID/web" --no-audit --no-fund
+          npm run build --prefix "$RUNNER_TEMP/medplain-replay-$GITHUB_RUN_ID/web"
+      - name: Install browser capture dependencies in CI only
+        if: steps.request.outputs.render == 'true' && env.MOTION_MODE == 'full'
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir playwright==1.51.0
+          python -m playwright install --with-deps chromium
+      - name: Capture the unchanged English artifact and bind the derived manifest
+        if: steps.request.outputs.render == 'true' && env.MOTION_MODE == 'full'
+        run: |
+          python -B scripts/motion-replay-v1/motion-replay-capture-v1.py \
+            --web-build "$RUNNER_TEMP/medplain-replay-$GITHUB_RUN_ID/web/dist" \
+            --projection artifacts/motion-inputs/historical-english-383.json \
+            --projection-sha256 "$REPLAY_PROJECTION_SHA" \
+            --stage-proof "$RUNNER_TEMP/medplain-replay-$GITHUB_RUN_ID/stage-proof.json" \
+            --stager scripts/motion-replay-v1/motion-replay-stage-v1.py \
+            --parent-manifest artifacts/motion-inputs/manifest.json \
+            --parent-sha256 "$SOURCE_MANIFEST_SHA" \
+            --output artifacts/motion-inputs/replay
+          cp "$RUNNER_TEMP/medplain-replay-$GITHUB_RUN_ID/stage-proof.json" artifacts/motion-inputs/replay/stage-proof.json
+          cp -r "$RUNNER_TEMP/medplain-replay-$GITHUB_RUN_ID/web/dist" artifacts/motion-inputs/replay/build
+          python -B - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path('artifacts/motion-inputs')
+          path=root/'derived-manifest.json'
+          digest=hashlib.sha256(path.read_bytes()).hexdigest()
+          build=root/'replay/build'
+          rows=[{'path':p.relative_to(build).as_posix(),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(build.rglob('*')) if p.is_file()]
+          proof={'status':'retained_actual_CI_replay_build','files':rows,'capture_proof_sha256':hashlib.sha256((root/'replay/capture-proof.json').read_bytes()).hexdigest(),'parent_manifest_sha256':os.environ['SOURCE_MANIFEST_SHA'],'derived_manifest_sha256':digest}
+          (root/'replay/build-proof.json').write_text(json.dumps(proof,indent=2)+'\n',encoding='utf-8')
+          with open(os.environ['GITHUB_ENV'],'a') as stream:
+              stream.write(f'DERIVED_MOTION_MANIFEST_SHA={digest}\n')
+          PY
+      - name: Retain captured evidence before streaming the full movie
+        if: steps.request.outputs.render == 'true' && env.MOTION_MODE == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: medplain-English-replay-${{ github.sha }}
+          path: |
+            artifacts/motion-inputs/replay/
+            artifacts/motion-inputs/manifest.json
+            artifacts/motion-inputs/derived-manifest.json
+          retention-days: 14
       - name: Stream the reviewed continuous motion pitch without a PNG sequence
         if: steps.request.outputs.render == 'true' && env.MOTION_MODE == 'full'
-        run: python -B scripts/motion_video.py render --inputs artifacts/motion-inputs --manifest-sha256 "$SOURCE_MANIFEST_SHA" --output artifacts/motion-render
+        run: python -B scripts/motion_video.py render --inputs artifacts/motion-inputs --manifest-name derived-manifest.json --manifest-sha256 "$DERIVED_MOTION_MANIFEST_SHA" --output artifacts/motion-render
       - name: Retain complete sources, raw reports, motion proof and failed partials
         if: always()
         uses: actions/upload-artifact@v4
@@ -96,5 +161,6 @@ jobs:
             artifacts/motion-inputs/
             artifacts/motion-render/
             artifacts/readiness/
+            ${{ runner.temp }}/medplain-replay-${{ github.run_id }}/stage-proof.json
           if-no-files-found: warn
           retention-days: 14
