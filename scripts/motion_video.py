@@ -30,8 +30,9 @@ def english_copy(value):
             and all(not char.isalpha() or "LATIN" in unicodedata.name(char, "") for char in value))
 
 
-def load_plan(root, expected):
-    manifest = root / "manifest.json"
+def load_plan(root, expected, manifest_name="manifest.json"):
+    require(manifest_name in {"manifest.json", "derived-manifest.json"}, "Unapproved motion manifest name")
+    manifest = root / manifest_name
     require(legacy.HASH.fullmatch(expected or "") and legacy.digest(manifest) == expected, "Reviewed motion manifest changed")
     plan = json.loads(manifest.read_bytes())
     require(plan["schema"] == SCHEMA and plan["runtime_commit"] == legacy.RUNTIME, "Wrong motion/runtime identity")
@@ -160,8 +161,8 @@ def prototype(output):
     print(json.dumps({"status": proof["status"], "video_sha256": proof["video_sha256"]}))
 
 
-def render(root, expected, output):
-    plan, alignment = load_plan(root, expected)
+def render(root, expected, output, manifest_name="manifest.json"):
+    plan, alignment = load_plan(root, expected, manifest_name)
     require(not output.exists(), "Preserve earlier motion render and failed partials")
     output.mkdir(parents=True)
     output = output.resolve()
@@ -185,7 +186,8 @@ def render(root, expected, output):
     captions.write_text("\n\n".join(f"{index}\n{legacy.clock(a)} --> {legacy.clock(b)}\n{text}"
                                    for index, (a, b, text) in enumerate(cues, 1)) + "\n", encoding="utf-8")
     proof = {"status": "rendered_motion_pitch_pending_quality_and_human_review", "schema": SCHEMA,
-             "manifest_sha256": expected, "runtime_commit": legacy.RUNTIME, "repository_commit": plan["repository_commit"],
+             "manifest_sha256": expected, "manifest_name": manifest_name,
+             "runtime_commit": legacy.RUNTIME, "repository_commit": plan["repository_commit"],
              "representation": REPRESENTATION, "english_review_sha256": plan["english_review_sha256"],
              "audio_policy": plan["audio_policy"], "source_audio_sha256": legacy.digest(original),
              "continuous_pcm_sha256": legacy.digest(raw_master), "continuous_audio_seconds": seconds,
@@ -209,12 +211,13 @@ def main():
     full = sub.add_parser("render")
     full.add_argument("--inputs", type=Path, required=True)
     full.add_argument("--manifest-sha256", required=True)
+    full.add_argument("--manifest-name", choices=("manifest.json", "derived-manifest.json"), default="manifest.json")
     full.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.action == "prototype":
         prototype(args.output)
     else:
-        render(args.inputs.resolve(), args.manifest_sha256, args.output)
+        render(args.inputs.resolve(), args.manifest_sha256, args.output, args.manifest_name)
 
 
 if __name__ == "__main__":

@@ -74,6 +74,17 @@ with tempfile.TemporaryDirectory() as temporary:
         return motion.load_plan(root, legacy.digest(root / "manifest.json"))
 
     assert len(load(plan)[0]["shots"]) == 12
+    parent_digest = legacy.digest(root / "manifest.json")
+    derived = root / "derived-manifest.json"
+    derived.write_bytes(legacy.encoded(plan))
+    derived_digest = legacy.digest(derived)
+    assert len(motion.load_plan(root, derived_digest, "derived-manifest.json")[0]["shots"]) == 12
+    assert legacy.digest(root / "manifest.json") == parent_digest
+    controls.append(rejected("manifest_name_path_escape", lambda: motion.load_plan(root, parent_digest, "../manifest.json")))
+    controls.append(rejected("unapproved_manifest_name", lambda: motion.load_plan(root, parent_digest, "alternate.json")))
+    derived.write_bytes(legacy.encoded({**plan, "status": "CONSTRUCTED_HASH_DRIFT"}))
+    controls.append(rejected("derived_manifest_hash_drift", lambda: motion.load_plan(root, derived_digest, "derived-manifest.json")))
+    assert legacy.digest(root / "manifest.json") == parent_digest
     alternate = deepcopy(plan)
     alternate["shots"][2]["capture_alt"] = deepcopy(frame)
     assert len(load(alternate)[0]["shots"]) == 12
