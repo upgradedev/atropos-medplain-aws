@@ -7,6 +7,7 @@ on:
       - video/render-request.json
       - scripts/demo_video.py
       - scripts/check_demo_video_source.py
+      - scripts/check_demo_video_live.py
       - scripts/prepare_demo_video_request.py
       - .github/workflows/demo-video.yml
   workflow_dispatch:
@@ -62,6 +63,9 @@ jobs:
           fi
           ffmpeg -version
           ffprobe -version
+      - name: Require anonymous live 200 and exact recording source
+        if: steps.request.outputs.render == 'true'
+        run: python scripts/check_demo_video_live.py --output artifacts/readiness/live-source.json
       - name: Render modular beats, captions and one final narration stream
         if: steps.request.outputs.render == 'true'
         run: python scripts/demo_video.py render --inputs artifacts/inputs --manifest-sha256 "$SOURCE_MANIFEST_SHA" --output artifacts/render
@@ -73,5 +77,6 @@ jobs:
           path: |
             artifacts/render/
             artifacts/input-download/
+            artifacts/readiness/
           if-no-files-found: warn
           retention-days: 14

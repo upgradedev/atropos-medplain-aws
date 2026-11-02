@@ -20,6 +20,7 @@ if event == "push":
     for field, path in {
         "renderer_sha256": "scripts/demo_video.py",
         "checker_sha256": "scripts/check_demo_video_source.py",
+        "live_readiness_sha256": "scripts/check_demo_video_live.py",
         "request_validator_sha256": "scripts/prepare_demo_video_request.py",
         "workflow_sha256": ".github/workflows/demo-video.yml",
     }.items():

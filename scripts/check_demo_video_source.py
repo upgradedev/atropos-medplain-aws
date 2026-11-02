@@ -62,6 +62,7 @@ validator = source_root / "scripts/prepare_demo_video_request.py"
 code_pins = {field: hashlib.sha256((source_root / name).read_bytes()).hexdigest() for field, name in {
     "renderer_sha256": "scripts/demo_video.py",
     "checker_sha256": "scripts/check_demo_video_source.py",
+    "live_readiness_sha256": "scripts/check_demo_video_live.py",
     "request_validator_sha256": "scripts/prepare_demo_video_request.py",
     "workflow_sha256": ".github/workflows/demo-video.yml",
 }.items()}
@@ -76,6 +77,7 @@ with tempfile.TemporaryDirectory() as temporary:
         case = Path(temporary) / name
         case.mkdir()
         for relative in ("scripts/demo_video.py", "scripts/check_demo_video_source.py",
+                         "scripts/check_demo_video_live.py",
                          "scripts/prepare_demo_video_request.py", ".github/workflows/demo-video.yml"):
             destination = case / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
