@@ -110,6 +110,19 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check --no-cache-dir playwright==1.51.0
           python -m playwright install --with-deps chromium
+      - name: Retain the compiled replay before capture, including on a later failure
+        if: steps.request.outputs.render == 'true' && env.MOTION_MODE == 'full'
+        run: |
+          cp -r "$RUNNER_TEMP/medplain-replay-$GITHUB_RUN_ID/web/dist" artifacts/motion-inputs/replay-build
+          cp "$RUNNER_TEMP/medplain-replay-$GITHUB_RUN_ID/stage-proof.json" artifacts/motion-inputs/replay-build-stage-proof.json
+          python -B - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('artifacts/motion-inputs')
+          build=root/'replay-build'
+          rows=[{'path':p.relative_to(build).as_posix(),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(build.rglob('*')) if p.is_file()]
+          (root/'replay-build-proof.json').write_text(json.dumps({'status':'retained_before_capture','files':rows},indent=2)+'\n',encoding='utf-8')
+          PY
       - name: Capture the unchanged English artifact and bind the derived manifest
         if: steps.request.outputs.render == 'true' && env.MOTION_MODE == 'full'
         run: |

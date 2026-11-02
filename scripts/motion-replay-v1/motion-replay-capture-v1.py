@@ -153,14 +153,16 @@ def capture(args):
             record("overview.png")
             proposal = page.get_by_test_id("context-proposal").first
             first = proposal.get_by_test_id("citation-group").first if proposal.count() else page.get_by_test_id("citation-group").first
-            first.locator("summary").click()
+            summary = first.locator(":scope > summary")
+            assert summary.count() == 1, "The selected citation group must have exactly one direct summary"
+            summary.click()
             if proposal.count():
                 proposal.evaluate("element => element.scrollIntoView({block:'start'})")
             else:
                 first.get_by_test_id("source-quotation").first.scroll_into_view_if_needed()
                 page.evaluate("window.scrollBy(0,-155)")
             record("cited-sources.png")
-            first.locator("summary").click()
+            summary.click()
             page.evaluate("window.scrollTo(0,0)")
             teachback = page.locator("section[aria-label='Caregiver understanding questions']")
             teachback.wait_for(state="visible")
