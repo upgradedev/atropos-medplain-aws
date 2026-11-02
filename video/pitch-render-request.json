@@ -1,0 +1,13 @@
+{
+  "status": "root_requested_after_independent_source_and_input_review",
+  "independent_review_sha256": "c8abe3633d41ce040ac8d5bc5249db7004acfcd99202c271cfba3fde2513fa5e",
+  "source_tag": "medplain-pitch-inputs-20261102-v3",
+  "source_archive_sha256": "1ba0422ce88db4d049ffb6c958ecba47c76fb733da46c21404047e2b1b175134",
+  "source_manifest_sha256": "c06530fb342cafd3d88b8a6b78a6b9d9c1a5967749317604666e916c38ed4f8d",
+  "renderer_sha256": "808d7428b122e5fcd3810013bd9462dff103cf5c3922204a7fd0a7108d41f269",
+  "legacy_helpers_sha256": "14592d9d41dfe43977c8718862d8daf62982924949f2a4f1779b8674b65e75cc",
+  "checker_sha256": "3ef30e6aa70dc374ae2b80a53440fe0cf47659b2cc414f6148262f0f44f83b5a",
+  "live_readiness_sha256": "d212df24aca93f3167fe28d0792a6fea6a80c61d7d4f1bf4f1a25a053fbccd4a",
+  "request_validator_sha256": "1aa37830af8b82748b02130e42bd88d916f624db4fa7f75bb54435275cdf40ca",
+  "workflow_sha256": "62619a7e7a538b4847325467ccfacf0564deeddca4bf753848b57a8945f90efd"
+}
