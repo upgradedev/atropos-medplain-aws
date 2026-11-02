@@ -100,11 +100,52 @@ with tempfile.TemporaryDirectory() as temporary:
     assert signal["dc_offset_fraction_fs"] == (512 * 1200 - 1) / 2002 / 32768
     assert signal["rail_clipped_sample_count"] == 2
     assert signal["longest_exact_zero_run_seconds"] == 800 / pitch.RATE
+    silent_pcm = root / "silent-control.wav"
+    with wave.open(str(silent_pcm), "wb") as stream:
+        stream.setparams((1, 2, pitch.RATE, 0, "NONE", "not compressed"))
+        stream.writeframes(b"\0\0" * pitch.RATE)
+    controls.append(rejected("entirely_silent_pcm", lambda: pitch.pcm_signal_metrics(silent_pcm)))
     quality = pitch.parse_audio_reports("silence_start: 10\nsilence_end: 14\n",
                                        '{"input_i":"-19.1","input_tp":"-0.5"}', 25)
     assert quality["longest_internal_silence_seconds"] == 4
-    assert quality["quality_review_flags"] == ["internal_silence_over_1_5_seconds"]
+    assert quality["quality_review_flags"] == ["interior_silence_at_least_1_5_seconds"]
     controls.append(rejected("missing_loudness_measurement", lambda: pitch.parse_audio_reports("", "", 25)))
+    controls.append(rejected("entirely_silent_loudness", lambda: pitch.parse_audio_reports(
+        "silence_start: 0\nsilence_end: 25\n", '{"input_i":"-inf","input_tp":"-inf"}', 25)))
+    clean_signal = {"dc_offset_fraction_fs": 0, "rail_clipped_sample_count": 0}
+
+    def quality_gate(silence="", source_signal=None, final_signal=None, intervals=None):
+        measured = pitch.parse_audio_reports(silence, '{"input_i":"-19.1","input_tp":"-0.5"}', 25)
+        measured["source_pcm_signal"] = source_signal or deepcopy(clean_signal)
+        measured["final_pcm_signal"] = final_signal or deepcopy(clean_signal)
+        return pitch.quality_verdict(measured, intervals if intervals is not None else [(0, 12), (12, 25)])
+
+    assert quality_gate()["quality_ready"]
+    for name, value in [
+        ("leading_gap_blocks_ready", quality_gate("silence_start: 0\nsilence_end: 1.5\n")),
+        ("interior_gap_blocks_ready", quality_gate("silence_start: 10\nsilence_end: 11.5\n")),
+        ("trailing_gap_blocks_ready", quality_gate("silence_start: 23.5\n")),
+        ("source_dc_bias_blocks_ready", quality_gate(source_signal={**clean_signal, "dc_offset_fraction_fs": 0.00101})),
+        ("negative_final_dc_bias_blocks_ready", quality_gate(final_signal={**clean_signal, "dc_offset_fraction_fs": -0.00101})),
+        ("rail_clipped_source_blocks_ready", quality_gate(source_signal={**clean_signal, "rail_clipped_sample_count": 1})),
+        ("rail_clipped_final_blocks_ready", quality_gate(final_signal={**clean_signal, "rail_clipped_sample_count": 1})),
+        ("orphan_tail_blocks_ready", quality_gate(intervals=[(0, 24.8), (24.8, 25)])),
+        ("short_interior_caption_blocks_ready", quality_gate(intervals=[(0, 0.7), (0.7, 25)])),
+    ]:
+        assert value["quality_ready"] is False and value["status"] == "failed_video_quality_gate_review_required", name
+        assert value["quality_review_flags"], name
+        controls.append(name)
+    orphan_text = "Longword " * 12 + "Done."
+    orphan_starts = [index * 0.025 for index in range(len(orphan_text))]
+    orphan_mapping = {"character_start_times_seconds": orphan_starts,
+                      "character_end_times_seconds": [value + 0.01 for value in orphan_starts]}
+    repaired = pitch.aligned_captions(orphan_text, orphan_mapping, orphan_starts[-1] + 0.1)
+    assert len(repaired) == 1 and repaired[0][1] - repaired[0][0] >= 1
+    assert repaired[0][2].replace("\n", " ") == " ".join(orphan_text.split())
+    # When a short single cue can fit only by holding into real available silence, use that gap.
+    one_word = pitch.aligned_captions("Done.", {"character_start_times_seconds": [0.4] * 5,
+                                                "character_end_times_seconds": [0.6] * 5}, 1)
+    assert one_word == [(0.0, 1.0, "Done.")]
 
 source_root = Path(__file__).resolve().parent.parent
 request_controls = []

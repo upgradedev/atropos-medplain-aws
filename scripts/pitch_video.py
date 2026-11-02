@@ -22,6 +22,9 @@ import demo_video as legacy
 
 SCHEMA = "medplain-continuous-pitch-v1"
 POLICY = {"continuous": True, "padding_seconds": 0, "speed": 1, "music": False, "effects": []}
+QUALITY_POLICY = {"silence_threshold_dbfs": -45, "blocking_silence_seconds": 1.5,
+                  "maximum_absolute_dc_fraction_fs": 0.001, "maximum_rail_clipped_samples": 0,
+                  "minimum_caption_seconds": 1.0}
 REPRESENTATION = "Narrated walkthrough assembled from captured UI screenshots; no continuous screen recording claimed."
 FPS, RATE = legacy.FPS, legacy.RATE
 
@@ -133,7 +136,7 @@ def load_plan(root, expected):
     return plan, alignment
 
 
-def aligned_captions(text, alignment):
+def aligned_captions(text, alignment, audio_seconds=None):
     """Caption words use their provider times rather than word-count estimates."""
     starts, ends = alignment["character_start_times_seconds"], alignment["character_end_times_seconds"]
     words = list(re.finditer(r"\S+", text))
@@ -149,6 +152,34 @@ def aligned_captions(text, alignment):
     if group:
         result.append((starts[group[0].start()], ends[group[-1].end() - 1],
                        "\n".join(textwrap.wrap(" ".join(item.group() for item in group), 74))))
+    # Merge a short orphan with a readable neighbour, preserving the exact word sequence.
+    # Otherwise extend its display only into the observed gap before/after those words.
+    index = 0
+    while index < len(result):
+        start, end, caption = result[index]
+        if end - start < QUALITY_POLICY["minimum_caption_seconds"]:
+            merged = False
+            for left, right in ((index - 1, index), (index, index + 1)):
+                if 0 <= left < right < len(result):
+                    a, _, first = result[left]
+                    _, b, second = result[right]
+                    combined = " ".join((first + " " + second).split())
+                    if len(combined) <= 210 and b - a <= 8:
+                        result[left:right + 1] = [(a, b, "\n".join(textwrap.wrap(combined, 74)))]
+                        index, merged = max(0, left), True
+                        break
+            if merged:
+                continue
+            available_start = result[index - 1][1] if index else 0.0
+            available_end = result[index + 1][0] if index + 1 < len(result) else (
+                audio_seconds if audio_seconds is not None else ends[-1])
+            required = QUALITY_POLICY["minimum_caption_seconds"] - (end - start)
+            take_before = min(required, max(0, start - available_start))
+            start -= take_before
+            required -= take_before
+            end += min(required, max(0, available_end - end))
+            result[index] = (start, end, caption)
+        index += 1
     require(all(start < end and (index == 0 or start >= result[index - 1][1])
                 for index, (start, end, _) in enumerate(result)), "Overlapping or empty aligned captions")
     return result
@@ -255,7 +286,7 @@ def render(root, expected, output):
     audio_seconds = float(audio_info["format"]["duration"])
     pcm_signal = pcm_signal_metrics(master)
     total_frames, timeline = visual_timeline(plan, alignment, audio_seconds)
-    cues = aligned_captions(plan["narration"]["text"], alignment)
+    cues = aligned_captions(plan["narration"]["text"], alignment, audio_seconds)
     clips = []
     for index, item in enumerate(timeline):
         name = f"capture-{index:02}"
@@ -295,14 +326,15 @@ def render(root, expected, output):
              "timeline": timeline, "video_sha256": legacy.digest(video), "captions_sha256": legacy.digest(captions),
              "model_calls": 0, "application_requests": 0, "publication": False}
     (output / "render-proof.json").write_bytes(legacy.encoded(proof))
-    check(video, captions, output / "render-proof.json", output / "media-gate.json")
+    gate = check(video, captions, output / "render-proof.json", output / "media-gate.json")
     (output / "qa").mkdir()
     for index, item in enumerate(timeline):
         moment = (item["start_frame"] + min(FPS, item["frames"] / 2)) / FPS
         run(["ffmpeg", "-nostdin", "-v", "error", "-ss", str(moment), "-i", str(video), "-frames:v", "1",
              "-vf", "scale=960:-2", str(output / "qa" / f"{index:02}-{item['segment']}.png")])
-    print(json.dumps({"status": "rendered_and_technical_gate_passed_human_review_pending",
+    print(json.dumps({"status": gate["status"], "quality_ready": gate["quality_ready"],
                       "seconds": total_frames / FPS, "video_sha256": proof["video_sha256"]}))
+    require(gate["quality_ready"], "Video quality gate failed; retained MP4, raw reports and QA frames require review")
 
 
 def parse_audio_reports(silence_log, loudness_log, duration):
@@ -314,6 +346,10 @@ def parse_audio_reports(silence_log, loudness_log, duration):
     intervals = list(zip(starts, ends))
     require(all(0 <= start <= end <= duration + 0.05 for start, end in intervals), "Invalid silence interval")
     internal = [(start, end) for start, end in intervals if start > 0.1 and end < duration - 0.1]
+    classified = [{"start": start, "end": end, "duration": end - start,
+                   "position": "entire_stream" if start <= 0.1 and end >= duration - 0.1 else (
+                       "leading" if start <= 0.1 else "trailing" if end >= duration - 0.1 else "interior")}
+                  for start, end in intervals]
     candidates = re.findall(r"\{\s*\"input_i\".*?\}", loudness_log, re.S)
     require(candidates, "Loudness tool did not return its measured input report")
     level = json.loads(candidates[-1])
@@ -321,16 +357,35 @@ def parse_audio_reports(silence_log, loudness_log, duration):
     require(math.isfinite(integrated) and math.isfinite(peak), "Silent or non-finite narration levels")
     longest_internal = max((end - start for start, end in internal), default=0)
     return {"silence_threshold_db": -45, "silence_minimum_seconds": 0.8,
-            "silence_intervals": [{"start": start, "end": end} for start, end in intervals],
+            "silence_intervals": classified,
             "longest_internal_silence_seconds": longest_internal,
             "integrated_loudness_lufs": integrated, "true_peak_dbtp": peak,
-            "quality_review_flags": [name for name, condition in (
-                ("internal_silence_over_1_5_seconds", longest_internal > 1.5),
-                ("input_loudness_outside_minus30_to_minus10_lufs", not -30 <= integrated <= -10),
-                ("true_peak_above_zero_dbtp", peak > 0),
-            ) if condition],
+            "quality_review_flags": [f"{item['position']}_silence_at_least_1_5_seconds"
+                                     for item in classified if item["duration"] >= QUALITY_POLICY["blocking_silence_seconds"]],
             "loudness_input_measurements": level,
             "scope": "Signal measurements do not establish voice naturalness, absence of audible noise, semantic correctness or listening approval."}
+
+
+def quality_verdict(audio_qa, caption_intervals):
+    flags = list(audio_qa["quality_review_flags"])
+    for role in ("source_pcm_signal", "final_pcm_signal"):
+        signal = audio_qa[role]
+        if abs(signal["dc_offset_fraction_fs"]) > QUALITY_POLICY["maximum_absolute_dc_fraction_fs"]:
+            flags.append(role + "_dc_offset_exceeds_0_001_fs")
+        if signal["rail_clipped_sample_count"] > QUALITY_POLICY["maximum_rail_clipped_samples"]:
+            flags.append(role + "_rail_clipped_samples")
+    short = [{"cue": index + 1, "seconds": end - start,
+              "position": "unavoidable_last" if index == len(caption_intervals) - 1 else "interior_or_first"}
+             for index, (start, end) in enumerate(caption_intervals)
+             if end - start < QUALITY_POLICY["minimum_caption_seconds"] - 0.000001]
+    if short:
+        flags.append("unresolved_short_caption_tail" if all(item["position"] == "unavoidable_last" for item in short)
+                     else "unresolved_short_caption")
+    ready = not flags
+    return {"quality_ready": ready, "quality_policy": QUALITY_POLICY, "quality_review_flags": flags,
+            "caption_quality": {"minimum_seconds": QUALITY_POLICY["minimum_caption_seconds"], "short_cues": short},
+            "status": "passed_technical_quality_gate_human_audio_pixel_and_claim_review_required" if ready
+            else "failed_video_quality_gate_review_required"}
 
 
 def check(video, captions, render_proof, output):
@@ -341,7 +396,8 @@ def check(video, captions, render_proof, output):
     require(legacy.digest(video) == proof["video_sha256"] and legacy.digest(captions) == proof["captions_sha256"],
             "Rendered media bytes changed")
     info = legacy.probe(video)
-    result = legacy.validate_media(info, legacy.parse_srt(captions), proof["expected_frames"])
+    caption_intervals = legacy.parse_srt(captions)
+    result = legacy.validate_media(info, caption_intervals, proof["expected_frames"])
     silence = output.with_name("audio-silence.log")
     loudness = output.with_name("audio-loudness.log")
     silence_run = run(["ffmpeg", "-nostdin", "-hide_banner", "-i", str(video), "-vn", "-af",
@@ -357,13 +413,14 @@ def check(video, captions, render_proof, output):
          "-c:a", "pcm_s16le", str(decoded_final)], report=output.with_name("final-audio-decode.log"))
     audio_qa["source_pcm_signal"] = proof["source_pcm_signal"]
     audio_qa["final_pcm_signal"] = pcm_signal_metrics(decoded_final)
-    result.update(status="passed_technical_continuity_gate_human_audio_pixel_and_claim_review_required",
-                  source_manifest_sha256=proof["manifest_sha256"], video_sha256=legacy.digest(video),
+    result.update(quality_verdict(audio_qa, caption_intervals))
+    result.update(source_manifest_sha256=proof["manifest_sha256"], video_sha256=legacy.digest(video),
                   captions_sha256=legacy.digest(captions), audio_qa=audio_qa, ffprobe=info,
                   continuous_audio_seconds=proof["continuous_audio_seconds"],
                   visual_rounding_seconds=proof["visual_rounding_seconds"], runtime_commit=legacy.RUNTIME,
                   source_truth_claims_review="Required independently; this gate establishes no clinical benefit or model efficacy.")
     output.write_bytes(legacy.encoded(result))
+    return result
 
 
 def main():
