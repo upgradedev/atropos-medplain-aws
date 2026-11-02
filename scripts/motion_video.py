@@ -75,6 +75,14 @@ def load_plan(root, expected):
             captures += 1
         elif shot["kind"] == "ui":
             raise ValueError("Actual UI scene is missing its root-reviewed English capture")
+        if shot.get("capture_alt"):
+            require(bool(shot.get("capture")), "Alternate capture requires its original view")
+            pitch.validate_frame(root, shot["capture_alt"])
+            require(english_copy(shot["capture_alt"]["provenance_label"]), "Alternate view source label must be English")
+            require(Path(shot["capture_alt"]["image"]).name != "clarification-patient-accessible-mobile-375.png",
+                    "Greek revised patient capture cannot be an alternate English view")
+        if shot["id"] == "release":
+            require(shot["kind"] == "process" and not shot.get("capture"), "Release is a CGI process illustration, not a historical release event")
         previous = end
     require(captures >= 2 and len(identifiers) == len(set(identifiers)), "Need actual UI evidence and unique shots")
     require(abs(previous - max(alignment["character_end_times_seconds"])) <= 1 / FPS,

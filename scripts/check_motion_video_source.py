@@ -35,6 +35,10 @@ assert graphics.card_quad((0, 0), 100, 200, 0, 0, 0) == [(-50, -100), (50, -100)
 coefficients = graphics.perspective_coefficients([(0, 0), (100, 0), (100, 200), (0, 200)],
                                                 [(0, 0), (100, 0), (100, 200), (0, 200)])
 assert all(abs(a - b) < 1e-9 for a, b in zip(coefficients, (1, 0, 0, 0, 1, 0, 0, 0)))
+assert graphics.graph_labels("process", "release") == (["Verified artifact", "Human review", "Patient view"],
+                                                         ["Source-bound version", "Exact artifact decision", "Read-only after release"])
+assert graphics.selected_capture({"capture": "normal", "capture_alt": "large"}, 0.49) == "normal"
+assert graphics.selected_capture({"capture": "normal", "capture_alt": "large"}, 0.5) == "large"
 controls.append(rejected("degenerate_3d_card", lambda: graphics.perspective_coefficients([(0, 0)] * 4, [(0, 0)] * 4)))
 
 with tempfile.TemporaryDirectory() as temporary:
@@ -70,6 +74,9 @@ with tempfile.TemporaryDirectory() as temporary:
         return motion.load_plan(root, legacy.digest(root / "manifest.json"))
 
     assert len(load(plan)[0]["shots"]) == 12
+    alternate = deepcopy(plan)
+    alternate["shots"][2]["capture_alt"] = deepcopy(frame)
+    assert len(load(alternate)[0]["shots"]) == 12
     for name, mutate in [
         ("missing_intro", lambda value: value["shots"][0].update(kind="sources")),
         ("missing_closing", lambda value: value["shots"][-1].update(kind="sources")),
@@ -85,6 +92,8 @@ with tempfile.TemporaryDirectory() as temporary:
         ("capture_path_escape", lambda value: value["shots"][2]["capture"].update(image="../capture.png")),
         ("audio_policy_relaxed", lambda value: value["audio_policy"].update(padding_seconds=1.25)),
         ("current_source_promoted", lambda value: value["shots"][2]["capture"].update(kind="current_ui")),
+        ("alternate_capture_tampered", lambda value: value["shots"][2].update(capture_alt={**frame, "sha256": "0" * 64})),
+        ("captured_release_event_implied", lambda value: value["shots"][5].update(id="release", capture=deepcopy(frame))),
     ]:
         value = deepcopy(plan)
         mutate(value)

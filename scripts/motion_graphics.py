@@ -79,6 +79,24 @@ def perspective_coefficients(destination, source):
     return tuple(matrix[row][8] for row in range(8))
 
 
+def graph_labels(kind, identifier):
+    if kind == "architecture":
+        return (["Anonymous web", "API Lambda", "DynamoDB", "Streams relay", "SQS", "Strands worker", "Human review", "Patient view"],
+                ["Synthetic intake", "FastAPI", "Case + outbox", "Relay Lambda", "Job identifiers", "Lambda + Bedrock", "Artifact binding", "Read-only release"])
+    if kind == "gate":
+        return (["Source facts", "Candidate card", "Safety gate", "Release or refuse"],
+                ["Original witnesses", "Agent proposal", "Deterministic checks", "Bounded correction"])
+    if identifier == "release":
+        return (["Verified artifact", "Human review", "Patient view"],
+                ["Source-bound version", "Exact artifact decision", "Read-only after release"])
+    return (["Source indexer", "Question planner", "Artifact publisher"],
+            ["Cover every statement", "Link unfamiliar context", "Bind the source-cited card"])
+
+
+def selected_capture(shot, progress):
+    return shot["capture_alt"] if shot.get("capture_alt") and progress >= 0.5 else shot.get("capture")
+
+
 class CinematicCanvas:
     def __init__(self, root):
         import PIL
@@ -254,7 +272,7 @@ class CinematicCanvas:
             self.text(image, value, (94, 610 + index * 72), 24, WHITE, width=440, alpha=round(255 * amount))
         self.panel(image, (590, 186, 1842, 885), fill=(8, 20, 28, 255))
         self.text(image, "CAPTURED APPLICATION", (622, 205), 16, MINT, bold=True)
-        source = self.asset(shot["capture"])
+        source = self.asset(selected_capture(shot, state["progress"]))
         box = (1212, 620)
         scale = min(box[0] / source.width, box[1] / source.height) * state.get("capture_scale", 1.035)
         rendered = source.resize((round(source.width * scale), round(source.height * scale)), self.Image.Resampling.LANCZOS)
@@ -268,17 +286,12 @@ class CinematicCanvas:
     def graph(self, image, shot, state, local_seconds):
         self.text(image, shot["title"], (90, 190), 62, bold=True, width=1700)
         self.text(image, shot.get("subtitle", ""), (94, 285), 29, MUTED, width=1700)
+        labels, sub = graph_labels(shot["kind"], shot["id"])
         if shot["kind"] == "architecture":
-            labels = ["Anonymous web", "API Lambda", "DynamoDB", "Streams relay", "SQS", "Strands worker", "Human review", "Patient view"]
-            sub = ["Synthetic intake", "FastAPI", "Case + outbox", "Relay Lambda", "Job identifiers", "Lambda + Bedrock", "Artifact binding", "Read-only release"]
             positions = [(275 + index * 445, 445) for index in range(4)] + [(275 + (3 - index) * 445, 710) for index in range(4)]
         elif shot["kind"] == "gate":
-            labels = ["Source facts", "Candidate card", "Safety gate", "Release or refuse"]
-            sub = ["Original witnesses", "Agent proposal", "Deterministic checks", "Bounded correction"]
             positions = [(280 + index * 455, 545) for index in range(4)]
         else:
-            labels = ["Source indexer", "Question planner", "Artifact publisher"]
-            sub = ["Cover every statement", "Link unfamiliar context", "Bind the source-cited card"]
             positions = [(375 + index * 585, 530) for index in range(3)]
         for index in range(len(positions) - 1):
             x, y = positions[index]
@@ -299,6 +312,8 @@ class CinematicCanvas:
             self.thread(image, [(positions[4][0], 780), (positions[4][0], 835), (1550, 835)], state["packet_phase"], AMBER, 2)
             self.text(image, "SQS dead-letter queue", (1575, 817), 21, AMBER)
             self.text(image, "Explicit services, scoped roles, conditional publication", (92, 860), 24, MUTED)
+        elif shot["id"] == "release":
+            self.text(image, "Public view follows review of that exact artifact.", (500, 790), 29, MINT)
         else:
             left, right = positions[1], positions[-1]
             path = [(right[0], right[1] + 80), (right[0], 790), (left[0], 790), (left[0], left[1] + 80)]
@@ -394,7 +409,8 @@ class CinematicCanvas:
         self.text(image, "ATROPOS MEDPLAIN", (90, 60), 23, MINT, bold=True)
         label = shot.get("honesty_label", "CGI illustration")
         if shot.get("capture"):
-            label = shot["capture"]["provenance_label"]
+            progress = (seconds - shot["start_seconds"]) / (shot["end_seconds"] - shot["start_seconds"])
+            label = selected_capture(shot, progress)["provenance_label"]
         elif "cgi" not in label.lower():
             label = "CGI illustration | " + label
         self.text(image, label, (94, 112), 20, MUTED, width=1700)
