@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory() as temporary:
     parts = ["One two three four five.", "Six seven eight nine ten.",
              "Eleven twelve thirteen fourteen fifteen.", "Sixteen seventeen eighteen nineteen twenty."]
     text = "\n".join(parts)
-    starts = [round(0.4 + index * 0.02 + (1.2 if index >= 16 else 0), 4) for index in range(len(text))]
+    starts = [round(0.4 + index * 0.05 + (1.2 if index >= 16 else 0), 4) for index in range(len(text))]
     ends = [round(value + 0.01, 4) for value in starts]
     aligned = {"alignment": {"characters": list(text), "character_start_times_seconds": starts,
                               "character_end_times_seconds": ends}}
@@ -60,7 +60,7 @@ with tempfile.TemporaryDirectory() as temporary:
     observed, mapping = load(plan)
     cues = pitch.aligned_captions(text, mapping)
     assert cues[0][0] == 0.4, "Caption invented a zero start instead of the actual first word time"
-    assert cues[0][1] == ends[text.index(" thirteen") - 1], "Caption end does not use the actual last character"
+    assert cues[0][1] == ends[len(parts[0]) - 1], "Sentence caption end does not use the actual last character"
     assert " ".join(cue[2].replace("\n", " ") for cue in cues) == " ".join(text.split())
     seconds = ends[-1] + 0.37
     count, timeline = pitch.visual_timeline(observed, mapping, seconds)
@@ -71,6 +71,7 @@ with tempfile.TemporaryDirectory() as temporary:
     for label, mutate in [
         ("inserted_beat_padding", lambda value: value["audio_policy"].update(padding_seconds=1.25)),
         ("speech_speed_change", lambda value: value["audio_policy"].update(speed=1.1)),
+        ("missing_required_normalization", lambda value: value["audio_policy"].update(effects=[])),
         ("background_effect", lambda value: value["audio_policy"].update(effects=["noise"])),
         ("old_fixed_visual_budget", lambda value: value["segments"][0]["frames"][0].update(duration_seconds=22)),
         ("missing_narration_range", lambda value: value["segments"][1].update(start_char=26)),
@@ -114,10 +115,14 @@ with tempfile.TemporaryDirectory() as temporary:
         "silence_start: 0\nsilence_end: 25\n", '{"input_i":"-inf","input_tp":"-inf"}', 25)))
     clean_signal = {"dc_offset_fraction_fs": 0, "rail_clipped_sample_count": 0}
 
-    def quality_gate(silence="", source_signal=None, final_signal=None, intervals=None):
-        measured = pitch.parse_audio_reports(silence, '{"input_i":"-19.1","input_tp":"-0.5"}', 25)
+    def quality_gate(silence="", source_signal=None, final_signal=None, intervals=None,
+                     loudness=-16, peak=-1.5, normalization="default"):
+        measured = pitch.parse_audio_reports(silence, json.dumps({"input_i": str(loudness), "input_tp": str(peak)}), 25)
         measured["source_pcm_signal"] = source_signal or deepcopy(clean_signal)
         measured["final_pcm_signal"] = final_signal or deepcopy(clean_signal)
+        measured["normalized_pcm_signal"] = deepcopy(clean_signal)
+        measured["normalization"] = ({"passes": 2, "target": pitch.NORMALIZATION_TARGET,
+                                      "duration_difference_seconds": 0} if normalization == "default" else normalization)
         return pitch.quality_verdict(measured, intervals if intervals is not None else [(0, 12), (12, 25)])
 
     assert quality_gate()["quality_ready"]
@@ -131,6 +136,14 @@ with tempfile.TemporaryDirectory() as temporary:
         ("rail_clipped_final_blocks_ready", quality_gate(final_signal={**clean_signal, "rail_clipped_sample_count": 1})),
         ("orphan_tail_blocks_ready", quality_gate(intervals=[(0, 24.8), (24.8, 25)])),
         ("short_interior_caption_blocks_ready", quality_gate(intervals=[(0, 0.7), (0.7, 25)])),
+        ("normalization_missing_blocks_ready", quality_gate(normalization=None)),
+        ("single_pass_normalization_blocks_ready", quality_gate(normalization={"passes": 1, "target": pitch.NORMALIZATION_TARGET,
+                                                                              "duration_difference_seconds": 0})),
+        ("normalization_timing_change_blocks_ready", quality_gate(normalization={"passes": 2, "target": pitch.NORMALIZATION_TARGET,
+                                                                                "duration_difference_seconds": 0.034})),
+        ("previous_quiet_master_blocks_ready", quality_gate(loudness=-25.87)),
+        ("too_loud_master_blocks_ready", quality_gate(loudness=-14.9)),
+        ("unsafe_true_peak_blocks_ready", quality_gate(peak=-0.99)),
     ]:
         assert value["quality_ready"] is False and value["status"] == "failed_video_quality_gate_review_required", name
         assert value["quality_review_flags"], name
@@ -146,6 +159,28 @@ with tempfile.TemporaryDirectory() as temporary:
     one_word = pitch.aligned_captions("Done.", {"character_start_times_seconds": [0.4] * 5,
                                                 "character_end_times_seconds": [0.6] * 5}, 1)
     assert one_word == [(0.0, 1.0, "Done.")]
+    comparison_sentence = "The completed comparison retained twenty five verified cards."
+    h12_sentence = "The latest diagnostic produced one card and one refusal."
+    boundary_text = comparison_sentence + " " + h12_sentence
+    boundary_mapping = {"character_start_times_seconds": [index * 0.03 for index in range(len(boundary_text))],
+                        "character_end_times_seconds": [index * 0.03 + 0.02 for index in range(len(boundary_text))]}
+    boundary_cues = pitch.aligned_captions(boundary_text, boundary_mapping)
+    assert len(boundary_cues) == 2
+    assert boundary_cues[0][2].replace("\n", " ") == comparison_sentence
+    assert boundary_cues[1][2].replace("\n", " ") == h12_sentence
+    paragraph_text = comparison_sentence[:-1] + "\n\n" + h12_sentence
+    paragraph_mapping = {"character_start_times_seconds": [index * 0.03 for index in range(len(paragraph_text))],
+                         "character_end_times_seconds": [index * 0.03 + 0.02 for index in range(len(paragraph_text))]}
+    paragraph_cues = pitch.aligned_captions(paragraph_text, paragraph_mapping)
+    assert len(paragraph_cues) == 2 and paragraph_cues[0][2].replace("\n", " ") == comparison_sentence[:-1]
+    measured = pitch.loudnorm_measurement('log\n{"input_i":"-25.87","input_tp":"-8.0",'
+                                         '"input_lra":"4.2","input_thresh":"-36.9","target_offset":"0.13"}\n')
+    second_pass = pitch.second_pass_filter(measured)
+    assert second_pass == ("loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=-25.870000:measured_TP=-8.000000:"
+                           "measured_LRA=4.200000:measured_thresh=-36.900000:offset=0.130000:linear=true:print_format=json")
+    controls.append(rejected("incomplete_normalization_measurement", lambda: pitch.loudnorm_measurement('{"input_i":"-20"}')))
+    controls.append(rejected("nonfinite_normalization_measurement", lambda: pitch.loudnorm_measurement(
+        '{"input_i":"-inf","input_tp":"-8","input_lra":"4","input_thresh":"-30","target_offset":"0"}')))
 
 source_root = Path(__file__).resolve().parent.parent
 request_controls = []

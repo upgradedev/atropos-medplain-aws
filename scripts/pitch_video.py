@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import argparse
 from array import array
-import hashlib
 import json
 import math
 from pathlib import Path
@@ -21,10 +20,14 @@ import zipfile
 import demo_video as legacy
 
 SCHEMA = "medplain-continuous-pitch-v1"
-POLICY = {"continuous": True, "padding_seconds": 0, "speed": 1, "music": False, "effects": []}
+POLICY = {"continuous": True, "padding_seconds": 0, "speed": 1, "music": False,
+          "effects": ["loudness_normalization"]}
 QUALITY_POLICY = {"silence_threshold_dbfs": -45, "blocking_silence_seconds": 1.5,
                   "maximum_absolute_dc_fraction_fs": 0.001, "maximum_rail_clipped_samples": 0,
-                  "minimum_caption_seconds": 1.0}
+                  "minimum_caption_seconds": 1.0, "minimum_integrated_lufs": -17,
+                  "maximum_integrated_lufs": -15, "maximum_true_peak_dbtp": -1,
+                  "maximum_normalization_duration_difference_seconds": 1 / legacy.FPS}
+NORMALIZATION_TARGET = {"integrated_lufs": -16, "true_peak_dbtp": -1.5, "loudness_range_lu": 11}
 REPRESENTATION = "Narrated walkthrough assembled from captured UI screenshots; no continuous screen recording claimed."
 FPS, RATE = legacy.FPS, legacy.RATE
 
@@ -102,7 +105,7 @@ def load_plan(root, expected):
     require(plan["runtime_commit"] == legacy.RUNTIME and plan["repository_commit"] == legacy.REPOSITORY_COMMIT,
             "Frozen capture/runtime identities required")
     require(plan["representation"] == REPRESENTATION, "Screenshot representation must remain explicit")
-    require(plan["audio_policy"] == POLICY, "Padding, speed changes, music or effects are not permitted")
+    require(plan["audio_policy"] == POLICY, "Only two-pass loudness normalization is permitted; no padding, speed, music or other effects")
     audio = plan["narration"]
     require(set(("audio", "audio_sha256", "alignment", "alignment_sha256", "text")) <= set(audio),
             "Missing continuous narration binding")
@@ -143,7 +146,9 @@ def aligned_captions(text, alignment, audio_seconds=None):
     result, group = [], []
     for word in words:
         proposed = " ".join(item.group() for item in group + [word])
-        if group and (len(group) >= 12 or len(proposed) > 142
+        sentence_or_paragraph = bool(group and (re.search(r"[.!?][\"'\u201d\u2019)\]]*$", group[-1].group())
+                                                or "\n" in text[group[-1].end():word.start()]))
+        if group and (sentence_or_paragraph or len(group) >= 12 or len(proposed) > 142
                       or ends[word.end() - 1] - starts[group[0].start()] > 6):
             result.append((starts[group[0].start()], ends[group[-1].end() - 1],
                            "\n".join(textwrap.wrap(" ".join(item.group() for item in group), 74))))
@@ -272,6 +277,52 @@ def pcm_signal_metrics(path):
             "scope": "Decoded signal statistics; no absence-of-noise, naturalness or listening verdict."}
 
 
+def loudnorm_measurement(log):
+    candidates = re.findall(r"\{\s*\"input_i\".*?\}", log, re.S)
+    require(candidates, "Missing two-pass loudness measurement")
+    value = json.loads(candidates[-1])
+    required = ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")
+    require(all(field in value for field in required), "Incomplete two-pass loudness measurement")
+    require(all(math.isfinite(float(value[field])) for field in required), "Non-finite two-pass loudness measurement")
+    return value
+
+
+def second_pass_filter(measured):
+    # Numeric conversion prevents arbitrary filter text entering the FFmpeg command.
+    values = {name: float(measured[name]) for name in ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")}
+    require(all(math.isfinite(value) for value in values.values()), "Non-finite second-pass filter parameters")
+    return ("loudnorm=I=-16:TP=-1.5:LRA=11:"
+            f"measured_I={values['input_i']:.6f}:measured_TP={values['input_tp']:.6f}:"
+            f"measured_LRA={values['input_lra']:.6f}:measured_thresh={values['input_thresh']:.6f}:"
+            f"offset={values['target_offset']:.6f}:linear=true:print_format=json")
+
+
+def normalize_audio(source, output, source_seconds):
+    """Two-pass level normalization only; retain raw speech and both raw reports."""
+    first_filter = "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json"
+    first = run(["ffmpeg", "-nostdin", "-hide_banner", "-i", str(source), "-vn", "-af", first_filter,
+                 "-f", "null", "-"], report=output / "audio-normalization-pass1.log")
+    measured = loudnorm_measurement(first.stderr.decode(errors="replace"))
+    final_filter = second_pass_filter(measured)
+    normalized = output / "normalized-narration.wav"
+    second = run(["ffmpeg", "-nostdin", "-hide_banner", "-i", str(source), "-vn", "-af", final_filter,
+                  "-ac", "1", "-ar", str(RATE), "-c:a", "pcm_s16le", str(normalized)],
+                 report=output / "audio-normalization-pass2.log")
+    final_measurement = loudnorm_measurement(second.stderr.decode(errors="replace"))
+    normalized_seconds = float(legacy.probe(normalized)["format"]["duration"])
+    proof = {"passes": 2, "target": NORMALIZATION_TARGET, "source_pcm_sha256": legacy.digest(source),
+             "normalized_pcm_sha256": legacy.digest(normalized), "source_seconds": source_seconds,
+             "normalized_seconds": normalized_seconds,
+             "duration_difference_seconds": abs(normalized_seconds - source_seconds),
+             "first_pass_filter": first_filter, "second_pass_filter": final_filter,
+             "first_pass_measurement": measured, "second_pass_measurement": final_measurement,
+             "timing_text_speed_padding_changed": False}
+    (output / "audio-normalization.json").write_bytes(legacy.encoded(proof))
+    require(proof["duration_difference_seconds"] <= QUALITY_POLICY["maximum_normalization_duration_difference_seconds"],
+            "Loudness normalization changed the narration duration by more than one frame")
+    return normalized, proof
+
+
 def render(root, expected, output):
     plan, alignment = load_plan(root, expected)
     require(not output.exists(), "Preserve prior render and failed partials")
@@ -285,6 +336,8 @@ def render(root, expected, output):
     audio_info = legacy.probe(master)
     audio_seconds = float(audio_info["format"]["duration"])
     pcm_signal = pcm_signal_metrics(master)
+    normalized_master, normalization = normalize_audio(master, output, audio_seconds)
+    normalized_pcm_signal = pcm_signal_metrics(normalized_master)
     total_frames, timeline = visual_timeline(plan, alignment, audio_seconds)
     cues = aligned_captions(plan["narration"]["text"], alignment, audio_seconds)
     clips = []
@@ -311,7 +364,7 @@ def render(root, expected, output):
     video = output / "medplain-pitch.mp4"
     # The audio ends naturally. Only the last visual frame is rounded up, by less than one frame.
     run(["ffmpeg", "-nostdin", "-v", "error", "-f", "concat", "-safe", "1", "-i", "concat.txt",
-         "-i", master.name, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+         "-i", normalized_master.name, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
          "-ar", str(RATE), "-movflags", "+faststart", video.name], cwd=output, report=output / "final-mux.log")
     captions = output / "medplain-pitch.srt"
     captions.write_text("\n\n".join(f"{index}\n{legacy.clock(start)} --> {legacy.clock(end)}\n{text}"
@@ -321,7 +374,8 @@ def render(root, expected, output):
              "repository_commit": legacy.REPOSITORY_COMMIT, "representation": plan["representation"],
              "audio_policy": plan["audio_policy"], "source_audio_sha256": legacy.digest(original_audio),
              "continuous_pcm_sha256": legacy.digest(master), "continuous_audio_seconds": audio_seconds,
-             "source_pcm_signal": pcm_signal,
+             "source_pcm_signal": pcm_signal, "normalized_pcm_signal": normalized_pcm_signal,
+             "normalization": normalization,
              "expected_frames": total_frames, "visual_rounding_seconds": total_frames / FPS - audio_seconds,
              "timeline": timeline, "video_sha256": legacy.digest(video), "captions_sha256": legacy.digest(captions),
              "model_calls": 0, "application_requests": 0, "publication": False}
@@ -368,12 +422,22 @@ def parse_audio_reports(silence_log, loudness_log, duration):
 
 def quality_verdict(audio_qa, caption_intervals):
     flags = list(audio_qa["quality_review_flags"])
-    for role in ("source_pcm_signal", "final_pcm_signal"):
+    for role in ("source_pcm_signal", "final_pcm_signal") + (("normalized_pcm_signal",) if "normalized_pcm_signal" in audio_qa else ()):
         signal = audio_qa[role]
         if abs(signal["dc_offset_fraction_fs"]) > QUALITY_POLICY["maximum_absolute_dc_fraction_fs"]:
             flags.append(role + "_dc_offset_exceeds_0_001_fs")
         if signal["rail_clipped_sample_count"] > QUALITY_POLICY["maximum_rail_clipped_samples"]:
             flags.append(role + "_rail_clipped_samples")
+    normalization = audio_qa.get("normalization")
+    if not isinstance(normalization, dict) or normalization.get("passes") != 2 or normalization.get("target") != NORMALIZATION_TARGET:
+        flags.append("missing_reviewed_two_pass_normalization")
+    elif (not finite_number(normalization.get("duration_difference_seconds"))
+          or not 0 <= normalization["duration_difference_seconds"] <= QUALITY_POLICY["maximum_normalization_duration_difference_seconds"]):
+        flags.append("normalization_duration_changed_more_than_one_frame")
+    if not QUALITY_POLICY["minimum_integrated_lufs"] <= audio_qa["integrated_loudness_lufs"] <= QUALITY_POLICY["maximum_integrated_lufs"]:
+        flags.append("final_loudness_outside_minus17_to_minus15_lufs")
+    if audio_qa["true_peak_dbtp"] > QUALITY_POLICY["maximum_true_peak_dbtp"]:
+        flags.append("final_true_peak_above_minus1_dbtp")
     short = [{"cue": index + 1, "seconds": end - start,
               "position": "unavoidable_last" if index == len(caption_intervals) - 1 else "interior_or_first"}
              for index, (start, end) in enumerate(caption_intervals)
@@ -412,6 +476,8 @@ def check(video, captions, render_proof, output):
     run(["ffmpeg", "-nostdin", "-v", "error", "-i", str(video), "-vn", "-ac", "1", "-ar", str(RATE),
          "-c:a", "pcm_s16le", str(decoded_final)], report=output.with_name("final-audio-decode.log"))
     audio_qa["source_pcm_signal"] = proof["source_pcm_signal"]
+    audio_qa["normalized_pcm_signal"] = proof["normalized_pcm_signal"]
+    audio_qa["normalization"] = proof["normalization"]
     audio_qa["final_pcm_signal"] = pcm_signal_metrics(decoded_final)
     result.update(quality_verdict(audio_qa, caption_intervals))
     result.update(source_manifest_sha256=proof["manifest_sha256"], video_sha256=legacy.digest(video),
