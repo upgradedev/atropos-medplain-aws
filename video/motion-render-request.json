@@ -1,0 +1,21 @@
+{
+  "status": "root_requested_after_independent_source_and_input_review",
+  "mode": "full",
+  "independent_review_sha256": "0ce534b998fd4f1a3c84a25fa5cb15b1863075b6f75e1e3ca530abb48cb10e9f",
+  "source_tag": "medplain-motion-inputs-20261102-v1",
+  "source_archive_sha256": "650d7b53f0bd9cee7e46b8cb45360312e45170521885b534194ea73910a02ee7",
+  "source_manifest_sha256": "54858b0b501a8530a2b18903c7c7840e373f9c1793ddb45390cf0a6d0ad4b082",
+  "replay_projection_sha256": "49aad95327f082f9c585fca67cc444a8927d5ad31a8989fb68993f657a183354",
+  "graphics_sha256": "b68a48123883708e17ccebc08b0af02e41f0017c973f6bcd4fe68d4bc09e9265",
+  "renderer_sha256": "58c614912c16af24992c6e31e0b04514e771b16c225c72ce79a56efa093046a5",
+  "checker_sha256": "83487d5d44ded3958308f1beb9296aaef6709d56809cfa5fe3674ad160eb2221",
+  "request_validator_sha256": "91ef51455319caf17299df83f1ddeb05d4bd810b564ed865fe39bbcead983ff5",
+  "workflow_sha256": "72e33bf440e4d9d1f720b94fcb4c17f7bc410044bb966fc69bf2cadc2d513d36",
+  "audio_helpers_sha256": "808d7428b122e5fcd3810013bd9462dff103cf5c3922204a7fd0a7108d41f269",
+  "legacy_helpers_sha256": "14592d9d41dfe43977c8718862d8daf62982924949f2a4f1779b8674b65e75cc",
+  "live_readiness_sha256": "d212df24aca93f3167fe28d0792a6fea6a80c61d7d4f1bf4f1a25a053fbccd4a",
+  "replay_stage_sha256": "c12c6778a18d8a7bb7fa77a79d6677c754b777e8de9f9381bea27e44053ae290",
+  "replay_capture_sha256": "887de2782ddfbf3d815d82541407d0d363ee58d5b67a204b49f57c5595de303e",
+  "replay_harness_sha256": "435fced26614667a8e7076fb981c65666e778e6859c846dee1c0eb2f24624ab1",
+  "replay_transport_sha256": "5c4bdec01e5321943263de30a9b3d169f5185a400479e35d132e885cd1f695de"
+}
