@@ -1,0 +1,82 @@
+name: MedPlain Demo Video
+
+on:
+  push:
+    branches: ['codex/medplain-video-20261102']
+    paths:
+      - video/render-request.json
+      - scripts/demo_video.py
+      - scripts/check_demo_video_source.py
+      - scripts/check_demo_video_live.py
+      - scripts/prepare_demo_video_request.py
+      - .github/workflows/demo-video.yml
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: Reviewed immutable video-input release tag in this repository
+        required: true
+        type: string
+      source_archive_sha256:
+        description: SHA-256 of medplain-video-source.zip
+        required: true
+        type: string
+      source_manifest_sha256:
+        description: SHA-256 of the independently reviewed manifest.json inside the archive
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  render-reviewed-walkthrough:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SOURCE_TAG: ${{ inputs.source_tag }}
+      SOURCE_ARCHIVE_SHA: ${{ inputs.source_archive_sha256 }}
+      SOURCE_MANIFEST_SHA: ${{ inputs.source_manifest_sha256 }}
+      GH_TOKEN: ${{ github.token }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate root-pinned request and fail-closed media controls
+        id: request
+        run: |
+          python scripts/prepare_demo_video_request.py
+          python scripts/check_demo_video_source.py
+      - name: Read the one reviewed source archive
+        if: steps.request.outputs.render == 'true'
+        run: |
+          mkdir -p artifacts/input-download
+          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --pattern medplain-video-source.zip --dir artifacts/input-download
+          python scripts/demo_video.py unpack --archive artifacts/input-download/medplain-video-source.zip --sha256 "$SOURCE_ARCHIVE_SHA" --output artifacts/inputs
+      - name: Prepare media tools in CI only
+        if: steps.request.outputs.render == 'true'
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -version
+          ffprobe -version
+      - name: Require anonymous live 200 and exact recording source
+        if: steps.request.outputs.render == 'true'
+        run: python scripts/check_demo_video_live.py --output artifacts/readiness/live-source.json
+      - name: Render modular beats, captions and one final narration stream
+        if: steps.request.outputs.render == 'true'
+        run: python scripts/demo_video.py render --inputs artifacts/inputs --manifest-sha256 "$SOURCE_MANIFEST_SHA" --output artifacts/render
+      - name: Publish complete rendering and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medplain-demo-video-${{ github.sha }}
+          path: |
+            artifacts/render/
+            artifacts/input-download/
+            artifacts/readiness/
+          if-no-files-found: warn
+          retention-days: 14
