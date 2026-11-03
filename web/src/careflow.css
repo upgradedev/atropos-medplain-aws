@@ -54,6 +54,34 @@
 .careflow-notice.warning {
   border-left-color: var(--warning);
 }
+.careflow-next {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.careflow-next p {
+  margin: 6px 0;
+  line-height: 1.7;
+}
+.careflow-toolbar label > .control-reason {
+  display: block;
+  max-width: 48ch;
+}
+.careflow-item:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.patient-journey {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+}
+.patient-journey .control-reason {
+  flex-basis: 100%;
+}
 .careflow-grid {
   display: grid;
   grid-template-columns: minmax(150px, 0.75fr) minmax(0, 2fr);
@@ -171,7 +199,7 @@
   gap: 12px;
 }
 .careflow .control-reason {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.55;
   color: var(--muted);
 }

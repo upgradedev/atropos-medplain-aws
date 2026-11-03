@@ -19,7 +19,7 @@ function safeSource(uri: string) {
   }
 }
 
-export function EvidenceSearch() {
+export function EvidenceSearch({ topic }: { topic?: string }) {
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState("en");
   const [jurisdiction, setJurisdiction] = useState("any");
@@ -81,6 +81,27 @@ export function EvidenceSearch() {
         owner or start date. Use a general topic, without patient identifiers.
       </p>
       <form className="careflow-form" onSubmit={(event) => void search(event)}>
+        {topic ? (
+          <div>
+            <button
+              className="text-button"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setQuery(topic);
+                setResult(null);
+                setError("");
+              }}
+            >
+              Use current task's workflow topic
+            </button>
+            <p className="control-reason">
+              {busy
+                ? "Wait for the evidence search to finish."
+                : "Copies a general workflow topic only. It does not send the patient source or start a search."}
+            </p>
+          </div>
+        ) : null}
         <label>
           Evidence question
           <input
@@ -243,11 +264,21 @@ export default function CareflowPanel({
   role,
   toast,
   changed,
+  onRoleChange,
+  roleBusy = false,
+  onOpenCase,
+  onRevise,
+  onReviewRelease,
 }: {
   data: CaseDetail;
   role: Role;
   toast: (text: string, error?: boolean) => void;
   changed: () => void;
+  onRoleChange?: (role: Role) => Promise<void>;
+  roleBusy?: boolean;
+  onOpenCase?: (caseId: string) => void;
+  onRevise?: () => void;
+  onReviewRelease?: () => void;
 }) {
   const [flow, setFlow] = useState<CareflowView | null>(null);
   const [directory, setDirectory] = useState<ActorDirectory | null>(null);
@@ -305,7 +336,7 @@ export default function CareflowPanel({
     (id ? id : "Not assigned");
   const canAssign = role !== "auditor";
   const canReview = role === "reviewer" || role === "admin";
-  const stale = Boolean(error) || loading;
+  const stale = Boolean(error) || loading || roleBusy;
   const actionReason = busy
     ? "An action is in progress."
     : stale
@@ -386,6 +417,19 @@ export default function CareflowPanel({
             ? "Set a UTC due time within this synthetic session."
             : "";
   const stage = task ? STAGES.indexOf(task.status) : 0;
+  const nextAction = !task
+    ? "This card has no clarification tasks. Inspect release and response access below."
+    : task.status === "open"
+      ? "Choose an assignee and due time. Assignment is separate from acceptance."
+      : task.status === "assigned"
+        ? `Select ${actorLabel(task.assignee_id)} and the reviewer or admin role, then accept responsibility explicitly.`
+        : task.status === "accepted"
+          ? "The assigned actor can record a source-bound clarification. The note alone cannot close this issue."
+          : task.status === "answered"
+            ? "Prepare the clarified documents as a new child case, verify them, then return here to link that revision."
+            : task.status === "revision_linked"
+              ? "Inspect the linked revision before explicitly confirming resolution. Closure does not release a patient artifact."
+              : "This task is closed against its linked revision. Continue in that revised case for artifact review and patient responses.";
   return (
     <div
       className="careflow"
@@ -412,6 +456,20 @@ export default function CareflowPanel({
           Reload workflow
         </button>
       </div>
+      <section
+        className="careflow-next"
+        aria-label="Next care action"
+        aria-live="polite"
+        data-testid="careflow-next-action"
+      >
+        <div className="careflow-label">Next step</div>
+        <p>{nextAction}</p>
+        <p className="control-reason">
+          {flow.tasks.filter((item) => item.status === "closed").length} of{" "}
+          {flow.tasks.length} tasks closed. This describes workflow records, not
+          clinical success.
+        </p>
+      </section>
       {loading || busy ? (
         <p className="control-reason" role="status">
           {busy
@@ -434,6 +492,37 @@ export default function CareflowPanel({
         </p>
       </div>
       <div className="careflow-toolbar">
+        {onRoleChange ? (
+          <label>
+            Workflow demo role
+            <select
+              aria-label="Workflow demo role"
+              value={role}
+              disabled={busy || loading || roleBusy}
+              onChange={(event) =>
+                void onRoleChange(event.target.value as Role)
+              }
+            >
+              <option value="operator">
+                Operator: assign and prepare revisions
+              </option>
+              <option value="reviewer">
+                Reviewer: accept, reply and review
+              </option>
+              <option value="admin">
+                Admin: coordinate the synthetic journey
+              </option>
+              <option value="auditor">Auditor: inspect only</option>
+            </select>
+            <span className="control-reason">
+              {roleBusy
+                ? "Applying the requested demo role."
+                : busy || loading
+                  ? "Wait for the current request before changing role."
+                  : "Demo permissions and selected staff actor are separate. These are not authenticated clinician identities."}
+            </span>
+          </label>
+        ) : null}
         <label>
           Act as synthetic staff
           <select
@@ -473,6 +562,7 @@ export default function CareflowPanel({
                 className="careflow-item"
                 aria-pressed={task.id === item.id}
                 key={item.id}
+                disabled={busy || loading}
                 onClick={() => selectTask(item.id)}
               >
                 <span className={`careflow-status ${item.status}`}>
@@ -535,7 +625,7 @@ export default function CareflowPanel({
             </dl>
             <details>
               <summary>
-                Inspect the original patient witnesses (
+                Inspect cited original sources (
                 {task.statement_ids.length})
               </summary>
               {task.statement_ids.map((id) => {
@@ -571,6 +661,7 @@ export default function CareflowPanel({
                     Assign synthetic staff
                     <select
                       aria-label="Assign synthetic staff"
+                      disabled={busy || stale}
                       value={assignee}
                       onChange={(event) => setAssignee(event.target.value)}
                     >
@@ -586,6 +677,7 @@ export default function CareflowPanel({
                     Due date and time (UTC)
                     <input
                       type="datetime-local"
+                      disabled={busy || stale}
                       value={dueAt}
                       onChange={(event) => setDueAt(event.target.value)}
                     />
@@ -638,9 +730,10 @@ export default function CareflowPanel({
             {task.status === "accepted" ? (
               <div className="careflow-form">
                 <label>
-                  Source-bound clinician answer
+                  Source-bound clarification note
                   <textarea
                     value={answer}
+                    disabled={busy || stale}
                     maxLength={2000}
                     onChange={(event) => setAnswer(event.target.value)}
                     placeholder="Record the synthetic care-team clarification. A separate verified source revision is required before closure."
@@ -661,7 +754,7 @@ export default function CareflowPanel({
                     )
                   }
                 >
-                  Record clinician answer
+                  Record clarification note
                 </button>
                 <p className="control-reason">
                   {actionReason ||
@@ -673,7 +766,7 @@ export default function CareflowPanel({
             ) : null}
             {task.answer ? (
               <div className="careflow-feedback">
-                <strong>Recorded clinician clarification</strong>
+                <strong>Recorded clarification note</strong>
                 <p>{task.answer.text}</p>
                 <p className="control-reason">
                   {actorLabel(task.answer.actor_id)} · {clock(task.answer.at)} ·
@@ -683,10 +776,33 @@ export default function CareflowPanel({
             ) : null}
             {task.status === "answered" ? (
               <div className="careflow-form">
+                {onRevise ? (
+                  <>
+                    <button
+                      className="button secondary"
+                      disabled={
+                        busy ||
+                        stale ||
+                        (role !== "operator" && role !== "admin")
+                      }
+                      onClick={onRevise}
+                    >
+                      Prepare clarified source revision
+                    </button>
+                    <p className="control-reason">
+                      {role !== "operator" && role !== "admin"
+                        ? "Choose the operator or admin demo role to edit a new source revision."
+                        : busy || stale
+                          ? "Wait for fresh workflow facts before preparing a revision."
+                          : "Opens the original documents as editable input for a new child case. Nothing runs until you confirm and submit."}
+                    </p>
+                  </>
+                ) : null}
                 <label>
                   Separately verified source revision
                   <select
                     aria-label="Separately verified source revision"
+                    disabled={busy || stale}
                     value={revisionId}
                     onChange={(event) => setRevisionId(event.target.value)}
                   >
@@ -741,6 +857,16 @@ export default function CareflowPanel({
                   title="Revision artifact hash"
                   value={task.revision.artifact_hash}
                 />
+                {onOpenCase ? (
+                  <button
+                    className="button secondary"
+                    onClick={() => {
+                      if (task.revision) onOpenCase(task.revision.case_id);
+                    }}
+                  >
+                    Open linked verified revision
+                  </button>
+                ) : null}
               </div>
             ) : null}
             {task.status === "revision_linked" && task.revision ? (
@@ -749,6 +875,7 @@ export default function CareflowPanel({
                   <input
                     type="checkbox"
                     checked={confirmed}
+                    disabled={busy || stale}
                     onChange={(event) => setConfirmed(event.target.checked)}
                   />
                   I reviewed this verified revision and confirm that it resolves
@@ -806,7 +933,17 @@ export default function CareflowPanel({
           </section>
         </div>
       )}
-      <EvidenceSearch />
+      <EvidenceSearch
+        topic={
+          task
+            ? task.code.includes("pending") || task.code.includes("owner")
+              ? "pending test responsibility accepted transfer"
+              : task.section === "teachback"
+                ? "teach-back understanding source follow-up"
+                : "medication reconciliation source changes clarification"
+            : undefined
+        }
+      />
       <TeachbackReview
         data={data}
         flow={flow}
@@ -816,6 +953,7 @@ export default function CareflowPanel({
         refresh={refresh}
         toast={toast}
         onBusyChange={setBusy}
+        onReviewRelease={onReviewRelease}
       />
     </div>
   );

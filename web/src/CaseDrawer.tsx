@@ -73,6 +73,9 @@ export default function CaseDrawer({
   changed,
   toast,
   onRevise,
+  onRoleChange,
+  roleBusy = false,
+  onOpenCase,
 }: {
   id: string;
   role: Role;
@@ -80,6 +83,9 @@ export default function CaseDrawer({
   changed: () => void;
   toast: (text: string, error?: boolean) => void;
   onRevise?: (dossier: ReconciliationDossier, parentCaseId: string) => void;
+  onRoleChange?: (role: Role) => Promise<void>;
+  roleBusy?: boolean;
+  onOpenCase?: (caseId: string) => void;
 }) {
   const [data, setData] = useState<CaseDetail | null>(null);
   const [error, setError] = useState("");
@@ -194,28 +200,32 @@ export default function CaseDrawer({
   };
   const reviewReason = !data
     ? "Read the case first."
-    : busy
+    : busy || roleBusy
       ? "An action is in progress."
-      : !canReview
-        ? "Switch to the reviewer or admin synthetic demo role to decide."
-        : data.status !== "review_required"
-          ? "Only a case awaiting review can be released or rejected."
-          : !data.artifact_hash
-            ? "A verified artifact hash is required."
-            : !comment.trim()
-              ? "Add a short review comment to enable a decision."
-              : "";
+      : loading
+        ? "Read the latest case facts before deciding."
+        : !canReview
+          ? "Switch to the reviewer or admin synthetic demo role to decide."
+          : data.status !== "review_required"
+            ? "Only a case awaiting review can be released or rejected."
+            : !data.artifact_hash
+              ? "A verified artifact hash is required."
+              : !comment.trim()
+                ? "Add a short review comment to enable a decision."
+                : "";
   const retryReason = !data
     ? "Read the case first."
-    : busy
+    : busy || roleBusy
       ? "An action is in progress."
-      : !canRetry
-        ? "Only the operator or admin demo role can retry a case."
-        : !["failed", "rejected"].includes(data.status)
-          ? "Retry is available after failure or rejection."
-          : data.generation >= 3
-            ? "This case has reached the three-generation limit."
-            : "";
+      : loading
+        ? "Read the latest case facts before retrying."
+        : !canRetry
+          ? "Only the operator or admin demo role can retry a case."
+          : !["failed", "rejected"].includes(data.status)
+            ? "Retry is available after failure or rejection."
+            : data.generation >= 3
+              ? "This case has reached the three-generation limit."
+              : "";
   return (
     <Dialog title="Case details" wide onClose={close}>
       <div className="drawer-meta">
@@ -310,6 +320,24 @@ export default function CaseDrawer({
               </p>
             </div>
           ) : null}
+          {reconciliation && data.result?.status === "verified" ? (
+            <div className="careflow-notice" data-testid="careflow-discovery">
+              <strong>
+                Continue from the verified card to accountable follow-up
+              </strong>
+              <p>
+                Assign a question, record the selected actor's acceptance, then
+                link a separately verified source revision. Patient responses
+                require release and a separate private response link.
+              </p>
+              <button
+                className="button secondary"
+                onClick={() => setTab("Clarifications")}
+              >
+                Open clarification workspace
+              </button>
+            </div>
+          ) : null}
           {pollPaused ? (
             <div className="inline-alert">
               Automatic polling paused after four minutes. The job may still be
@@ -365,10 +393,28 @@ export default function CaseDrawer({
           >
             {tab === "Clarifications" && reconciliation ? (
               <CareflowPanel
+                key={`${data.id}:${data.generation}:${data.artifact_hash}`}
                 data={data}
                 role={role}
                 toast={toast}
                 changed={refresh}
+                onRoleChange={onRoleChange}
+                roleBusy={roleBusy}
+                onOpenCase={onOpenCase}
+                onRevise={
+                  onRevise
+                    ? () =>
+                        onRevise(
+                          structuredClone(data.source as ReconciliationDossier),
+                          data.id,
+                        )
+                    : undefined
+                }
+                onReviewRelease={() => {
+                  const panel = document.getElementById("release-control");
+                  panel?.scrollIntoView({ block: "start" });
+                  panel?.focus();
+                }}
               />
             ) : null}
             {tab === "Source" ? <SourceEvidence data={data} /> : null}
@@ -610,7 +656,7 @@ export default function CaseDrawer({
               </>
             ) : null}
           </div>
-          <section className="review-panel">
+          <section className="review-panel" id="release-control" tabIndex={-1}>
             <h3>
               {reconciliation
                 ? "Clarification release control"
@@ -750,7 +796,12 @@ export default function CaseDrawer({
                 className="button secondary"
                 data-testid="revise-reconciliation"
                 disabled={
-                  busy || !canRetry || Boolean(error) || isActive(data.status)
+                  busy ||
+                  roleBusy ||
+                  loading ||
+                  !canRetry ||
+                  Boolean(error) ||
+                  isActive(data.status)
                 }
                 onClick={() =>
                   onRevise(
@@ -764,13 +815,15 @@ export default function CaseDrawer({
               <p className="control-reason">
                 {busy
                   ? "An action is in progress."
-                  : !canRetry
-                    ? "Switch to the operator or admin demo role to revise sources."
-                    : error
-                      ? "Read fresh case facts before preparing a revision."
-                      : isActive(data.status)
-                        ? "Wait for this verification to finish before preparing a source revision."
-                        : "Opens the captured documents as a new revision. Submission creates one new case linked to this case."}
+                  : loading
+                    ? "Read the latest case facts before preparing a revision."
+                    : !canRetry
+                      ? "Switch to the operator or admin demo role to revise sources."
+                      : error
+                        ? "Read fresh case facts before preparing a revision."
+                        : isActive(data.status)
+                          ? "Wait for this verification to finish before preparing a source revision."
+                          : "Opens the captured documents as a new revision. Submission creates one new case linked to this case."}
               </p>
             </section>
           ) : null}

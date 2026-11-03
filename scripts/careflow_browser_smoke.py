@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 from uuid import uuid4
 
 from browser_smoke import wait_for_server
-from console_browser_smoke import change_role, session_client
+from console_browser_smoke import session_client
 from ops_live_smoke import Client, wait_case
 from reconciliation_browser_smoke import assert_patient_width, audit_detail
 
@@ -32,8 +32,9 @@ def open_case(page, url, case_id, expect):
     page.goto(url + "/console/cases?case=" + case_id, wait_until="networkidle")
     drawer = page.get_by_role("dialog", name="Case details", exact=True)
     expect(drawer).to_be_visible()
-    drawer.get_by_role("tab", name="Clarifications", exact=True).click()
+    drawer.get_by_role("button", name="Open clarification workspace", exact=True).click()
     expect(drawer.get_by_role("heading", name="Clarification workspace", exact=True)).to_be_visible()
+    expect(drawer.get_by_test_id("careflow-next-action")).to_be_visible()
     return drawer
 
 
@@ -63,6 +64,16 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     health = Client(url).call("/api/health")
     assert health["model_mode"] == "fixture", "careflow browser journey must never invoke live models"
     boot = client.call("/api/ops/bootstrap")
+    # The visible entry point loads a read-only preview, never an accepted job.
+    assert client.call("/api/ops/cases?limit=20")["total"] == 0
+    page.get_by_test_id("careflow-entry").get_by_role("button", name="Preview coordinated follow-up", exact=True).click()
+    preview = page.get_by_role("dialog", name="Reconcile synthetic source packet", exact=True)
+    expect(preview.get_by_test_id("careflow-preview-notice")).to_be_visible()
+    expect(preview.get_by_label("Complex synthetic example", exact=True)).to_have_value("pending-result-gap")
+    expect(preview.get_by_label("Clarification card language", exact=True)).to_have_value("en")
+    expect(preview.get_by_test_id("start-reconciliation")).to_be_disabled()
+    assert client.call("/api/ops/cases?limit=20")["total"] == 0
+    preview.get_by_role("button", name="Close dialog", exact=True).click()
     examples = client.call("/api/ops/reconciliation-examples")
     dossier = copy.deepcopy(next(row["dossier"] for row in examples["examples"] if row["id"] == "pending-result-gap"))
     dossier["patient_alias"] = "Demo-Careflow"
@@ -73,6 +84,8 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     original_proof = audit_detail(original, dossier, "fixture", health["commit"])
     path = f"/api/ops/cases/{case_id}/careflow"
     drawer = open_case(page, url, case_id, expect)
+    expect(drawer.get_by_text("New verification run using an offline fixture model.", exact=True)).to_be_visible()
+    expect(drawer.get_by_text("New verification run using Amazon Bedrock.", exact=True)).to_have_count(0)
     panel = drawer.get_by_test_id("careflow-panel")
     expect(panel.get_by_text("Anonymous synthetic staff simulation", exact=True)).to_be_visible()
     actors = client.call("/api/ops/careflow/actors")
@@ -89,20 +102,27 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     assert assigned.value.status == 200
     expect(panel.get_by_role("button", name="Accept responsibility", exact=True)).to_be_disabled()
     expect(panel.get_by_text("Switch to the reviewer or admin synthetic demo role.", exact=True).first).to_be_visible()
-    drawer.get_by_role("button", name="Close dialog", exact=True).click()
-    change_role(page, "reviewer", expect)
-    drawer = open_case(page, url, case_id, expect)
-    panel = drawer.get_by_test_id("careflow-panel")
-    select_task(panel, task, expect)
+    # Permissions can be changed explicitly without losing the selected task.
+    with page.expect_response(lambda r: r.url.endswith("/session/role") and r.request.method == "POST") as role_changed:
+        panel.get_by_label("Workflow demo role", exact=True).select_option("reviewer")
+    assert role_changed.value.status == 200
+    expect(panel.get_by_label("Workflow demo role", exact=True)).to_have_value("reviewer")
     with page.expect_response(lambda r: r.url.endswith("/careflow/accept") and r.request.method == "POST") as accepted:
         panel.get_by_role("button", name="Accept responsibility", exact=True).click()
     assert accepted.value.status == 200
-    panel.get_by_label("Source-bound clinician answer", exact=True).fill("Synthetic discharge-team review: the named follow-up contact is recorded in a separate source addendum. Keep treatment decisions with the care team.")
+    panel.get_by_label("Source-bound clarification note", exact=True).fill("Synthetic discharge-team review: the named follow-up contact is recorded in a separate source addendum. Keep treatment decisions with the care team.")
     with page.expect_response(lambda r: r.url.endswith("/careflow/answer") and r.request.method == "POST") as answered:
-        panel.get_by_role("button", name="Record clinician answer", exact=True).click()
+        panel.get_by_role("button", name="Record clarification note", exact=True).click()
     assert answered.value.status == 200
     expect(panel.get_by_role("button", name="Link verified revision", exact=True)).to_be_disabled()
     expect(panel.get_by_text("Create and independently verify a revised source packet", exact=False)).to_be_visible()
+    expect(panel.get_by_role("button", name="Prepare clarified source revision", exact=True)).to_be_disabled()
+    panel.get_by_label("Workflow demo role", exact=True).select_option("operator")
+    panel.get_by_role("button", name="Prepare clarified source revision", exact=True).click()
+    revision_form = page.get_by_role("dialog", name="Revise sources and reverify", exact=True)
+    expect(revision_form.get_by_test_id("start-reconciliation")).to_be_disabled()
+    expect(revision_form.get_by_text("New source revision for case", exact=False)).to_be_visible()
+    revision_form.get_by_role("button", name="Close dialog", exact=True).click()
 
     # Original case and verified source remain immutable while a direct child is verified.
     client.call("/api/ops/session/role", {"role": "operator"})
@@ -139,9 +159,16 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     closed_task = next(row for row in flow["tasks"] if row["id"] == task["id"])
     assert closed_task["status"] == "closed" and closed_task["revision"]["case_id"] == revision_id
     assert closed_task["closure"]["revision_source_hash"] == revision["source_hash"]
+    page.route(f"**/api/ops/cases/{case_id}/careflow", lambda route: route.fulfill(status=503, json={"detail": "Injected workflow read unavailable"}), times=1)
+    panel.get_by_role("button", name="Reload workflow", exact=True).click()
+    expect(panel.get_by_role("alert")).to_contain_text("Injected workflow read unavailable")
+    expect(panel.get_by_label("Act as synthetic staff", exact=True)).to_be_disabled()
+    panel.get_by_role("button", name="Reload workflow", exact=True).click()
+    expect(panel.get_by_label("Act as synthetic staff", exact=True)).to_be_enabled()
 
     evidence = panel.get_by_test_id("careflow-evidence")
-    evidence.get_by_label("Evidence question", exact=True).fill("pending test responsibility accepted transfer")
+    evidence.get_by_role("button", name="Use current task's workflow topic", exact=True).click()
+    expect(evidence.get_by_label("Evidence question", exact=True)).to_have_value("pending test responsibility accepted transfer")
     evidence.get_by_role("button", name="Search reviewed evidence", exact=True).click()
     expect(evidence.get_by_text("Matching reviewed passages", exact=True)).to_be_visible()
     expect(evidence.locator("blockquote").first).to_be_visible()
@@ -160,9 +187,20 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     assert_patient_width(page, width_proof)
     page.screenshot(path=str(output / "careflow-mobile-375.png"), full_page=True)
 
-    # Releasing a clarification does not resolve every task or certify understanding.
+    # Continue with the child whose source actually contains the clarification.
+    panel.get_by_role("button", name="Open linked verified revision", exact=True).click()
+    expect(drawer.locator(".drawer-meta")).to_contain_text(revision_id)
+    drawer.get_by_role("button", name="Open clarification workspace", exact=True).click()
+    panel = drawer.get_by_test_id("careflow-panel")
+    path = f"/api/ops/cases/{revision_id}/careflow"
+    expect(drawer.get_by_text("New verification run using an offline fixture model.", exact=True)).to_be_visible()
+    child_width = output / "child-width"
+    child_width.mkdir(exist_ok=True)
+    assert_patient_width(page, child_width)
+    panel.get_by_role("button", name="Go to artifact release review", exact=True).click()
+    # Releasing the revised card still does not certify patient understanding.
     drawer.get_by_label("Review comment", exact=True).fill("Release the synthetic source-bound clarification card only. Medication regimen remains withheld and open issues remain open.")
-    with page.expect_response(lambda r: r.url.endswith(f"/cases/{case_id}/review") and r.request.method == "POST") as released:
+    with page.expect_response(lambda r: r.url.endswith(f"/cases/{revision_id}/review") and r.request.method == "POST") as released:
         drawer.get_by_test_id("release-case").click()
     assert released.value.status == 200
     panel = drawer.get_by_test_id("careflow-panel")
@@ -196,14 +234,18 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     except Exception:
         raise AssertionError("Private synthetic response navigation failed; capability omitted") from None
     feedback = patient.get_by_test_id("patient-teachback")
+    expect(patient.get_by_text("Released from a new offline fixture verification run.", exact=True)).to_be_visible()
+    expect(patient.get_by_text("Released from a new Amazon Bedrock verification run.", exact=True)).to_have_count(0)
     expect(feedback.get_by_role("button", name="Submit synthetic response", exact=True)).to_be_disabled()
     assert not urlparse(patient.url).fragment, "response capability must be stripped after tab-scoped storage"
+    patient.get_by_role("link", name="Questions and response access", exact=True).click()
     feedback.get_by_label("Your synthetic response", exact=True).fill("Yes, I understand.")
     feedback.get_by_label("This is wholly invented", exact=False).check()
     with patient.expect_response(lambda r: r.url.endswith("/responses") and r.request.method == "POST") as submitted:
         feedback.get_by_role("button", name="Submit synthetic response", exact=True).click()
     assert submitted.value.status == 202
     wait_attempt(patient, feedback, expect)
+    expect(feedback.get_by_test_id("teachback-next-step")).to_contain_text("waiting for human review")
     expect(feedback.get_by_role("button", name="Submit synthetic recheck", exact=True)).to_be_disabled()
     patient.reload(wait_until="networkidle")
     expect(feedback.get_by_text("Synthetic response access", exact=True)).to_be_visible()
@@ -211,7 +253,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     patient.screenshot(path=str(output / "teachback-mobile-375.png"), full_page=True)
 
     # Real owner review requests another explanation; no model automatically certifies comprehension.
-    panel.get_by_role("button", name="Reload workflow", exact=True).click()
+    review_panel.get_by_role("button", name="Refresh patient responses", exact=True).click()
     attempts = client.call(path)["teachback"]["attempts"]
     assert len(attempts) == 1 and attempts[0]["status"] == "assessed"
     review_panel.get_by_label("Response awaiting reviewer", exact=True).select_option(attempts[0]["id"])
@@ -230,7 +272,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     wait_attempt(patient, feedback, expect, count=2)
     public = patient.request.get(url + f"/api/ops/careflow/patient/{share}", headers={
         "X-Medplain-Teachback": parse_qs(parsed.fragment)["teachback"][0]}).json()
-    assert public["source_hash"] == original["source_hash"] and public["artifact_hash"] == original["artifact_hash"]
+    assert public["source_hash"] == revision["source_hash"] and public["artifact_hash"] == revision["artifact_hash"]
     assert len(public["attempts"]) == 2 and all(attempt["assessment"]["requires_reviewer"] is True for attempt in public["attempts"])
     def public_keys(value):
         if isinstance(value, dict):
@@ -251,7 +293,9 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
         "roles_and_explicit_acceptance": True, "verified_revision_required": True,
         "patient_share_separate_response_capability": True, "response_capability_not_console_session": guarded_headers,
         "actual_responses": 2, "provisional_assessment_not_comprehension": True,
-        "reviewer_reexplain_recheck": True, "injected_read_errors": [503], "mobile_width": 375}
+        "reviewer_reexplain_recheck": True, "read_only_careflow_preview": True,
+        "inline_role_and_revision_navigation": True, "responses_on_verified_child": True,
+        "injected_read_errors": ["workflow503", "evidence503"], "mobile_width": 375}
 
 
 def check(url: str, output: Path) -> dict:

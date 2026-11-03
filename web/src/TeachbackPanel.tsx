@@ -137,6 +137,7 @@ export function TeachbackReview({
   refresh,
   toast,
   onBusyChange,
+  onReviewRelease,
 }: {
   data: CaseDetail;
   flow: CareflowView;
@@ -146,6 +147,7 @@ export function TeachbackReview({
   refresh: () => void;
   toast: (text: string, error?: boolean) => void;
   onBusyChange: (busy: boolean) => void;
+  onReviewRelease?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -186,6 +188,7 @@ export function TeachbackReview({
       !attempt.review,
   );
   const selected = eligible.find((attempt) => attempt.id === attemptId);
+  const latestAttempt = flow.teachback.attempts.at(-1);
   const failedAssessment =
     selected?.status === "failed" || selected?.assessment?.status === "refused";
   const effectiveDecision = failedAssessment ? "follow_up" : decision;
@@ -282,6 +285,42 @@ export function TeachbackReview({
         reviewer chooses whether further explanation and another response are
         needed. No assessment completes a clinical issue automatically.
       </p>
+      <div className="careflow-next" data-testid="teachback-review-next">
+        <strong>Next step</strong>
+        <p>
+          {data.status !== "released"
+            ? "Review and release this exact artifact before creating patient response access. Task closure alone does not release it."
+            : eligible.length
+              ? "A submitted response needs your review. Inspect the provisional source check, then record acknowledgement or request another explanation."
+              : latestAttempt?.status === "queued" ||
+                  latestAttempt?.status === "processing"
+                ? "A response is recorded and its provisional assessment is pending. Refresh the workflow to read progress."
+                : latestAttempt?.review?.decision === "follow_up"
+                  ? "Follow-up was recorded. Ask the synthetic patient tester to reopen the private response view and submit a recheck."
+                  : latestAttempt?.review
+                    ? "The latest response was acknowledged. This records review only; it does not certify comprehension or complete a clinical issue."
+                    : "Create a separate private response link and give it to the synthetic patient tester. The ordinary patient share stays read-only."}
+        </p>
+        <div className="action-row">
+          {data.status !== "released" && onReviewRelease ? (
+            <button className="button secondary" onClick={onReviewRelease}>
+              Go to artifact release review
+            </button>
+          ) : null}
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={refresh}
+          >
+            Refresh patient responses
+          </button>
+        </div>
+        {busy ? (
+          <p className="control-reason">
+            Wait for the current action before refreshing responses.
+          </p>
+        ) : null}
+      </div>
       {flow.teachback.prompt ? (
         <blockquote>{flow.teachback.prompt.text}</blockquote>
       ) : (
@@ -348,13 +387,14 @@ export function TeachbackReview({
             Response awaiting reviewer
             <select
               aria-label="Response awaiting reviewer"
+              disabled={busy || stale}
               value={attemptId}
               onChange={(event) => setAttemptId(event.target.value)}
             >
               <option value="">Choose response</option>
               {eligible.map((attempt) => (
                 <option value={attempt.id} key={attempt.id}>
-                  {clock(attempt.created_at)} · {attempt.id}
+                  Response {flow.teachback.attempts.findIndex((item) => item.id === attempt.id) + 1} · {clock(attempt.created_at)}
                 </option>
               ))}
             </select>
@@ -363,6 +403,7 @@ export function TeachbackReview({
             Review decision
             <select
               aria-label="Review decision"
+              disabled={busy || stale}
               value={effectiveDecision}
               onChange={(event) =>
                 setDecision(event.target.value as "acknowledged" | "follow_up")
@@ -387,6 +428,7 @@ export function TeachbackReview({
             Private reviewer comment
             <textarea
               value={comment}
+              disabled={busy || stale}
               maxLength={500}
               onChange={(event) => setComment(event.target.value)}
               placeholder="Record review of the response and source. This private note is not shown as patient advice."
@@ -561,6 +603,19 @@ export default function TeachbackPanel({ share }: { share: string }) {
     setError("");
   };
   const last = view?.attempts[view.attempts.length - 1];
+  const nextStep = error
+    ? "Refresh response history to reconcile the last request before submitting again."
+    : !last
+      ? "Read the released source and explain it in your own words. Use only invented patient responses."
+      : last.status === "queued" || last.status === "processing"
+        ? "Your response is recorded. A provisional check is in progress; no understanding has been confirmed."
+        : !last.review
+          ? "Your response is waiting for human review. Read any source-linked follow-up below; another submission is not enabled yet."
+          : last.review.decision === "follow_up"
+            ? (view?.attempts.length || 0) >= 3
+              ? "The response limit has been reached. Ask the reviewer for further explanation; another submission is not available in this synthetic session."
+              : "The reviewer requested another explanation. Read the source-linked guidance, then submit a synthetic recheck in your own words."
+            : "The reviewer acknowledged this response. No recheck is currently requested, and understanding has not been certified.";
   const disabled = busy
     ? "Saving your synthetic response."
     : loading || error
@@ -686,6 +741,14 @@ export default function TeachbackPanel({ share }: { share: string }) {
             </State>
           ) : (
             <>
+              <div
+                className="careflow-next"
+                data-testid="teachback-next-step"
+                role="status"
+              >
+                <strong>What happens next</strong>
+                <p>{nextStep}</p>
+              </div>
               <blockquote>{view.prompt.text}</blockquote>
               <p className="control-reason">
                 The prompt belongs to this exact released source and card. Keep
@@ -713,6 +776,7 @@ export default function TeachbackPanel({ share }: { share: string }) {
                   Your synthetic response
                   <textarea
                     value={response}
+                    disabled={busy}
                     maxLength={2000}
                     onChange={(event) => setResponse(event.target.value)}
                     placeholder="Explain what you understand and what you would still ask the care team. Do not include real personal or medical information."
@@ -722,6 +786,7 @@ export default function TeachbackPanel({ share }: { share: string }) {
                   <input
                     type="checkbox"
                     checked={confirmed}
+                    disabled={busy}
                     onChange={(event) => setConfirmed(event.target.checked)}
                   />
                   This is wholly invented and contains no real patient
