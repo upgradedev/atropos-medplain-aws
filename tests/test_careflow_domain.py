@@ -498,3 +498,126 @@ def test_memory_atomic_close_guard_leaves_parent_unmodified():
         CareflowStore(store).close("owner", {"id": "parent", "ttl": now + 600, "version": 2}, 1,
                                    {"id": "child", "version": 8})
     assert store.get("owner", "CASE#parent")["version"] == 1
+
+
+@pytest.mark.parametrize("return_to_same_actor", [False, True])
+def test_actor_selection_change_during_accept_is_fenced_atomically(system, monkeypatch, return_to_same_actor):
+    svc, ops, pk, session = system
+    case = completed(system)
+    item = assigned(system, case)
+    actor(system)
+    body = command(system, case["id"], task_id=item["id"], actor_id="demo-pharmacist")
+    real = svc.rows.replace_for_actor
+
+    def changed_selection(owner, candidate, expected, selected):
+        actor(system, "demo-followup-nurse")
+        if return_to_same_actor:
+            actor(system, "demo-pharmacist")
+        return real(owner, candidate, expected, selected)
+
+    monkeypatch.setattr(svc.rows, "replace_for_actor", changed_selection)
+    with pytest.raises(OpsError) as error:
+        svc.accept(pk, session, case["id"], body)
+    assert error.value.status == 409
+    saved = ops.get_case(pk, case["id"])
+    assert saved["version"] == body["expected_version"]
+    assert svc.view(pk, session, case["id"])["tasks"][0]["status"] == "assigned"
+
+
+def test_committed_actor_command_replay_does_not_repeat_after_selection_changes(system):
+    svc, ops, pk, session = system
+    case = completed(system)
+    item = assigned(system, case)
+    actor(system)
+    body = command(system, case["id"], task_id=item["id"], actor_id="demo-pharmacist")
+    first = svc.accept(pk, session, case["id"], body)
+    actor(system, "demo-followup-nurse")
+    replay = svc.accept(pk, session, case["id"], body)
+    assert replay["case_version"] == first["case_version"]
+    assert replay["selected_actor_id"] == "demo-followup-nurse"
+    assert [e["type"] for e in ops.get_case(pk, case["id"])["events"]].count("careflow_accepted") == 1
+
+
+def test_reply_source_binding_is_inspectable_and_tampering_is_withheld(system):
+    import hashlib
+
+    svc, ops, pk, session = system
+    case = completed(system)
+    item = answered(system, case)
+    reply = svc.view(pk, session, case["id"])["tasks"][0]["answer"]
+    assert reply["task_id"] == item["id"] and reply["statement_ids"] == item["statement_ids"]
+    assert reply["source_hash"] == case["source_hash"] and reply["artifact_hash"] == case["artifact_hash"]
+    assert reply["answer_sha256"] == hashlib.sha256(reply["text"].encode()).hexdigest()
+    saved = ops.store.rows[(pk, "CASE#" + case["id"])]
+    saved["careflow"]["tasks"][0]["answer"]["text"] += " Tampered after acceptance."
+    with pytest.raises(OpsError) as error:
+        svc.view(pk, session, case["id"])
+    assert error.value.status == 409
+
+
+@pytest.mark.parametrize("tampered", ["response_text", "prompt", "execution_id"])
+def test_queued_patient_response_is_reverified_before_worker_claim(system, tampered):
+    svc, ops, pk, _ = system
+    case = completed(system)
+    share, cap, _ = enabled(system, case)
+    _, _, _, message = svc.submit_response(share, cap, response(svc, share, cap))
+    attempt = ops.store.rows[(pk, "CASE#" + case["id"])]["careflow"]["teachback"]["attempts"][0]
+    if tampered == "prompt":
+        attempt["prompt"]["text"] += " Unreviewed instruction."
+    else:
+        attempt[tampered] += " changed"
+    with pytest.raises(OpsError) as error:
+        svc.claim_teachback(pk, case["id"], message["attempt_id"], message["generation"])
+    assert error.value.status == 409 and attempt["status"] == "queued"
+
+
+def test_pending_assessment_reserves_storage_for_a_terminal_withholding():
+    case = {"notes": "r" * 374000, "careflow": {"teachback": {"attempts": [{"status": "queued"}]}}}
+    with pytest.raises(OpsError) as error:
+        check_size(case)
+    assert error.value.status == 413
+    case["careflow"]["teachback"]["attempts"][0]["status"] = "failed"
+    check_size(case)
+
+
+def test_existing_near_limit_assessment_finishes_with_a_bounded_failure(system):
+    from medplain.careflow_teachback import run_teachback_assessment
+
+    svc, ops, pk, _ = system
+    case = completed(system)
+    share, cap, _ = enabled(system, case)
+    _, _, _, message = svc.submit_response(share, cap, response(svc, share, cap))
+    claim = svc.claim_teachback(pk, case["id"], message["attempt_id"], 1)
+    result = run_teachback_assessment(claim["source"], claim["result"], claim["prompt"],
+                                     claim["response_text"], claim["execution_id"], mode="fixture")
+    # Simulate a previously accepted bounded row from before completion space
+    # was reserved. The original source/card and response stay byte-identical.
+    stored = ops.store.rows[(pk, "CASE#" + case["id"])]
+    stored["private_storage_probe"] = ""
+    size = len(json.dumps(stored, separators=(",", ":"), ensure_ascii=True).encode())
+    stored["private_storage_probe"] = "x" * (379000 - size)
+    assert svc.complete_teachback(pk, claim, result)
+    latest = ops.get_case(pk, case["id"])
+    attempt = latest["careflow"]["teachback"]["attempts"][0]
+    assert attempt["status"] == "failed" and attempt["error"] == "assessment_storage_limit"
+    assert attempt["assessment"] is None and attempt["lease_owner"] is None
+    assert latest["source"] == case["source"] and latest["result"] == case["result"]
+    assert not svc.complete_teachback(pk, claim, result)
+
+
+def test_dynamo_actor_guard_is_part_of_the_same_case_and_revision_transaction():
+    recorder = DynamoRecorder()
+    store = DynamoStore("synthetic-table", client=recorder)
+    cf = CareflowStore(store)
+    now = int(time.time())
+    case = {"id": "a" * 32, "ttl": now + 3600, "version": 8}
+    selected = {"actor_id": "demo-pharmacist", "version": 4, "ttl": now + 3600}
+    cf.replace_for_actor("SESSION#owner", case, 7, selected)
+    writes = recorder.calls[-1][1]["TransactItems"]
+    assert len(writes) == 2
+    guard = writes[1]["ConditionCheck"]
+    assert guard["Key"]["SK"] == {"S": "CAREFLOW_ACTOR"}
+    assert guard["ExpressionAttributeValues"][":v"] == {"N": "4"}
+    cf.close("SESSION#owner", case, 7, {"id": "b" * 32, "version": 2, "_selected_actor_guard": selected})
+    writes = recorder.calls[-1][1]["TransactItems"]
+    assert len(writes) == 3 and writes[2]["ConditionCheck"]["Key"]["SK"] == {"S": "CAREFLOW_ACTOR"}

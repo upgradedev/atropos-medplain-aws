@@ -1,8 +1,11 @@
 """Separate V3 workflow commands. Original clinical routes stay unchanged."""
 
+import os
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from medplain.careflow_domain import CareflowService
 from medplain.careflow_models import (
@@ -13,7 +16,27 @@ from medplain.careflow_retrieval import EvidenceQuery
 from medplain.ops_api import Auth, OpsRoute
 from medplain.ops_store import MemoryStore, get_store
 
-router = APIRouter(prefix="/api/ops", route_class=OpsRoute)
+
+class CareflowRoute(OpsRoute):
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def handle(request: Request):
+            try:
+                response = await original(request)
+            except RequestValidationError:
+                # Do not reflect entered responses or private capability fields
+                # in framework validation payloads.
+                response = JSONResponse(status_code=422, content={"detail": "Invalid synthetic workflow request. Check its fields and limits."})
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Vary"] = ("X-Medplain-Teachback" if "/careflow/patient/" in request.url.path
+                                        else "X-Medplain-Session")
+            return response
+
+        return handle
+
+
+router = APIRouter(prefix="/api/ops", route_class=CareflowRoute)
 
 
 def service() -> CareflowService:
@@ -124,7 +147,12 @@ def search_evidence(body: EvidenceQuery, auth: Auth):
 
 @router.get("/careflow/profile")
 def profile():
-    return {"profile": "medplain-careflow-v3", "status": "separate-source-version",
+    from medplain.ops_domain import commit
+
+    mode = os.getenv("MEDPLAIN_CAREFLOW_MODEL_MODE", os.getenv("MEDPLAIN_MODEL_MODE", "fixture"))
+    return {"profile": "medplain-careflow-v3", "status": "implemented", "source_commit": commit(),
+            "assessment_mode": mode if mode in {"fixture", "bedrock"} else "unavailable",
+            "readiness_scope": "Configuration metadata only; this read does not run or attest a provider request.",
             "scope": "Synthetic clarification ownership, educational retrieval and provisional teach-back assessment.",
             "staff_identity": "Explicit demo actor selection; no hospital authentication.",
             "clinical_authority": "No medication regimen is authorized. Original clinical gates remain required.",

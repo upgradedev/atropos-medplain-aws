@@ -155,3 +155,33 @@ def test_evidence_integrity_failure_is_unavailable_without_a_fallback(client, mo
     assert response.status_code == 503
     assert "integrity" in response.json()["detail"] and "private" not in response.text
     assert "entries" not in response.json()
+
+
+def test_private_capability_failures_and_validation_never_cache_or_echo_input(client):
+    path = "/api/ops/careflow/patient/" + "a" * 43
+    denied = client.get(path)
+    assert denied.status_code == 403
+    assert denied.headers["cache-control"] == "no-store"
+    assert denied.headers["vary"] == "X-Medplain-Teachback"
+    marker = "PRIVATE SYNTHETIC RESPONSE SHOULD NOT BE REFLECTED"
+    malformed = client.post(path + "/responses", json={"expected_version": marker})
+    assert malformed.status_code == 422 and marker not in malformed.text
+    assert malformed.headers["cache-control"] == "no-store"
+    assert malformed.headers["vary"] == "X-Medplain-Teachback"
+    unauthenticated = client.get("/api/ops/careflow/actors")
+    assert unauthenticated.status_code == 401
+    assert unauthenticated.headers["cache-control"] == "no-store"
+    assert unauthenticated.headers["vary"] == "X-Medplain-Session"
+
+
+def test_profile_binds_actual_build_and_configuration_without_attesting_provider_readiness(client, monkeypatch):
+    from medplain.ops_domain import commit
+
+    observed = client.get("/api/ops/careflow/profile")
+    assert observed.status_code == 200
+    assert observed.json()["status"] == "implemented"
+    assert observed.json()["source_commit"] == commit()
+    assert observed.json()["assessment_mode"] == "fixture"
+    assert "does not run or attest" in observed.json()["readiness_scope"]
+    monkeypatch.setenv("MEDPLAIN_CAREFLOW_MODEL_MODE", "unsupported")
+    assert client.get("/api/ops/careflow/profile").json()["assessment_mode"] == "unavailable"

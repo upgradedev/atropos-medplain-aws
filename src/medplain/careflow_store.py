@@ -13,7 +13,12 @@ def check_size(case: dict) -> None:
 
     # Match DynamoStore._item's persisted JSON string. Non-ASCII characters
     # expand to escapes there, so UTF-8 source length would undercount Greek.
-    if len(json.dumps(case, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode("utf-8")) > 380000:
+    attempts = case.get("careflow", {}).get("teachback", {}).get("attempts", [])
+    # A queued/processing attempt needs room for its claim/completion events and
+    # a retained terminal withholding if the larger assessment cannot fit.
+    # Other concurrent careflow commands cannot consume this reserved space.
+    reserve = 8192 if any(attempt.get("status") in {"queued", "processing"} for attempt in attempts) else 0
+    if len(json.dumps(case, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode("utf-8")) > 380000 - reserve:
         raise OpsError(413, "This synthetic workflow reached its bounded storage limit.")
 
 
@@ -26,15 +31,45 @@ class CareflowStore:
     def actor(self, pk: str) -> dict | None:
         return self.store.get(pk, "CAREFLOW_ACTOR")
 
-    def close(self, pk: str, case: dict, expected_version: int, revision: dict):
-        """Fence the independently verified child snapshot in the same commit."""
+    def _actor_check(self, pk: str, actor: dict) -> dict:
+        return {"ConditionCheck": {"TableName": self.store.table,
+                "Key": self.store._attrs({"PK": pk, "SK": "CAREFLOW_ACTOR"}),
+                "ConditionExpression": "#v = :v AND #ttl > :now",
+                "ExpressionAttributeNames": {"#v": "version", "#ttl": "ttl"},
+                "ExpressionAttributeValues": self.store._attrs({":v": actor["version"], ":now": int(time.time())})}}
+
+    def replace_for_actor(self, pk: str, case: dict, expected_version: int, actor: dict):
+        """Case commit and explicit actor selection must describe the same instant."""
         check_size(case)
         if isinstance(self.store, MemoryStore):
             with self.store.lock:
                 current = self.store.get(pk, "CASE#" + case["id"])
+                selected = self.actor(pk)
+                if (current is None or current["version"] != expected_version or selected is None
+                        or selected["version"] != actor["version"] or selected["actor_id"] != actor["actor_id"]):
+                    raise Conflict()
+                self.store.rows[(pk, "CASE#" + case["id"])] = copy.deepcopy(case)
+            return
+        self.store._transaction([
+            self.store._put(pk, "CASE#" + case["id"], case, "#v = :v AND #ttl > :now",
+                            ExpressionAttributeNames={"#v": "version", "#ttl": "ttl"},
+                            ExpressionAttributeValues=self.store._attrs({":v": expected_version, ":now": int(time.time())})),
+            self._actor_check(pk, actor),
+        ])
+
+    def close(self, pk: str, case: dict, expected_version: int, revision: dict):
+        """Fence the independently verified child snapshot in the same commit."""
+        check_size(case)
+        actor = revision.get("_selected_actor_guard")
+        if isinstance(self.store, MemoryStore):
+            with self.store.lock:
+                current = self.store.get(pk, "CASE#" + case["id"])
                 child = self.store.get(pk, "CASE#" + revision["id"])
+                selected = self.actor(pk) if actor is not None else None
                 if (current is None or current["version"] != expected_version
-                        or child is None or child["version"] != revision["version"]):
+                        or child is None or child["version"] != revision["version"]
+                        or (actor is not None and (selected is None or selected["version"] != actor["version"]
+                                                   or selected["actor_id"] != actor["actor_id"]))):
                     raise Conflict()
                 self.store.rows[(pk, "CASE#" + case["id"])] = copy.deepcopy(case)
             return
@@ -47,6 +82,7 @@ class CareflowStore:
                                 "ConditionExpression": "#v = :v AND #ttl > :now",
                                 "ExpressionAttributeNames": {"#v": "version", "#ttl": "ttl"},
                                 "ExpressionAttributeValues": self.store._attrs({":v": revision["version"], ":now": int(time.time())})}},
+            *([self._actor_check(pk, actor)] if actor is not None else []),
         ])
 
     def select_actor(self, pk: str, row: dict, expected_version: int):

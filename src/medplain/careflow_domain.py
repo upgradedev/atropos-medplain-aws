@@ -102,6 +102,7 @@ class CareflowService:
         selected = self.rows.actor(pk)
         if selected is None or selected["actor_id"] != actor_id:
             raise OpsError(403, "Explicitly select this synthetic actor before acting on its assignment.")
+        return selected
 
     def _case(self, pk: str, case_id: str) -> dict:
         case = self.ops.get_case(pk, case_id)
@@ -149,6 +150,24 @@ class CareflowService:
                            != canonical_hash({k: original[k] for k in immutable})
                            for saved, original in zip(existing["tasks"], tasks))):
                 raise OpsError(409, "Saved workflow tasks differ from the independently verified artifact.")
+            for saved in existing["tasks"]:
+                answer = saved.get("answer")
+                if answer is not None:
+                    expected = {"task_id": saved["id"], "statement_ids": saved["statement_ids"],
+                                "source_hash": case["source_hash"], "artifact_hash": case["artifact_hash"]}
+                    if (not isinstance(answer, dict) or not isinstance(answer.get("text"), str)
+                            or answer.get("authoritative") is not False
+                            or answer.get("answer_sha256") != _sha(answer["text"])
+                            or any(answer.get(key) != value for key, value in expected.items())):
+                        raise OpsError(409, "The saved reply no longer matches its source-bound task.")
+            prompt = _prompt(case["result"])
+            for attempt in existing["teachback"]["attempts"]:
+                if (not isinstance(attempt.get("id"), str) or not re.fullmatch(r"[0-9a-f]{32}", attempt["id"])
+                        or not isinstance(attempt.get("response_text"), str)
+                        or attempt.get("response_sha256") != _sha(attempt["response_text"])
+                        or attempt.get("prompt") != prompt
+                        or attempt.get("execution_id") != f"{case['id']}:teachback:{attempt['id']}"):
+                    raise OpsError(409, "The saved response no longer matches its exact prompt and submitted text.")
             return existing
         flow = {**binding, "tasks": tasks, "requests": {}, "teachback": {"enabled": False, "attempts": []}}
         case["careflow"] = flow
@@ -179,7 +198,7 @@ class CareflowService:
                               "patient_alias": child["source"]["patient_alias"]})
         return {"case_id": case["id"], "case_version": case["version"], "source_hash": case["source_hash"],
                 "artifact_hash": case["artifact_hash"], "generation": case["generation"], "demo": True,
-                "notice": NOTICE, "selected_actor_id": selected.get("actor_id"),
+                "notice": NOTICE, "selected_actor_id": selected.get("actor_id"), "selected_actor_version": selected.get("version", 0),
                 "tasks": copy.deepcopy(flow["tasks"]), "candidate_revisions": revisions,
                 "teachback": {"enabled": flow["teachback"]["enabled"], "prompt": _prompt(case["result"]),
                               "attempts": [self._attempt_view(a, private=True) for a in flow["teachback"]["attempts"]]}}
@@ -190,23 +209,25 @@ class CareflowService:
 
     def _command(self, pk, session, case_id, model, raw, action, roles):
         data = _request(model, raw)
+        for field in ("idempotency_key", "answer_text", "comment", "due_at"):
+            if data.get(field):
+                _text(data[field])
         self._session(pk, session, roles)
         case = self._case(pk, case_id)
-        if "actor_id" in data:
-            self._actor(pk, data["actor_id"])
         fingerprint = canonical_hash({"action": action, "request": data})
         key = _sha(data["idempotency_key"])
         prior = case["careflow"]["requests"].get(key)
         if prior:
             if prior["fingerprint"] != fingerprint:
                 raise OpsError(409, "This workflow idempotency key identifies another command.")
-            return case, data, key, fingerprint, True
+            return case, data, key, fingerprint, True, None
+        actor_guard = self._actor(pk, data["actor_id"]) if "actor_id" in data else None
         if (case["version"] != data["expected_version"] or case["source_hash"] != data["source_hash"]
                 or case["artifact_hash"] != data["artifact_hash"]):
             raise OpsError(409, "Use the current case version and exact source and artifact hashes.")
         if len(case["careflow"]["requests"]) >= MAX_COMMANDS:
             raise OpsError(429, "This synthetic workflow reached its command limit.")
-        return case, data, key, fingerprint, False
+        return case, data, key, fingerprint, False, actor_guard
 
     @staticmethod
     def _task(case, data, statuses=None):
@@ -219,7 +240,7 @@ class CareflowService:
             raise OpsError(403, "Only the explicitly selected assigned synthetic actor can perform this action.")
         return task
 
-    def _save(self, pk, case, data, key, fingerprint, action, task=None, revision_guard=None):
+    def _save(self, pk, case, data, key, fingerprint, action, task=None, revision_guard=None, actor_guard=None):
         case["careflow"]["requests"][key] = {"fingerprint": fingerprint, "action": action}
         row = {**event("careflow_" + action, "Synthetic workflow " + action + " recorded; original clinical evidence is unchanged."),
                "actor_id": data.get("actor_id")}
@@ -230,7 +251,10 @@ class CareflowService:
         check_size(case)
         try:
             if revision_guard is not None:
-                self.rows.close(pk, case, data["expected_version"], revision_guard)
+                guarded_revision = {**revision_guard, "_selected_actor_guard": actor_guard}
+                self.rows.close(pk, case, data["expected_version"], guarded_revision)
+            elif actor_guard is not None:
+                self.rows.replace_for_actor(pk, case, data["expected_version"], actor_guard)
             else:
                 self.store.replace(pk, case, data["expected_version"])
         except Conflict:
@@ -242,7 +266,7 @@ class CareflowService:
         return self._view(pk, case)
 
     def assign(self, pk, session, case_id, request):
-        case, data, key, fp, replay = self._command(pk, session, case_id, models.AssignRequest, request, "assign", {"operator", "reviewer", "admin"})
+        case, data, key, fp, replay, actor_guard = self._command(pk, session, case_id, models.AssignRequest, request, "assign", {"operator", "reviewer", "admin"})
         if replay:
             return self._view(pk, case)
         task = self._task(case, data, {"open", "assigned"})
@@ -253,37 +277,39 @@ class CareflowService:
         except (ValueError, OverflowError):
             raise OpsError(422, "Due time needs an explicit timezone and must precede this synthetic session's expiry.") from None
         task.update(status="assigned", assignee_id=data["assignee_id"], due_at=due.astimezone(timezone.utc).isoformat())
-        return self._save(pk, case, data, key, fp, "assigned", task)
+        return self._save(pk, case, data, key, fp, "assigned", task, actor_guard=actor_guard)
 
     def accept(self, pk, session, case_id, request):
-        case, data, key, fp, replay = self._command(pk, session, case_id, models.AcceptRequest, request, "accept", {"reviewer", "admin"})
+        case, data, key, fp, replay, actor_guard = self._command(pk, session, case_id, models.AcceptRequest, request, "accept", {"reviewer", "admin"})
         if replay:
             return self._view(pk, case)
         task = self._task(case, data, {"assigned"})
         task.update(status="accepted", accepted_at=utc_now())
-        return self._save(pk, case, data, key, fp, "accepted", task)
+        return self._save(pk, case, data, key, fp, "accepted", task, actor_guard=actor_guard)
 
     def answer(self, pk, session, case_id, request):
-        case, data, key, fp, replay = self._command(pk, session, case_id, models.AnswerRequest, request, "answer", {"reviewer", "admin"})
+        case, data, key, fp, replay, actor_guard = self._command(pk, session, case_id, models.AnswerRequest, request, "answer", {"reviewer", "admin"})
         if replay:
             return self._view(pk, case)
         task = self._task(case, data, {"accepted"})
         task.update(status="answered", answer={"text": _text(data["answer_text"]), "actor_id": data["actor_id"],
-                                               "at": utc_now(), "authoritative": False})
-        return self._save(pk, case, data, key, fp, "answered", task)
+                                               "at": utc_now(), "authoritative": False, "task_id": task["id"],
+                                               "statement_ids": list(task["statement_ids"]), "source_hash": case["source_hash"],
+                                               "artifact_hash": case["artifact_hash"], "answer_sha256": _sha(data["answer_text"])})
+        return self._save(pk, case, data, key, fp, "answered", task, actor_guard=actor_guard)
 
     def link_revision(self, pk, session, case_id, request):
-        case, data, key, fp, replay = self._command(pk, session, case_id, models.LinkRevisionRequest, request, "link_revision", {"reviewer", "admin"})
+        case, data, key, fp, replay, actor_guard = self._command(pk, session, case_id, models.LinkRevisionRequest, request, "link_revision", {"reviewer", "admin"})
         if replay:
             return self._view(pk, case)
         task = self._task(case, data, {"answered", "revision_linked"})
         revision = self._revision(pk, case, data["revision_case_id"])
         task.update(status="revision_linked", revision={"case_id": revision["id"],
                     **{k: revision[k] for k in ("source_hash", "artifact_hash", "generation")}})
-        return self._save(pk, case, data, key, fp, "revision_linked", task)
+        return self._save(pk, case, data, key, fp, "revision_linked", task, actor_guard=actor_guard)
 
     def close(self, pk, session, case_id, request):
-        case, data, key, fp, replay = self._command(pk, session, case_id, models.CloseRequest, request, "close", {"reviewer", "admin"})
+        case, data, key, fp, replay, actor_guard = self._command(pk, session, case_id, models.CloseRequest, request, "close", {"reviewer", "admin"})
         if replay:
             return self._view(pk, case)
         task = self._task(case, data, {"revision_linked"})
@@ -295,10 +321,10 @@ class CareflowService:
         task.update(status="closed", closure={"actor_id": data["actor_id"], "at": utc_now(),
                     "revision_case_id": revision["id"], "revision_source_hash": revision["source_hash"],
                     "revision_artifact_hash": revision["artifact_hash"]})
-        return self._save(pk, case, data, key, fp, "closed", task, revision_guard=revision)
+        return self._save(pk, case, data, key, fp, "closed", task, revision_guard=revision, actor_guard=actor_guard)
 
     def enable_teachback(self, pk, session, case_id, request):
-        case, data, key, fp, replay = self._command(pk, session, case_id, models.EnableTeachbackRequest, request, "enable_teachback", {"reviewer", "admin"})
+        case, data, key, fp, replay, _actor_guard = self._command(pk, session, case_id, models.EnableTeachbackRequest, request, "enable_teachback", {"reviewer", "admin"})
         if case["status"] != "released" or not case["patient_url"]:
             raise OpsError(409, "Release the exact clarification card before enabling patient responses.")
         share_id = case["patient_url"].rsplit("/", 1)[-1]
@@ -384,6 +410,7 @@ class CareflowService:
 
     def submit_response(self, share_id, capability, request):
         data = _request(models.ResponseRequest, request)
+        _text(data["idempotency_key"])
         pk, case = self._capability(share_id, capability)
         _text(data["response_text"])
         if data["synthetic_confirmed"] is not True:
@@ -465,7 +492,7 @@ class CareflowService:
         # assessment. Re-read and CAS a bounded number of times, preserving them.
         for _ in range(3):
             case = self._case(pk, claim["case_id"])
-            if case["generation"] != claim["generation"]:
+            if case["generation"] != claim["generation"] or case["status"] != "released":
                 return False
             attempt = next((a for a in case["careflow"]["teachback"]["attempts"] if a["id"] == claim["attempt_id"]), None)
             if (attempt is None or attempt["status"] != "processing" or case["source_hash"] != claim["source_hash"]
@@ -490,7 +517,16 @@ class CareflowService:
             expected = case["version"]
             case.update(version=expected + 1, updated_at=utc_now())
             case["events"].append(event("careflow_teachback_completed", "Provisional assessment completed or was withheld; clinical tasks and the released artifact are unchanged."))
-            check_size(case)
+            try:
+                check_size(case)
+            except OpsError as exc:
+                if exc.status != 413:
+                    raise
+                # Preserve the response and the previously accepted source/card.
+                # A bounded terminal refusal is preferable to an assessment that
+                # cannot fit and would remain processing across queue retries.
+                attempt.update(status="failed", assessment=None, error="assessment_storage_limit")
+                check_size(case)
             try:
                 self.store.replace(pk, case, expected)
                 return True
@@ -499,7 +535,7 @@ class CareflowService:
         raise LeaseBusy()
 
     def review_teachback(self, pk, session, case_id, attempt_id, request):
-        case, data, key, fp, replay = self._command(pk, session, case_id, models.TeachbackReviewRequest, request,
+        case, data, key, fp, replay, actor_guard = self._command(pk, session, case_id, models.TeachbackReviewRequest, request,
                                                    "review_teachback:" + attempt_id, {"reviewer", "admin"})
         if replay:
             return self._view(pk, case)
@@ -519,4 +555,4 @@ class CareflowService:
             _text(data["comment"])
         attempt.update(status="reviewed", review={"decision": data["decision"], "actor_id": data["actor_id"],
                                                   "at": utc_now(), "comment": data["comment"]})
-        return self._save(pk, case, data, key, fp, "teachback_reviewed")
+        return self._save(pk, case, data, key, fp, "teachback_reviewed", actor_guard=actor_guard)
