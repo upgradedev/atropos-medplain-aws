@@ -4,7 +4,9 @@ Atropos MedPlain uses a Strands SDK Graph to turn multiple synthetic discharge d
 
 Built as a prototype for adults leaving hospital with changed medicines and limited support interpreting clinical jargon. The anonymous console keeps conflicting instructions, caregiver questions and original source passages available for review. Its clarification card never supplies a reconciled prescription. A separate simple-note workflow explains invented discharge packets and demonstrates deliberately altered facts being refused and corrected.
 
-[Open the anonymous AWS demo](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/) · [Published Builder Center project](https://builder.aws.com/project/3LXiuTVtq2dN9E1fWT41b05gBqN/atropos-medplain-questions-between-discharge-documents) · [Source and CI](https://github.com/upgradedev/atropos-medplain-aws/actions)
+[Open the anonymous AWS demo](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/) · [Source and CI](https://github.com/upgradedev/atropos-medplain-aws/actions)
+
+The Builder Center article is currently a draft under owner review. Final public YouTube hosting and the submitted state remain pending.
 
 [Download the narrated walkthrough, 2:48](https://github.com/upgradedev/atropos-medplain-aws/releases/download/medplain-demo-video-20261102/medplain-demo.mp4), with [captions and media verification](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-demo-video-20261102). Current prepared examples, historical actual Bedrock drills and retained measurement failures carry separate source labels. Public YouTube hosting is pending. Technical and sampled visual checks passed; semantic audio listening remains unverified.
 
@@ -12,7 +14,7 @@ The latest completed thirty-case comparison remains historical `43d6244`: **25/3
 
 ## Separate V3 careflow version
 
-The [careflow branch](https://github.com/upgradedev/atropos-medplain-aws/tree/codex/medplain-careflow-v3), package version `0.2.0` and API profile `medplain-careflow-v3`, adds a separate synthetic workflow. It is **not deployed at the public URL above**. That URL and the scheduled source-bound comparison remain on frozen `e277167`.
+The integrated careflow release, package version `0.2.0` and API profile `medplain-careflow-v3`, adds a separate synthetic workflow. This candidate is under integration review and is **not yet deployed at the public URL above**. The current public runtime is `efe6c3e`; H12 is closed and no comparison is scheduled. The original baseline, clinical gates, scoring corpus, references and model settings remain protected by an exact-source isolation manifest.
 
 In a completed reconciliation case, the **Clarifications** tab supports assignment, explicit acceptance by the selected demo actor, a private source-bound answer and linkage to a separately verified source revision. Closing a clarification requires the linked revision and an explicit reviewer confirmation. Answer text alone cannot become a prescription or replace a source. Demo actors are selectable roles, not authenticated hospital staff.
 
@@ -20,7 +22,7 @@ The evidence panel retrieves relevant sections from a separate, versioned educat
 
 After release, a reviewer can issue a separate **response link**. The ordinary patient link remains read-only. The response capability permits bounded synthetic teach-back submissions and the corresponding public history, without exposing private clinician answers. A submitted answer is queued through the transactional outbox and the existing shared daily allowance. A bounded Strands assessment proposes missing or misunderstood source passages, using exact released quotations for follow-up. Assessment remains provisional and requires reviewer review. It neither certifies comprehension nor closes a clarification. Each recheck remains a separate retained attempt.
 
-For source-only CI, the API uses the existing explicit memory/fixture mode. A future AWS deployment of this version must select `medplain.careflow_worker.handler` and `medplain.careflow_relay.handler`; they dispatch original case jobs through the unchanged legacy handlers. The API role also needs `dynamodb:ConditionCheckItem` on its exact operations table, so parent closure and the linked revision's version are checked atomically, as described in [AWS transaction permissions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis-iam.html). Existing deployment scripts and live IAM stay unchanged. `MEDPLAIN_CAREFLOW_MODEL_MODE` selects `fixture` or `bedrock`, defaulting to the existing model mode. No separate model call, deployment, quota change or benchmark run is authorized by building this branch.
+For source-only CI, the API uses the existing explicit memory/fixture mode. The separate `scripts/deploy_careflow.py` operator selects `medplain.careflow_worker.handler` and `medplain.careflow_relay.handler`; they dispatch original case jobs through the unchanged legacy handlers. It adds only `dynamodb:ConditionCheckItem` for the API's exact operations table and transactional writes, so source revision and actor versions can be checked atomically. See [AWS transaction permissions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis-iam.html). The operator requires exact prior source/package bindings and preserves the complete live environment except the source SHA, including all three daily limits of 120 and the model settings. It submits no model job, resets no counter and retains a fenced execution journal. `MEDPLAIN_CAREFLOW_MODEL_MODE` defaults to the existing model mode; a fixture override is rejected by the production release operator. New clinical measurements require separate authorization and cannot reopen H12.
 
 The new isolation check, `python scripts/check_careflow_isolation.py`, pins the original clinical gates, full baseline, reference/corpus snapshots, original tests and measurement instruments to their exact parent bytes. New tests and browser journeys exercise the added workflow separately. The original comparison does not measure these V3 capabilities.
 
@@ -79,6 +81,9 @@ The workflow follows [AHRQ MATCH medication reconciliation](https://www.ahrq.gov
 The separate **Complex Discharge Evals** corpus has thirty engineering-annotated synthetic dossiers, scored independently against fixed annotations. Both the actual SDK workflow and the complete rule baseline receive the same documents, supported parsers, literal clinical rules, question set and reference snapshots. The baseline also supplies conservative lexical/context planning. Corpus labels and expected answers are not sent to the model. Unknown narrative remains quoted uncertain evidence in both arms. This comparison tests the two implementations; it does not establish that the task requires an LLM.
 
 Independent scores separate source/atom fidelity, proper withholding, structural issues, selected-label review coverage and context-question precision/recall. Fixture mode deliberately replays the rule planner and cannot demonstrate model advantage. Actual Bedrock results, including failures and unexecuted rows, appear separately in Settings after publication for the exact deployed source. Missing results remain explicitly unmeasured.
+
+<details>
+<summary>Retained historical measurements and failed hypotheses, with every original denominator</summary>
 
 ### Actual complex results: a mixed known-corpus repeat
 
@@ -306,6 +311,8 @@ The retained timestamp-bounded worker excerpt reports a Nova Pro `ModelErrorExce
 The unchanged thirteen-pass launch guard blocked the full comparison. **One verified card, one strict pass, one refusal, eleven diagnostics and thirty comparison cases unexecuted** is the complete outcome of this cycle. Both attempted cases have zero annotated contextual targets: TP0 / FP0 / FN0, with precision undefined. There is no new overall precision score or claim that the thirty-card/twelve-TP target was achieved. No accepted job was retried.
 
 Independent audits verify the saved acknowledgements, terminal responses, source/package bindings and withholding. Aggregate telemetry contains four native successes, one Publisher schema error, seven successful custom-tool records and no graph, private-contract or clinical repairs. These counters do not measure HTTP calls, billed requests, tokens, cost or clinical benefit. All earlier reports remain available, and the complete deterministic baseline, safety gate, frozen scoring data, model IDs and sampling settings, and per-case budgets remain unchanged.
+
+</details>
 
 ## Operations console
 

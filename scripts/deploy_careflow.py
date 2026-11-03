@@ -63,6 +63,7 @@ def validate_config(config, name, expected_commit, expected_digest):
             or config.get('LastUpdateStatus') != 'Successful' or config.get('Runtime') != 'python3.12'
             or env.get('MEDPLAIN_OPS_DAILY_LIMIT') != '120'
             or env.get('MEDPLAIN_MODEL_MODE') != 'bedrock'
+            or env.get('MEDPLAIN_CAREFLOW_MODEL_MODE', 'bedrock') != 'bedrock'
             or env.get('MEDPLAIN_BEDROCK_MODEL_ID') != 'amazon.nova-micro-v1:0'
             or env.get('MEDPLAIN_RECONCILIATION_PLANNER_MODEL_ID') != 'amazon.nova-pro-v1:0'
             or env.get('MEDPLAIN_OPS_TABLE') != FUNCTION + '-ops'
@@ -78,6 +79,13 @@ def environment_for_release(environment, commit):
     if not re.fullmatch('[0-9a-f]{40}', commit):
         raise ValueError('A full source SHA is required')
     return {**environment, 'MEDPLAIN_COMMIT': commit}
+
+
+def validate_released_config(config, name, commit, digest, handler, environment):
+    validate_config(config, name, commit, digest)
+    if (config.get('Environment', {}).get('Variables') != environment
+            or config.get('Handler') != handler):
+        raise ValueError('Post-release environment or exact handler differs')
 
 
 def release_plan(args, call=cli):
@@ -109,7 +117,8 @@ def release_plan(args, call=cli):
         role = call(args, 'iam', 'get-role', '--role-name', role_name)
         require_project(role['Role'].get('Tags', []), role_name)
         result['functions'][name] = {
-            'previous_handler': config['Handler'], 'handler': HANDLERS[name],
+            'previous_handler': config['Handler'],
+            'handler': (LEGACY_HANDLERS if getattr(args, 'runtime_profile', 'careflow') == 'legacy' else HANDLERS)[name],
             'previous_environment': env, 'environment': environment_for_release(env, args.commit),
             'revision_id': config['RevisionId'],
         }
@@ -182,9 +191,8 @@ def deploy(args, call=cli):
              '--environment', json.dumps({'Variables': row['environment']}))
         call(args, 'lambda', 'wait', 'function-updated-v2', '--function-name', name)
         config = call(args, 'lambda', 'get-function-configuration', '--function-name', name)
-        validate_config(config, name, args.commit, plan['package_sha256'])
-        if config.get('Environment', {}).get('Variables') != row['environment']:
-            raise ValueError('Post-release environment differs')
+        validate_released_config(config, name, args.commit, plan['package_sha256'],
+                                 row['handler'], row['environment'])
         record('exact_package_handler_environment_verified', name)
     journal['complete'] = True
     journal_path.write_text(json.dumps(journal, indent=2) + '\n', encoding='utf-8')
@@ -201,12 +209,16 @@ if __name__ == '__main__':
     parser.add_argument('--commit', required=True)
     parser.add_argument('--expected-commit', required=True)
     parser.add_argument('--expected-sha256', required=True)
+    parser.add_argument('--runtime-profile', choices=['careflow', 'legacy'], default='careflow',
+                        help='Legacy is an explicit recovery of a retained package, not an inference fallback')
+    parser.add_argument('--operator-commit', help='Exact reviewed operator SHA when restoring a different retained package')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--apply', action='store_true')
     arguments = parser.parse_args()
     # A clean committed source makes the operator itself reviewable.
     root = Path(__file__).resolve().parents[1]
-    if (subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip() != arguments.commit
+    if (subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+            != (arguments.operator_commit or arguments.commit)
             or subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=root, text=True).strip()):
         raise ValueError('Release operator must run from its clean exact reviewed source')
     print(json.dumps(deploy(arguments), indent=2))

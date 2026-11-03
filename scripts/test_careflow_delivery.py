@@ -11,7 +11,7 @@ from pathlib import Path
 
 from deploy_careflow import (
     HANDLERS, LEGACY_HANDLERS, environment_for_release, release_plan, save_new,
-    transaction_policy, validate_config,
+    transaction_policy, validate_config, validate_released_config,
 )
 
 
@@ -55,6 +55,7 @@ class CareflowDelivery(unittest.TestCase):
                     validate_config(wrong, name, self.commit, self.digest)
             for key, value in [('MEDPLAIN_OPS_DAILY_LIMIT', '163'), ('MEDPLAIN_COMMIT', 'a' * 40),
                                ('MEDPLAIN_MODEL_MODE', 'fixture'),
+                               ('MEDPLAIN_CAREFLOW_MODEL_MODE', 'fixture'),
                                ('MEDPLAIN_RECONCILIATION_PLANNER_MODEL_ID', 'amazon.nova-micro-v1:0')]:
                 wrong = copy.deepcopy(config)
                 wrong['Environment']['Variables'][key] = value
@@ -70,6 +71,14 @@ class CareflowDelivery(unittest.TestCase):
                          ['TransactWriteItems'])
         with self.assertRaises(ValueError):
             transaction_policy('123456789012')
+
+    def test_new_source_with_legacy_dispatch_is_not_a_successful_careflow_release(self):
+        for name in ('atropos-medplain-worker', 'atropos-medplain-outbox-relay'):
+            config = self.config(name)
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'exact handler'):
+                validate_released_config(config, name, self.commit, self.digest, HANDLERS[name], self.env)
+            config['Handler'] = HANDLERS[name]
+            validate_released_config(config, name, self.commit, self.digest, HANDLERS[name], self.env)
 
     def test_foreign_function_is_rejected_before_any_aws_call(self):
         calls = []
