@@ -893,7 +893,7 @@ export default function CareflowPanel({
                         revision_source_hash: task.revision?.source_hash,
                         revision_artifact_hash: task.revision?.artifact_hash,
                       },
-                      "Clarification closed with a verified resolution",
+                      "Demo closure recorded against the verified source revision",
                     )
                   }
                 >
