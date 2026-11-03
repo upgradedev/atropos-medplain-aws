@@ -153,9 +153,11 @@ if STATIC.exists():
 # commands, so a client-side URL can never shadow an API or worker endpoint.
 from medplain.ops_api import router as operations_router  # noqa: E402
 from medplain.evidence_api import router as evidence_router  # noqa: E402
+from medplain.careflow_api import router as careflow_router  # noqa: E402
 
 app.include_router(operations_router)
 app.include_router(evidence_router)
+app.include_router(careflow_router)
 
 if (CONSOLE / "assets").is_dir():
     app.mount("/console/assets", StaticFiles(directory=CONSOLE / "assets"), name="console-assets")

@@ -6,6 +6,7 @@ import { ExplanationView } from "./CaseDrawer";
 import { Icon, State } from "./ui";
 import ClarificationView from "./ReconciliationView";
 import ReadingControls from "./ReadingControls";
+import TeachbackPanel from "./TeachbackPanel";
 type PatientPayload = Pick<CaseDetail, "source" | "result"> & {
   case: Pick<
     CaseDetail,
@@ -115,6 +116,9 @@ export default function Patient({ share }: { share: string }) {
             <ClarificationView artifact={data.result.artifact} />
           ) : data.result.explanation ? (
             <ExplanationView explanation={data.result.explanation} />
+          ) : null}
+          {isReconciliationDossier(data.source) ? (
+            <TeachbackPanel key={share} share={share} />
           ) : null}
           <p className="muted">
             No real patient data is accepted. Ask your clinician or pharmacist

@@ -5,6 +5,7 @@ import SourceEvidence from "./SourceEvidence";
 import ClarificationView, { sourceElementId } from "./ReconciliationView";
 import ReadingControls from "./ReadingControls";
 import ReferencePanel from "./ReferencePanel";
+import CareflowPanel from "./CareflowPanel";
 import {
   clock,
   duration,
@@ -17,7 +18,7 @@ import {
   isReconciliationDossier,
 } from "./types";
 const TABS = ["Source", "Explanation", "Safety", "Agents", "Receipt"] as const;
-type Tab = (typeof TABS)[number];
+type Tab = (typeof TABS)[number] | "Clarifications";
 
 export function ExplanationView({ explanation }: { explanation: Explanation }) {
   return (
@@ -179,6 +180,10 @@ export default function CaseDrawer({
   const canReview = role === "reviewer" || role === "admin";
   const canRetry = role === "operator" || role === "admin";
   const reconciliation = Boolean(data && isReconciliationDossier(data.source));
+  const tabs: readonly Tab[] =
+    reconciliation && data?.result?.status === "verified"
+      ? [...TABS, "Clarifications"]
+      : TABS;
   const openSource = (sourceId: string) => {
     setTab("Source");
     window.requestAnimationFrame(() => {
@@ -320,7 +325,7 @@ export default function CaseDrawer({
             </div>
           ) : null}
           <div className="tabs" role="tablist" aria-label="Case evidence tabs">
-            {TABS.map((item, index) => (
+            {tabs.map((item, index) => (
               <button
                 key={item}
                 id={`tab-${item}`}
@@ -332,11 +337,11 @@ export default function CaseDrawer({
                 onKeyDown={(event) => {
                   if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
                     const next =
-                      TABS[
+                      tabs[
                         (index +
                           (event.key === "ArrowRight" ? 1 : -1) +
-                          TABS.length) %
-                          TABS.length
+                          tabs.length) %
+                          tabs.length
                       ];
                     setTab(next);
                     document.getElementById(`tab-${next}`)?.focus();
@@ -358,6 +363,14 @@ export default function CaseDrawer({
             role="tabpanel"
             aria-labelledby={`tab-${tab}`}
           >
+            {tab === "Clarifications" && reconciliation ? (
+              <CareflowPanel
+                data={data}
+                role={role}
+                toast={toast}
+                changed={refresh}
+              />
+            ) : null}
             {tab === "Source" ? <SourceEvidence data={data} /> : null}
             {tab === "Explanation" ? (
               reconciliation ? (
