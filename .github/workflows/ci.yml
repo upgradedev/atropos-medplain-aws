@@ -102,7 +102,9 @@ jobs:
       - name: Unit and integration tests without network
         run: python scripts/offline_tests.py -q --junitxml=artifacts/tests.xml --cov=medplain --cov-report=term-missing --cov-report=xml:artifacts/coverage.xml
       - name: Verify infrastructure ownership and recursive frontend packaging
-        run: python scripts/test_delivery_v2.py
+        run: |
+          python scripts/test_delivery_v2.py
+          python scripts/test_careflow_delivery.py
       - name: Build standalone wheel
         run: |
           python -m build --wheel
