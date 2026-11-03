@@ -625,8 +625,7 @@ export default function CareflowPanel({
             </dl>
             <details>
               <summary>
-                Inspect cited original sources (
-                {task.statement_ids.length})
+                Inspect cited original sources ({task.statement_ids.length})
               </summary>
               {task.statement_ids.map((id) => {
                 const witness = data.result?.artifact?.source_statements.find(

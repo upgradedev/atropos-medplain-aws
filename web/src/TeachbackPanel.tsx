@@ -394,7 +394,11 @@ export function TeachbackReview({
               <option value="">Choose response</option>
               {eligible.map((attempt) => (
                 <option value={attempt.id} key={attempt.id}>
-                  Response {flow.teachback.attempts.findIndex((item) => item.id === attempt.id) + 1} · {clock(attempt.created_at)}
+                  Response{" "}
+                  {flow.teachback.attempts.findIndex(
+                    (item) => item.id === attempt.id,
+                  ) + 1}{" "}
+                  · {clock(attempt.created_at)}
                 </option>
               ))}
             </select>
