@@ -44,6 +44,40 @@ def select_task(panel, task, expect):
     control.click()
 
 
+def deferred_workflow_read(page, panel, case_id, expect, edit_draft):
+    """Hold a genuine GET until after typing, without replacing its response."""
+    path = f"/api/ops/cases/{case_id}/careflow"
+    pattern = "**" + path
+    held = []
+    delivered = False
+
+    def retain(route):
+        assert route.request.method == "GET"
+        held.append(route)
+
+    page.route(pattern, retain, times=1)
+    try:
+        with page.expect_request(lambda request: request.method == "GET" and request.url.endswith(path)):
+            panel.get_by_role("button", name="Reload workflow", exact=True).click()
+        expect(panel).to_have_attribute("aria-busy", "true")
+        edit_draft()
+        assert len(held) == 1, "the workflow GET must remain held while the draft is typed"
+        response = held[0].fetch()
+        assert response.status == 200, "deferred refresh must use the real current fixture API"
+        with page.expect_response(lambda result: result.request.method == "GET" and result.url.endswith(path)):
+            held[0].fulfill(response=response)
+        delivered = True
+        expect(panel).to_have_attribute("aria-busy", "false")
+    finally:
+        if not delivered:
+            for route in held:
+                try:
+                    route.abort()
+                except Exception:
+                    pass  # Do not mask the original assertion during cleanup.
+        page.unroute(pattern, retain)
+
+
 def wait_attempt(page, panel, expect, count=1):
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
@@ -110,9 +144,23 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     with page.expect_response(lambda r: r.url.endswith("/careflow/accept") and r.request.method == "POST") as accepted:
         panel.get_by_role("button", name="Accept responsibility", exact=True).click()
     assert accepted.value.status == 200
-    panel.get_by_label("Source-bound clarification note", exact=True).fill("Synthetic discharge-team review: the named follow-up contact is recorded in a separate source addendum. Keep treatment decisions with the care team.")
+    note = panel.get_by_label("Source-bound clarification note", exact=True)
+    note_text = "Synthetic discharge-team review: the named follow-up contact is recorded in a separate source addendum. Keep treatment decisions with the care team."
+    record_note = panel.get_by_role("button", name="Record clarification note", exact=True)
+
+    def type_note_during_refresh():
+        expect(note).to_be_editable()
+        note.fill(note_text)
+        expect(note).to_have_value(note_text)
+        expect(record_note).to_be_disabled()
+
+    deferred_workflow_read(page, panel, case_id, expect, type_note_during_refresh)
+    expect(note).to_have_value(note_text)
+    expect(record_note).to_be_enabled()
+    select_task(panel, task, expect)
+    expect(note).to_have_value(note_text)  # Same-task selection is not an identity change.
     with page.expect_response(lambda r: r.url.endswith("/careflow/answer") and r.request.method == "POST") as answered:
-        panel.get_by_role("button", name="Record clarification note", exact=True).click()
+        record_note.click()
     assert answered.value.status == 200
     expect(panel.get_by_role("button", name="Link verified revision", exact=True)).to_be_disabled()
     expect(panel.get_by_text("Create and independently verify a revised source packet", exact=False)).to_be_visible()
@@ -258,7 +306,25 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     assert len(attempts) == 1 and attempts[0]["status"] == "assessed"
     review_panel.get_by_label("Response awaiting reviewer", exact=True).select_option(attempts[0]["id"])
     review_panel.get_by_label("Review decision", exact=True).select_option("follow_up")
-    review_panel.get_by_label("Private reviewer comment", exact=True).fill("The acknowledgement did not demonstrate understanding. Re-explain only the approved source and request another synthetic response.")
+    review_comment = review_panel.get_by_label("Private reviewer comment", exact=True)
+    comment_text = "The acknowledgement did not demonstrate understanding. Re-explain only the approved source and request another synthetic response."
+    record_review = review_panel.get_by_role("button", name="Record teach-back review", exact=True)
+
+    def type_review_during_refresh():
+        expect(review_comment).to_be_editable()
+        review_comment.fill(comment_text)
+        expect(review_comment).to_have_value(comment_text)
+        expect(record_review).to_be_disabled()
+
+    deferred_workflow_read(page, panel, revision_id, expect, type_review_during_refresh)
+    expect(review_panel.get_by_label("Response awaiting reviewer", exact=True)).to_have_value(attempts[0]["id"])
+    expect(review_comment).to_have_value(comment_text)
+    expect(record_review).to_be_enabled()
+    review_panel.get_by_label("Response awaiting reviewer", exact=True).select_option("")
+    expect(review_comment).to_have_value("")
+    review_panel.get_by_label("Response awaiting reviewer", exact=True).select_option(attempts[0]["id"])
+    expect(review_comment).to_have_value("")
+    review_comment.fill(comment_text)
     with page.expect_response(lambda r: r.url.endswith(f"/teachback/{attempts[0]['id']}/review") and r.request.method == "POST") as review_saved:
         review_panel.get_by_role("button", name="Record teach-back review", exact=True).click()
     assert review_saved.value.status == 200
@@ -295,6 +361,8 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
         "actual_responses": 2, "provisional_assessment_not_comprehension": True,
         "reviewer_reexplain_recheck": True, "read_only_careflow_preview": True,
         "inline_role_and_revision_navigation": True, "responses_on_verified_child": True,
+        "drafts_retained_after_deferred_workflow_GET": ["clarification_note", "teachback_review"],
+        "same_task_reselection_preserves_draft": True, "explicit_attempt_change_resets_comment": True,
         "injected_read_errors": ["workflow503", "evidence503"], "mobile_width": 375}
 
 

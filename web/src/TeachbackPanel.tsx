@@ -249,8 +249,10 @@ export function TeachbackReview({
           comment: comment.trim(),
         },
       );
-      setComment("");
-      setAttemptId("");
+      setComment((current) =>
+        current.trim() === comment.trim() ? "" : current,
+      );
+      setAttemptId((current) => (current === selected.id ? "" : current));
       toast(
         "Teach-back review recorded; no treatment or comprehension certification",
       );
@@ -387,9 +389,15 @@ export function TeachbackReview({
             Response awaiting reviewer
             <select
               aria-label="Response awaiting reviewer"
-              disabled={busy || stale}
+              disabled={busy}
               value={attemptId}
-              onChange={(event) => setAttemptId(event.target.value)}
+              onChange={(event) => {
+                const next = event.target.value;
+                if (next === attemptId) return;
+                setAttemptId(next);
+                setComment("");
+                setDecision("follow_up");
+              }}
             >
               <option value="">Choose response</option>
               {eligible.map((attempt) => (
@@ -432,7 +440,7 @@ export function TeachbackReview({
             Private reviewer comment
             <textarea
               value={comment}
-              disabled={busy || stale}
+              disabled={busy}
               maxLength={500}
               onChange={(event) => setComment(event.target.value)}
               placeholder="Record review of the response and source. This private note is not shown as patient advice."

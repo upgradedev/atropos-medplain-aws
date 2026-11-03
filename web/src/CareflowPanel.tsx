@@ -281,6 +281,7 @@ export default function CareflowPanel({
   onReviewRelease?: () => void;
 }) {
   const [flow, setFlow] = useState<CareflowView | null>(null);
+  const latestFlow = useRef<CareflowView | null>(null);
   const [directory, setDirectory] = useState<ActorDirectory | null>(null);
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -309,8 +310,19 @@ export default function CareflowPanel({
     ])
       .then(([view, actors]) => {
         if (!controller.signal.aborted) {
-          setFlow(view);
-          setDirectory(actors);
+          if (
+            !latestFlow.current ||
+            latestFlow.current.case_id !== view.case_id ||
+            view.case_version >= latestFlow.current.case_version
+          ) {
+            latestFlow.current = view;
+            setFlow(view);
+          }
+          setDirectory((current) =>
+            !current || actors.actor_version >= current.actor_version
+              ? actors
+              : current,
+          );
         }
       })
       .catch((reason) => {
@@ -320,8 +332,21 @@ export default function CareflowPanel({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [data.id, data.version, revision]);
+  }, [data.id, revision]);
+  useEffect(() => {
+    // Local actions already returned their current workflow version. Only a
+    // newer external case version needs another read; neither path resets drafts.
+    const current = latestFlow.current;
+    if (
+      current &&
+      current.case_id === data.id &&
+      data.version > current.case_version
+    ) {
+      setRevision((value) => value + 1);
+    }
+  }, [data.id, data.version, flow?.case_version]);
   const selectTask = (id: string) => {
+    if (id === (selectedId || flow?.tasks[0]?.id)) return;
     setSelectedId(id);
     setAssignee("");
     setAnswer("");
@@ -360,9 +385,20 @@ export default function CareflowPanel({
         `/cases/${encodeURIComponent(data.id)}/careflow/${action}`,
         { ...careflowBinding(flow), ...body },
       );
-      setFlow(view);
-      setAnswer("");
-      setConfirmed(false);
+      if (
+        !latestFlow.current ||
+        latestFlow.current.case_id !== view.case_id ||
+        view.case_version >= latestFlow.current.case_version
+      ) {
+        latestFlow.current = view;
+        setFlow(view);
+      }
+      if (action === "answer") {
+        setAnswer((current) =>
+          current.trim() === body.answer_text ? "" : current,
+        );
+      }
+      if (action === "link-revision" || action === "close") setConfirmed(false);
       toast(success);
       changed();
     } catch (reason) {
@@ -377,6 +413,9 @@ export default function CareflowPanel({
   };
   const chooseActor = async (id: string) => {
     if (!directory || busy || stale || !canAssign) return;
+    if (id === directory.selected_actor_id) return;
+    setAnswer("");
+    setConfirmed(false);
     setBusy(true);
     try {
       setDirectory(
@@ -732,7 +771,7 @@ export default function CareflowPanel({
                   Source-bound clarification note
                   <textarea
                     value={answer}
-                    disabled={busy || stale}
+                    disabled={busy}
                     maxLength={2000}
                     onChange={(event) => setAnswer(event.target.value)}
                     placeholder="Record the synthetic care-team clarification. A separate verified source revision is required before closure."
@@ -944,6 +983,7 @@ export default function CareflowPanel({
         }
       />
       <TeachbackReview
+        key={`${data.id}:${data.generation}:${data.artifact_hash}:${actorId || "unselected"}`}
         data={data}
         flow={flow}
         role={role}
