@@ -59,6 +59,7 @@ export default function ReconciliationForm({
   failed,
   back,
   seed,
+  previewExampleId,
 }: {
   bootstrap: Bootstrap;
   workspace: string;
@@ -69,6 +70,7 @@ export default function ReconciliationForm({
   failed: (text: string) => void;
   back: () => void;
   seed?: ReconciliationSeed | null;
+  previewExampleId?: string;
 }) {
   const [dossier, setDossier] = useState<ReconciliationDossier>(() =>
     seed ? structuredClone(seed.dossier) : emptyDossier(),
@@ -86,6 +88,8 @@ export default function ReconciliationForm({
   const [stress, setStress] = useState(false);
   const idempotency = useRef(key());
   const submitting = useRef(false);
+  const previewLoaded = useRef(false);
+  const editedBeforePreview = useRef(false);
   useEffect(() => {
     const controller = new AbortController();
     setReadError("");
@@ -95,16 +99,28 @@ export default function ReconciliationForm({
       controller.signal,
     )
       .then((data) => {
-        if (!controller.signal.aborted) setExamples(data);
+        if (controller.signal.aborted) return;
+        setExamples(data);
+        if (previewExampleId && !seed && !previewLoaded.current) {
+          previewLoaded.current = true;
+          const example = data.examples.find(
+            (item) => item.id === previewExampleId,
+          );
+          if (example && !editedBeforePreview.current) {
+            setDossier(structuredClone(example.dossier));
+            setSelectedExample(example.id);
+          }
+        }
       })
       .catch((cause) => {
         if (!controller.signal.aborted) setReadError(message(cause));
       });
     return () => controller.abort();
-  }, [readRevision]);
+  }, [readRevision, previewExampleId, seed]);
   const edit = (
     change: (current: ReconciliationDossier) => ReconciliationDossier,
   ) => {
+    editedBeforePreview.current = true;
     setDossier(change);
     setConfirmed(false);
     setError("");
@@ -233,6 +249,18 @@ export default function ReconciliationForm({
           context. The result is a source-cited clarification card, never a new
           prescription.
         </p>
+        {previewExampleId && !seed ? (
+          <div className="notice" data-testid="careflow-preview-notice">
+            <strong>Coordinated follow-up preview</strong>
+            <p>
+              The pending-result example loads into these editable fields only.
+              Inspect the missing owner, confirm the sources are invented, then
+              submit to start one new verification. A verified card unlocks its
+              Clarifications workspace; no assignment or patient answer is
+              pre-recorded by this preview.
+            </p>
+          </div>
+        ) : null}
         {seed ? (
           <div className="notice">
             New source revision for case{" "}

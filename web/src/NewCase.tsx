@@ -29,6 +29,7 @@ export default function NewCase({
   canCreate,
   count,
   reconciliationSeed,
+  careflowPreview = false,
 }: {
   bootstrap: Bootstrap;
   stressDefault: boolean;
@@ -39,6 +40,7 @@ export default function NewCase({
   canCreate: boolean;
   count: number;
   reconciliationSeed?: ReconciliationSeed | null;
+  careflowPreview?: boolean;
 }) {
   const initial = stressDefault
     ? bootstrap.packets.find((item) => item.stress_available) ||
@@ -52,7 +54,7 @@ export default function NewCase({
     Boolean(initial?.stress_available) && stressDefault,
   );
   const [mode, setMode] = useState<InputMode>(
-    reconciliationSeed ? "reconcile" : "sample",
+    reconciliationSeed || careflowPreview ? "reconcile" : "sample",
   );
   const [template, setTemplate] = useState<IntakeTemplate | null>(null);
   const [templateError, setTemplateError] = useState("");
@@ -164,6 +166,7 @@ export default function NewCase({
         done={done}
         failed={failed}
         seed={reconciliationSeed}
+        previewExampleId={careflowPreview ? "pending-result-gap" : undefined}
         back={() => setMode("sample")}
       />
     );

@@ -101,6 +101,7 @@ function Console() {
   const [reconciliationSeed, setReconciliationSeed] =
     useState<ReconciliationSeed | null>(null);
   const [stressDefault, setStressDefault] = useState(false);
+  const [careflowPreview, setCareflowPreview] = useState(false);
   const [sessionBusy, setSessionBusy] = useState(false);
   const [tour, setTour] = useState(false);
   const [theme, setTheme] = useState(() => {
@@ -350,9 +351,10 @@ function Console() {
       setSessionBusy(false);
     }
   };
-  const startCreate = (stress = false) => {
+  const startCreate = (stress = false, coordinated = false) => {
     setReconciliationSeed(null);
     setStressDefault(stress);
+    setCareflowPreview(coordinated);
     setCreateOpen(true);
   };
   const closeCreate = useCallback(() => {
@@ -790,6 +792,7 @@ function Console() {
               retry={refresh}
               drill={drill}
               create={() => startCreate()}
+              coordinate={() => startCreate(false, true)}
               canCreate={canCreate}
               drillDesk={selectDesk}
             />
@@ -1171,6 +1174,7 @@ function Console() {
           canCreate={canCreate}
           count={sessionCaseTotal || 0}
           reconciliationSeed={reconciliationSeed}
+          careflowPreview={careflowPreview}
         />
       ) : null}
       {route.caseId ? (
@@ -1178,10 +1182,14 @@ function Console() {
           key={route.caseId}
           id={route.caseId}
           role={role}
+          roleBusy={sessionBusy}
+          onRoleChange={setRole}
+          onOpenCase={openCase}
           close={closeCase}
           changed={refresh}
           toast={toast}
           onRevise={(dossier, parentCaseId) => {
+            setCareflowPreview(false);
             setReconciliationSeed({ dossier, parent_case_id: parentCaseId });
             setStressDefault(false);
             navigate({ caseId: "" });

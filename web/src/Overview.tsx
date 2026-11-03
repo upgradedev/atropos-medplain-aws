@@ -8,6 +8,7 @@ export default function Overview({
   retry,
   drill,
   create,
+  coordinate,
   canCreate,
   drillDesk,
 }: {
@@ -17,6 +18,7 @@ export default function Overview({
   retry: () => void;
   drill: (status: string) => void;
   create: () => void;
+  coordinate: () => void;
   canCreate: boolean;
   drillDesk: (facilityId: string) => void;
 }) {
@@ -125,6 +127,25 @@ export default function Overview({
           </button>
         ))}
       </div>
+      <section className="welcome card" data-testid="careflow-entry">
+        <div className="eyebrow">FOLLOW A QUESTION THROUGH TO REVIEW</div>
+        <h2>Follow a pending result through an accountable handoff.</h2>
+        <p>
+          Preview an invented discharge packet, then follow assignment, explicit
+          acceptance, a source-bound reply and a separately verified revision.
+          After release, a private response link supports provisional teach-back
+          assessment and human follow-up.
+        </p>
+        <button className="button secondary" onClick={coordinate}>
+          Preview coordinated follow-up
+          <Icon name="arrow" />
+        </button>
+        <p className="control-reason">
+          Preview only. No verification starts until you confirm the synthetic
+          sources and submit. Prepared examples, when present, are labelled
+          offline.
+        </p>
+      </section>
       {data.counts.total === 0 ? (
         <section className="welcome card">
           <div className="eyebrow">START WITH A SYNTHETIC PACKET</div>

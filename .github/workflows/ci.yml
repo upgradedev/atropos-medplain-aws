@@ -38,6 +38,21 @@ jobs:
           node-version: '22'
       - name: Scan tracked source for secrets and prohibited punctuation
         run: python scripts/check_source.py
+      - name: Preserve frozen clinical and scheduled comparison source
+        run: python scripts/check_careflow_isolation.py
+      - name: Observe the current public demo without inference
+        run: |
+          python - <<'PY'
+          import json, re, urllib.request
+          base = 'https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws'
+          for path in ('/', '/api/health'):
+              with urllib.request.urlopen(base + path, timeout=30) as response:
+                  assert response.status == 200
+                  if path == '/api/health':
+                      commit = json.load(response)['commit']
+                      assert re.fullmatch(r'[0-9a-f]{40}', commit)
+          print(f'Current anonymous demo: HTTP 200, observed source {commit}; no jobs submitted. Exact release bindings are checked separately at deployment.')
+          PY
       - name: Check console source formatting
         id: console_format
         run: npx --yes prettier@3.5.3 --check 'web/**/*.{ts,tsx,css,js,cjs,json,html}'
@@ -69,7 +84,7 @@ jobs:
           python scripts/stage_console.py
           python scripts/check_source.py
       - name: Install CI-only dependencies
-        run: python -m pip install '.[test,eval]' build playwright
+        run: python -m pip install -c constraints-runtime.txt '.[test,eval]' build playwright
       - name: Prepare and validate offline Strands demonstration collection
         run: |
           PYTHONPATH=src python scripts/build_prepared_demo.py --output src/medplain/data/prepared_demo.json --source-commit "$GITHUB_SHA"
@@ -87,7 +102,9 @@ jobs:
       - name: Unit and integration tests without network
         run: python scripts/offline_tests.py -q --junitxml=artifacts/tests.xml --cov=medplain --cov-report=term-missing --cov-report=xml:artifacts/coverage.xml
       - name: Verify infrastructure ownership and recursive frontend packaging
-        run: python scripts/test_delivery_v2.py
+        run: |
+          python scripts/test_delivery_v2.py
+          python scripts/test_careflow_delivery.py
       - name: Build standalone wheel
         run: |
           python -m build --wheel
@@ -103,8 +120,10 @@ jobs:
         run: python scripts/intake_browser_smoke.py --output artifacts/intake-browser
       - name: Execute complex dossier clarification, source revision and accessible patient journeys
         run: python scripts/reconciliation_browser_smoke.py --output artifacts/reconciliation-browser
+      - name: Execute V3 accepted clarification, targeted retrieval and patient teach-back journeys
+        run: python scripts/careflow_browser_smoke.py --output artifacts/careflow-browser
       - name: Prepare Linux Lambda dependencies
-        run: python -m pip install . --target "$RUNNER_TEMP/medplain-runtime" --no-compile
+        run: python -m pip install -c constraints-runtime.txt . --target "$RUNNER_TEMP/medplain-runtime" --no-compile
       - name: Assemble Lambda package and SHA-256 manifest
         run: |
           python scripts/package_lambda.py --dependency-dir "$RUNNER_TEMP/medplain-runtime" --commit "$GITHUB_SHA" --require-console --require-prepared-demo --require-evaluation-report --require-reconciliation-report

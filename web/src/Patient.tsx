@@ -6,6 +6,7 @@ import { ExplanationView } from "./CaseDrawer";
 import { Icon, State } from "./ui";
 import ClarificationView from "./ReconciliationView";
 import ReadingControls from "./ReadingControls";
+import TeachbackPanel from "./TeachbackPanel";
 type PatientPayload = Pick<CaseDetail, "source" | "result"> & {
   case: Pick<
     CaseDetail,
@@ -27,12 +28,15 @@ export default function Patient({ share }: { share: string }) {
   useEffect(() => {
     const controller = new AbortController();
     setError("");
+    setData(null);
     void api<PatientPayload>(
       `/patient/${encodeURIComponent(share)}`,
       undefined,
       controller.signal,
     )
-      .then(setData)
+      .then((value) => {
+        if (!controller.signal.aborted) setData(value);
+      })
       .catch((reason) => {
         if (!controller.signal.aborted) setError(message(reason));
       });
@@ -106,15 +110,41 @@ export default function Patient({ share }: { share: string }) {
               ? "This released clarification card preserves source quotations and question citations. It is not a reconciled prescription. Medication decisions remain with your care team."
               : "The released explanation matched the supported source facts. This checks fidelity, not whether the original care plan is clinically appropriate."}
           </p>
+          {isReconciliationDossier(data.source) ? (
+            <nav
+              className="patient-journey"
+              aria-label="Patient explanation and response access"
+            >
+              <a className="button secondary" href="#patient-source-card">
+                Read the source-cited card
+              </a>
+              <a className="button secondary" href="#teachback">
+                Questions and response access
+              </a>
+              <p className="control-reason">
+                Response submission needs a separate private link from the
+                synthetic reviewer. Every assessment remains provisional until
+                human review; this page does not authorize a medication change.
+              </p>
+            </nav>
+          ) : null}
           <ReadingControls
             text={data.result.explanation_text}
             language={data.result.artifact?.language || "en"}
           />
           {data.result.artifact_kind === "clarification_plan" &&
           data.result.artifact ? (
-            <ClarificationView artifact={data.result.artifact} />
+            <section
+              id="patient-source-card"
+              aria-label="Released source-cited card"
+            >
+              <ClarificationView artifact={data.result.artifact} />
+            </section>
           ) : data.result.explanation ? (
             <ExplanationView explanation={data.result.explanation} />
+          ) : null}
+          {isReconciliationDossier(data.source) ? (
+            <TeachbackPanel key={share} share={share} />
           ) : null}
           <p className="muted">
             No real patient data is accepted. Ask your clinician or pharmacist
