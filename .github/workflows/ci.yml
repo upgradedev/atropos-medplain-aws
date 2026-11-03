@@ -40,17 +40,18 @@ jobs:
         run: python scripts/check_source.py
       - name: Preserve frozen clinical and scheduled comparison source
         run: python scripts/check_careflow_isolation.py
-      - name: Verify the frozen public demo remains available without inference
+      - name: Observe the current public demo without inference
         run: |
           python - <<'PY'
-          import json, urllib.request
+          import json, re, urllib.request
           base = 'https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws'
           for path in ('/', '/api/health'):
               with urllib.request.urlopen(base + path, timeout=30) as response:
                   assert response.status == 200
                   if path == '/api/health':
-                      assert json.load(response)['commit'] == 'e277167e3ec925c21acf4924bffd116470160afb'
-          print('Frozen anonymous demo: HTTP 200 and exact e277 identity; no jobs submitted')
+                      commit = json.load(response)['commit']
+                      assert re.fullmatch(r'[0-9a-f]{40}', commit)
+          print(f'Current anonymous demo: HTTP 200, observed source {commit}; no jobs submitted. Exact release bindings are checked separately at deployment.')
           PY
       - name: Check console source formatting
         id: console_format
