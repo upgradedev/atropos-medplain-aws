@@ -439,6 +439,7 @@ export function TeachbackReview({
           <label>
             Private reviewer comment
             <textarea
+              aria-label="Private reviewer comment"
               value={comment}
               disabled={busy}
               maxLength={500}
@@ -787,6 +788,7 @@ export default function TeachbackPanel({ share }: { share: string }) {
                 <label>
                   Your synthetic response
                   <textarea
+                    aria-label="Your synthetic response"
                     value={response}
                     disabled={busy}
                     maxLength={2000}

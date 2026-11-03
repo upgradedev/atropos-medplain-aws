@@ -770,6 +770,7 @@ export default function CareflowPanel({
                 <label>
                   Source-bound clarification note
                   <textarea
+                    aria-label="Source-bound clarification note"
                     value={answer}
                     disabled={busy}
                     maxLength={2000}

@@ -288,6 +288,7 @@ def exercise(page, browser, url: str, output: Path, expect) -> dict:
     assert not urlparse(patient.url).fragment, "response capability must be stripped after tab-scoped storage"
     patient.get_by_role("link", name="Questions and response access", exact=True).click()
     feedback.get_by_label("Your synthetic response", exact=True).fill("Yes, I understand.")
+    expect(feedback.get_by_label("Your synthetic response", exact=True)).to_have_value("Yes, I understand.")
     feedback.get_by_label("This is wholly invented", exact=False).check()
     with patient.expect_response(lambda r: r.url.endswith("/responses") and r.request.method == "POST") as submitted:
         feedback.get_by_role("button", name="Submit synthetic response", exact=True).click()
