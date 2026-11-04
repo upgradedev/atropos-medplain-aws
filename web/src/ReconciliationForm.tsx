@@ -276,7 +276,7 @@ export default function ReconciliationForm({
                 : "If verified, inspect the cited questions and open Clarifications to assign follow-up. A failed gate withholds the card."}
             </li>
           </ol>
-          <p className="control-reason">
+          <p className="muted">
             Verification does not release a patient card or authorize a
             medication change. Review and release are separate actions.
           </p>

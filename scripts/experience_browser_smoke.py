@@ -72,6 +72,13 @@ def exercise(page, url, output, expect):
     steps.locator(":scope > summary").click()
     expect(steps.locator("ol > li")).to_have_count(3)
     expect(steps).to_contain_text("A failed gate withholds the card")
+    boundary_note = steps.locator(":scope > p")
+    expect(boundary_note).to_be_visible()
+    last_step_box = steps.locator("ol > li").last.bounding_box()
+    boundary_note_box = boundary_note.bounding_box()
+    assert last_step_box and boundary_note_box, "Expanded submission guide requires visible geometry"
+    last_step_bottom = last_step_box["y"] + last_step_box["height"]
+    assert last_step_bottom <= boundary_note_box["y"], "Submission guidance overlaps the following review/release boundary"
     expect(preview.get_by_label("Confirm invented reconciliation sources", exact=True)).not_to_be_checked()
     expect(preview.get_by_test_id("start-reconciliation")).to_be_disabled()
     preview_mobile = width_proof(page, 375)
@@ -111,6 +118,9 @@ def exercise(page, url, output, expect):
             "preview_mutation_requests": 0, "preview_cases": 0, "explicit_submissions": 1,
             "verified_model_mode": "fixture", "purpose_before_counts": True,
             "source_choice_and_input_action_outcome_guides": True, "role_context_updates_after_actual_role_change": True,
+            "expanded_submission_guide_geometry": {"last_step_bottom": last_step_bottom,
+                                                   "boundary_note_top": boundary_note_box["y"],
+                                                   "gap": boundary_note_box["y"] - last_step_bottom},
             "observed_widths": {"collapsed_desktop": desktop, "mobile": mobile,
                                 "preview_mobile": preview_mobile, "workflow_mobile": workflow_mobile}}
 
