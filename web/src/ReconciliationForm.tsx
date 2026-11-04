@@ -262,7 +262,7 @@ export default function ReconciliationForm({
         ) : null}
         <details data-testid="reconciliation-steps">
           <summary>What will happen when I submit?</summary>
-          <ol>
+          <ol className="mb-3 list-decimal space-y-2 pl-5">
             <li>
               Inspect the original documents and caregiver concerns below.
             </li>

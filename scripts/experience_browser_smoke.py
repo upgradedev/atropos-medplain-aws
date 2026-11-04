@@ -71,6 +71,7 @@ def exercise(page, url, output, expect):
     steps = preview.get_by_test_id("reconciliation-steps")
     steps.locator(":scope > summary").click()
     expect(steps.locator("ol > li")).to_have_count(3)
+    expect(steps.locator(":scope > ol")).to_have_css("list-style-type", "decimal")
     expect(steps).to_contain_text("A failed gate withholds the card")
     boundary_note = steps.locator(":scope > p")
     expect(boundary_note).to_be_visible()
