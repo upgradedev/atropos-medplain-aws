@@ -71,20 +71,31 @@ def native_origin(row, seconds, frame_seconds):
 
 
 class NativeDecoder:
-    def __init__(self, path, output, alias):
+    def __init__(self, path, output, alias, duration):
         self.log = (output / (alias + "-decode.log")).open("xb")
         self.process = subprocess.Popen(["ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-an", "-vf",
                                          "fps=30,scale=1280:720:flags=lanczos", "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"],
                                         stdout=subprocess.PIPE, stderr=self.log)
         self.number, self.pixels = -1, None
+        self.duration, self.tail_frame_holds = duration, []
 
-    def frame(self, target):
+    def frame(self, target, native_seconds):
         require(target >= self.number, "A source page was replayed or time reversed")
+        require(math.floor(native_seconds * FPS) == target, "Native frame target must use its actual clock")
         while self.number < target:
             required, chunks = 1280 * 720 * 3, []
             while required:
                 chunk = self.process.stdout.read(required)
-                require(bool(chunk), "Native source does not cover a real UI interval; preserve partial render")
+                if not chunk:
+                    require(not chunks and self.pixels is not None and target == self.number + 1
+                            and self.duration - 1 / FPS <= native_seconds <= self.duration + 1 / FPS,
+                            "Native source does not cover a real UI interval; preserve partial render")
+                    require(self.process.wait(timeout=20) == 0, "Native decoder failed; no final-frame substitution permitted")
+                    self.tail_frame_holds.append({"requested_index": target, "last_decoded_index": self.number,
+                                                  "native_seconds": native_seconds, "measured_native_duration": self.duration,
+                                                  "maximum_boundary_seconds": 1 / FPS,
+                                                  "reason": "Successful decoder EOF within one final output frame; retain actual last pixels and full wall clock."})
+                    return self.pixels
                 chunks.append(chunk)
                 required -= len(chunk)
             self.pixels = b"".join(chunks)
@@ -126,7 +137,7 @@ class RealtimeCanvas(graphics.FinalCanvas):
             alias = window["page"]
             native_seconds = wall - self.origins[alias]["selected_origin_seconds"]
             require(native_seconds >= 0, "Actual page video has not started")
-            pixels = self.decoders[alias].frame(math.floor(native_seconds * FPS))
+            pixels = self.decoders[alias].frame(math.floor(native_seconds * FPS), native_seconds)
             native = self.Image.frombytes("RGB", (1280, 720), pixels)
             image = self.background.copy()
             rendered = native.resize((1460, 821), self.Image.Resampling.LANCZOS)
@@ -230,7 +241,7 @@ def render(inputs, manifest_sha, recordings, proof_sha, review_path, review_sha,
             rate = Fraction(stream["avg_frame_rate"])
             require(rate > 0, "Actual native frame rate is unavailable")
             origins[alias] = native_origin(row, duration, 1 / float(rate))
-            decoders[alias] = NativeDecoder(path, output, alias)
+            decoders[alias] = NativeDecoder(path, output, alias, duration)
         require({row["page"] for row in windows} <= set(decoders), "An active page has no real source recording")
         canvas = RealtimeCanvas(inputs, plan, proof, start, end, windows, origins, decoders, ui_offset)
         frames = math.ceil(seconds * FPS)
@@ -266,6 +277,7 @@ def render(inputs, manifest_sha, recordings, proof_sha, review_path, review_sha,
                     "recorded_application_source": proof["application_source"], "manifest_sha256": manifest_sha,
                     "requested_application_source": expected_source, "reviewed_recorder_sha256": expected_recorder_sha,
                     "recording_proof_sha256": proof_sha, "recording_review_sha256": review_sha, "native_origins": origins,
+                    "native_final_frame_holds": {alias: decoder.tail_frame_holds for alias, decoder in decoders.items()},
                     "ui_clock_start": start, "ui_clock_end": end, "actual_page_windows": windows, "ui_film_offset": ui_offset,
                     "no_time_compression": True, "actual_complete_ui_seconds": end - start, "source_audio_sha256": media.digest(original),
                     "audio_policy": audio.POLICY, "source_pcm_signal": audio.pcm_signal_metrics(raw),

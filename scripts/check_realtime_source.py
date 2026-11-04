@@ -1,9 +1,11 @@
 """Stdlib source/privacy controls; actual native recording runs only in reviewed CI."""
 import ast
 from copy import deepcopy
+import io
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 
 import demo_video as media
 from prepare_realtime_request import FILES, validate
@@ -119,6 +121,29 @@ def main():
         controls.append("native_origin_unsubstantiated_by_actual_duration")
     else:
         raise AssertionError("Unmeasured native synchronization accepted")
+    # Already-spent console timing requests index2821 at94.037659s after2821 decoded frames.
+    # Model the real EOF boundary, including corruption, extra-gap and failed-decoder controls.
+    def decoder(remaining=b"", exit_code=0, last=2820, pixels=b"actual last native pixels"):
+        result = composition.NativeDecoder.__new__(composition.NativeDecoder)
+        result.number, result.pixels, result.duration, result.tail_frame_holds = last, pixels, 94.04, []
+        result.process = SimpleNamespace(stdout=io.BytesIO(remaining), wait=lambda timeout: exit_code)
+        return result
+    boundary = decoder()
+    assert boundary.frame(2821, 94.037659343) == b"actual last native pixels"
+    assert len(boundary.tail_frame_holds) == 1 and boundary.number == 2820
+    for name, native, target, seconds in [
+            ("native_end_gap_beyond_one_frame", decoder(), 2822, 94.08),
+            ("native_end_more_than_one_decoded_frame_missing", decoder(last=2819), 2821, 94.037659343),
+            ("native_partial_frame_cannot_be_replaced", decoder(remaining=b"partial"), 2821, 94.037659343),
+            ("native_failed_decoder_cannot_be_replaced", decoder(exit_code=1), 2821, 94.037659343),
+            ("native_missing_first_pixels_cannot_be_invented", decoder(pixels=None), 2821, 94.037659343),
+            ("native_frame_target_must_match_real_clock", decoder(), 2821, 94.0)]:
+        try:
+            native.frame(target, seconds)
+        except ValueError:
+            controls.append(name)
+        else:
+            raise AssertionError(name)
     original = root / "scripts/careflow_browser_smoke.py"
     original_capture = root / "scripts/final_pitch_capture.py"
     assert original.is_file() and original_capture.is_file()
