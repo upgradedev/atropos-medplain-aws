@@ -4,6 +4,7 @@ import ast
 import json
 from pathlib import Path
 import tempfile
+from urllib.parse import urlparse
 
 import demo_video as media
 import final_pitch as final
@@ -45,6 +46,11 @@ def capture_security_contract(source):
 def main():
     source = Path(__file__).resolve().parent.parent
     controls = []
+    for allowed in ("http://127.0.0.1/patient/example", "http://127.0.0.1/patient/example#teachback"):
+        assert capture.public_capture_fragment(urlparse(allowed).fragment)
+    for fragment in ("teachback=secret", "teachback%3Dsecret", "other", "other=secret", "teachback&other=secret", "Teachback", "teachback%00"):
+        assert not capture.public_capture_fragment(urlparse("http://127.0.0.1/patient/example#" + fragment).fragment), "Private or unregistered fragment accepted"
+        controls.append("reject_capture_fragment_" + fragment)
     capture_security_contract((source / "scripts/final_pitch_capture.py").read_text(encoding="utf-8"))
     for name, unsafe in [
         ("capture_csp_bypass", 'context = browser.new_context(bypass_csp=True)\npage.screenshot(mask=[secret], mask_color="#111111")'),

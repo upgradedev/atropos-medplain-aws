@@ -41,6 +41,11 @@ FOCUS = {
 }
 
 
+def public_capture_fragment(fragment):
+    """Only the exact ordinary patient-section anchor is eligible for public pixels."""
+    return fragment in {"", "teachback"}
+
+
 def instrument(source):
     tree = ast.parse(source)
     originals = {ast.dump(ast.parse(key).body[0], include_attributes=False): value for key, value in HOOKS.items()}
@@ -88,7 +93,7 @@ def capture(app, output):
 
     def record(page, name):
         media.require(urlparse(page.url).hostname in {"127.0.0.1", "localhost"}, "Capture target escaped loopback")
-        media.require(not urlparse(page.url).fragment, "Private response capability must be removed before capture")
+        media.require(public_capture_fragment(urlparse(page.url).fragment), "Only an empty fragment or the public teachback anchor may be captured")
         path = output / (name + ".png")
         media.require(not path.exists(), "Duplicate accepted screenshot milestone")
         page.wait_for_load_state("networkidle")
