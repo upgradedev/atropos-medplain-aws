@@ -106,23 +106,25 @@ def capture(app, output):
                 "y": max(0, min(viewport["height"] - height, bounds["y"] + bounds["height"] / 2 - height / 2)),
                 "width": width, "height": height}
         focused = output / (name + "-focus.png")
-        # Browser chrome/URLs are not captured. Hide capability links while preserving layout.
-        style = page.add_style_tag(content='a[href*="#teachback="] { visibility: hidden !important; }')
-        try:
-            page.screenshot(path=str(path), full_page=False)
-            # Crop the retained viewport pixels, avoiding document/viewport scroll-coordinate ambiguity.
-            from PIL import Image
-            with Image.open(path) as original:
-                left, top = round(clip["x"]), round(clip["y"])
-                original.crop((left, top, left + width, top + height)).save(focused)
-        finally:
-            style.evaluate("node => node.remove()")
+        # Native screenshot masks redact pixels without mutating the document or its CSP.
+        private_links = page.locator('a[href*="#teachback="]')
+        redaction = {"method": "Playwright native screenshot mask", "selector": 'a[href*="#teachback="]',
+                     "mask_color": "#0f1720", "matched_elements": private_links.count(),
+                     "application_dom_or_csp_changed": False}
+        page.screenshot(path=str(path), full_page=False, mask=[private_links], mask_color="#0f1720")
+        # Crop the retained privacy-masked viewport pixels, avoiding scroll-coordinate ambiguity.
+        from PIL import Image
+        with Image.open(path) as original:
+            left, top = round(clip["x"]), round(clip["y"])
+            original.crop((left, top, left + width, top + height)).save(focused)
         rows.append({"slot": name, "image": focused.name, "sha256": media.digest(focused),
                      "kind": "current_fixture", "source_commit": RUNTIME,
-                     "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, no new Bedrock execution",
+                     "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
                      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
                      "viewport": viewport, "original_viewport_image": path.name,
-                     "original_viewport_sha256": media.digest(path), "original_pixel_clip": clip})
+                     "original_viewport_sha256": media.digest(path), "original_pixel_clip": clip,
+                     "original_viewport_label": "Privacy-masked original viewport capture",
+                     "privacy_redaction": redaction})
 
     namespace = {"__name__": "final_capture_journey", "__file__": str(source_path), "record_final_frame": record}
     exec(compile(tree, str(source_path), "exec"), namespace)
@@ -140,7 +142,7 @@ def capture(app, output):
                   "runtime_commit": RUNTIME, "journey_sha256": media.digest(source_path),
                   "capture_helper_sha256": media.digest(Path(__file__)), "screenshots": rows, "journey": proof,
                   "live_provider_calls": 0, "transmitted_non_loopback_application_requests": 0,
-                  "representation": "Captured original application pixels during actual offline fixture execution; no provider efficacy or clinical outcome claim."}
+                  "representation": "Original application screenshot pixels from actual offline fixture execution, with explicit native screenshot privacy masks and bounded crops; no provider efficacy or clinical outcome claim."}
         (output / "capture-proof.json").write_bytes(media.encoded(result))
         return result
     finally:
