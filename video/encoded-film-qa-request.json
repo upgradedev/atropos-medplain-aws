@@ -1,0 +1,13 @@
+{
+  "status": "BLOCKED_requires_completed_composition_and_root_admission",
+  "application_source": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
+  "qa_source_sha256": null,
+  "compose_run_id": null,
+  "compose_head": null,
+  "artifact_id": null,
+  "artifact_name": null,
+  "archive_sha256": null,
+  "movie_sha256": null,
+  "render_proof_sha256": null,
+  "media_gate_sha256": null
+}
