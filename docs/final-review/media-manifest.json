@@ -1,0 +1,77 @@
+{
+  "schema": "medplain-final-owner-review-delivery-v1",
+  "prepared_utc": "2026-11-04T06:55:15.506852+00:00",
+  "status": "technical_media_pass_owner_listening_and_publication_pending",
+  "ci_run": "https://github.com/upgradedev/atropos-medplain-aws/actions/runs/41787175675",
+  "render_source_commit": "acea088f4534db8aa6c200a74f9b2e969a588a65",
+  "runtime_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+  "runtime_package_sha256": "fd517414dc5dc80bc0856bb5bf4614a6bbb6bcc0e5c4f919377a9cb4c15befa5",
+  "duration_seconds": 149.233333,
+  "frames": 4477,
+  "caption_cues": 39,
+  "representation": "Animated fictional CGI and actual source-labelled offline fixture screenshots; historical clinical comparison separately labelled.",
+  "clinical_model_jobs_in_this_task": 0,
+  "human_listening_approval": false,
+  "youtube_publication": "pending_owner",
+  "builder_article": "saved_draft_not_published",
+  "public_claim_boundaries": "No new Bedrock clinical efficacy, patient comprehension, clinical benefit, 90/100 or Submitted claim.",
+  "source_audio_sha256": "62122e08d1fa168b01dc72e98c5b2d0a4a3fbe25fec6d8c9e883862295ea2212",
+  "media_archive_sha256": "ebcaf7b633e77fe944df4a2c22a31564e41b2d3ea4fbc6c06d47a415af738bf1",
+  "capture_archive_sha256": "b02be267ba9e5902aa097909ccde1c775042b0bfd113ad55de15f59bcb53faa6",
+  "poster_origin": "CI renderer qa/intro.png, not an encoded-frame claim",
+  "vtt_derivation": "Exact SRT text with WEBVTT header and timestamp comma-to-dot conversion; no cue or word changes",
+  "files": {
+    "article.html": {
+      "bytes": 10070,
+      "sha256": "bdd8a6ea6b025f7372b76dde97641905ff882401bd996a3738f436292057a055"
+    },
+    "article.txt": {
+      "bytes": 7794,
+      "sha256": "c4af38f1bcfdb316b07e890001d63fe333f15d2d7d6d2552f2cace57de0ebbaa"
+    },
+    "capture-proof.json": {
+      "bytes": 28760,
+      "sha256": "6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4"
+    },
+    "index.html": {
+      "bytes": 7972,
+      "sha256": "df36379b39a803aaee7f2c5ef7555f992c1d3bbfcb58e732f4c13e5e65af3b8b"
+    },
+    "media-gate.json": {
+      "bytes": 9918,
+      "sha256": "8b29ef0fb5d08e260f6fcec24131863a402df2c6c922d0621fc5abc926ca0a06"
+    },
+    "medplain-final-poster.png": {
+      "bytes": 658096,
+      "sha256": "3b2e53f6e0b9bd491d19c0a1145100877aec775de3f1947c8c616f3fb7165c85"
+    },
+    "medplain-final.mp4": {
+      "bytes": 18127997,
+      "sha256": "6d6518b1cfb7da4f9d6326897b80e470188caa140b8b68e8026edd34cf6599ea"
+    },
+    "medplain-final.srt": {
+      "bytes": 3437,
+      "sha256": "7c7f422c1b0dffa0912a882bc9997ba728f681052fb914983e71ce0945de16ae"
+    },
+    "medplain-final.vtt": {
+      "bytes": 3445,
+      "sha256": "4e9ec060a154a095fc72be2204ca84e6b918bd7a6ff0ca769c4d280646028cd4"
+    },
+    "render-proof.json": {
+      "bytes": 46885,
+      "sha256": "a18dc7e14f2d9276f17460f861c5129e8f203f402d8b9b45fe4b93b2d943180b"
+    },
+    "submission-steps.txt": {
+      "bytes": 5857,
+      "sha256": "ee7382628062465970e4d06f4c0082aba45e9425d771690d610c35ead12de0a7"
+    },
+    "youtube-description.txt": {
+      "bytes": 1853,
+      "sha256": "0b115bd9df4aec0436c37614dc577905c2582f5fbf8d1febfa323528c456c30a"
+    },
+    "youtube-title.txt": {
+      "bytes": 75,
+      "sha256": "72d3686588044f04a1bd9a90e7bb22befa767c67dc295fcc14def66210a16a8f"
+    }
+  }
+}
