@@ -1,0 +1,1177 @@
+{
+  "schema": "medplain-final-pitch-v1",
+  "status": "rendered_pending_technical_and_human_review",
+  "manifest_sha256": "60f2c2c0fd2a9ce71098ddb907a1cd557a78dc102bd24d9bf6987617620f3d23",
+  "runtime_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+  "runtime_package_sha256": "fd517414dc5dc80bc0856bb5bf4614a6bbb6bcc0e5c4f919377a9cb4c15befa5",
+  "repository_commit": "0215af11d0e178f5742aaeb82a9811ecd465e3b6",
+  "representation": "Continuous English pitch with animated layered CGI illustrations and source-labelled captured application screenshots; no continuous screen recording, new provider efficacy or clinical outcome claimed.",
+  "english_review_sha256": "6e3f4fcfef4b484fbe933ae053711ca57fc83075a9bc1c5d9b44085e4c39f929",
+  "audio_policy": {
+    "continuous": true,
+    "padding_seconds": 0,
+    "speed": 1,
+    "music": false,
+    "effects": [
+      "loudness_normalization"
+    ]
+  },
+  "source_audio_sha256": "62122e08d1fa168b01dc72e98c5b2d0a4a3fbe25fec6d8c9e883862295ea2212",
+  "continuous_pcm_sha256": "a30c7490ecaf023c52a6c1be15a84377fc9a10ad82b3852c00b08b9186fb9b12",
+  "continuous_audio_seconds": 149.211438,
+  "source_pcm_signal": {
+    "sample_count": 7162149,
+    "sample_rate": 48000,
+    "sample_width_bits": 16,
+    "dc_offset_fraction_fs": -3.105023556117288e-05,
+    "rms_fraction_fs": 0.04778830009127473,
+    "peak_fraction_fs": 0.7982177734375,
+    "peak_dbfs": -1.9575721253798273,
+    "negative_peak_pcm": -22522,
+    "positive_peak_pcm": 26156,
+    "rail_clipped_sample_count": 0,
+    "rail_clipped_sample_fraction": 0.0,
+    "longest_exact_zero_run_seconds": 0.0153125,
+    "scope": "Decoded signal statistics; no absence-of-noise, naturalness or listening verdict."
+  },
+  "normalized_pcm_signal": {
+    "sample_count": 7162149,
+    "sample_rate": 48000,
+    "sample_width_bits": 16,
+    "dc_offset_fraction_fs": -0.00010559991088464903,
+    "rms_fraction_fs": 0.14280878784233358,
+    "peak_fraction_fs": 0.844482421875,
+    "peak_dbfs": -1.4681877190682573,
+    "negative_peak_pcm": -27609,
+    "positive_peak_pcm": 27672,
+    "rail_clipped_sample_count": 0,
+    "rail_clipped_sample_fraction": 0.0,
+    "longest_exact_zero_run_seconds": 0.0153125,
+    "scope": "Decoded signal statistics; no absence-of-noise, naturalness or listening verdict."
+  },
+  "normalization": {
+    "passes": 2,
+    "target": {
+      "integrated_lufs": -16,
+      "true_peak_dbtp": -1.5,
+      "loudness_range_lu": 11
+    },
+    "source_pcm_sha256": "a30c7490ecaf023c52a6c1be15a84377fc9a10ad82b3852c00b08b9186fb9b12",
+    "normalized_pcm_sha256": "8fdd46e9a17fd68e2eb02e6632fa5fd56e766881afa1c5adc9db92da0db5f2a8",
+    "source_seconds": 149.211438,
+    "normalized_seconds": 149.211438,
+    "duration_difference_seconds": 0.0,
+    "first_pass_filter": "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json",
+    "second_pass_filter": "loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=-25.710000:measured_TP=-1.910000:measured_LRA=2.200000:measured_thresh=-35.890000:offset=0.680000:linear=true:print_format=json",
+    "first_pass_measurement": {
+      "input_i": "-25.71",
+      "input_tp": "-1.91",
+      "input_lra": "2.20",
+      "input_thresh": "-35.89",
+      "output_i": "-16.68",
+      "output_tp": "-1.50",
+      "output_lra": "2.10",
+      "output_thresh": "-26.87",
+      "normalization_type": "dynamic",
+      "target_offset": "0.68"
+    },
+    "second_pass_measurement": {
+      "input_i": "-25.71",
+      "input_tp": "-1.91",
+      "input_lra": "2.20",
+      "input_thresh": "-35.89",
+      "output_i": "-16.20",
+      "output_tp": "-1.50",
+      "output_lra": "2.10",
+      "output_thresh": "-26.38",
+      "normalization_type": "dynamic",
+      "target_offset": "0.20"
+    },
+    "timing_text_speed_padding_changed": false
+  },
+  "expected_frames": 4477,
+  "visual_rounding_seconds": 0.021895333333333156,
+  "motion_samples": [
+    {
+      "shot": "home",
+      "phase": 0.2,
+      "frame": 32,
+      "uncaptioned_scene_sha256": "5eeee426f2a36133ca6eadbfac44762c883f64883f5ed5b95357deda8eed829d"
+    },
+    {
+      "shot": "home",
+      "phase": 0.7,
+      "frame": 113,
+      "uncaptioned_scene_sha256": "14ea4d8c344a7b035cc1a986f5359b93f531c214eb8b339a85acc75feaecec5b"
+    },
+    {
+      "shot": "pending",
+      "phase": 0.2,
+      "frame": 231,
+      "uncaptioned_scene_sha256": "cec8967d1eba869be435491788c86132a10e8776b7572042097632dbcfc9ad8a"
+    },
+    {
+      "shot": "pending",
+      "phase": 0.7,
+      "frame": 403,
+      "uncaptioned_scene_sha256": "4b8551122b956880657f93dfcbb7f41622694cf35c4b0ab026ab6c71a5fde32f"
+    },
+    {
+      "shot": "intro",
+      "phase": 0.2,
+      "frame": 544,
+      "uncaptioned_scene_sha256": "4d5fc588559e361c80f6b598ba039433030122feab7a610535d8aaddbca1cacc"
+    },
+    {
+      "shot": "intro",
+      "phase": 0.7,
+      "frame": 635,
+      "uncaptioned_scene_sha256": "4b221800e98eb5c4d944ae51e4a725dfaed861f2915cf8d4efa6805e9bd26b50"
+    },
+    {
+      "shot": "architecture",
+      "phase": 0.2,
+      "frame": 733,
+      "uncaptioned_scene_sha256": "572f6fb8d39569e38ad3c3f2f00fe906004bda5398cab0492bff84a1cab7bc27"
+    },
+    {
+      "shot": "architecture",
+      "phase": 0.7,
+      "frame": 840,
+      "uncaptioned_scene_sha256": "66f3c1997d2aa86d2dce62e01da3c17722df2842b19b09bac840b8d2979831fc"
+    },
+    {
+      "shot": "card",
+      "phase": 0.2,
+      "frame": 954,
+      "uncaptioned_scene_sha256": "121bac56d5bd3e7fcf252d0bf7fbe5a0894688a9a48e6d60e467637c9b562836"
+    },
+    {
+      "shot": "card",
+      "phase": 0.7,
+      "frame": 1077,
+      "uncaptioned_scene_sha256": "4b64835642634fb686d825baccb2d9e98315947ac5e2a9ccd6c87aaba500ca0f"
+    },
+    {
+      "shot": "assignment",
+      "phase": 0.2,
+      "frame": 1175,
+      "uncaptioned_scene_sha256": "35f9803621c37b185928253716d3db0aaa4650fdc12af04eadbe6c39e91f90b0"
+    },
+    {
+      "shot": "assignment",
+      "phase": 0.7,
+      "frame": 1236,
+      "uncaptioned_scene_sha256": "c19786d91e685d432d3ec7e8cafa772484e54dd9099fbddc0b2b7e08538afc8a"
+    },
+    {
+      "shot": "acceptance",
+      "phase": 0.2,
+      "frame": 1300,
+      "uncaptioned_scene_sha256": "5be66e5ad0f958055ce9af27de53fcc36c685fb89575ce4c1b0a34febf417ae4"
+    },
+    {
+      "shot": "acceptance",
+      "phase": 0.7,
+      "frame": 1366,
+      "uncaptioned_scene_sha256": "1452ce0f93ac069e7031023ee71947e581b92273051aab9282c32fbbd21dc588"
+    },
+    {
+      "shot": "reply",
+      "phase": 0.2,
+      "frame": 1426,
+      "uncaptioned_scene_sha256": "0031ea01e6afe21c467525d9bcf222b91931d15fdfae2422f21d9078d02ab6f7"
+    },
+    {
+      "shot": "reply",
+      "phase": 0.7,
+      "frame": 1477,
+      "uncaptioned_scene_sha256": "9b5bf50006eff95da11964f592e2f3c494c5282673cf9c5d25433e331f43e7c4"
+    },
+    {
+      "shot": "process",
+      "phase": 0.2,
+      "frame": 1530,
+      "uncaptioned_scene_sha256": "d9c43ac2e8db9766ad939951d5aae4578acea93ed0b9ab1010b09673236ca1f7"
+    },
+    {
+      "shot": "process",
+      "phase": 0.7,
+      "frame": 1586,
+      "uncaptioned_scene_sha256": "5f53779b7040abda4a5f3dbc80f6d94cce45b202f00e8f534f187327ead31efd"
+    },
+    {
+      "shot": "revision",
+      "phase": 0.2,
+      "frame": 1652,
+      "uncaptioned_scene_sha256": "9b1f6a29b33384111c26026cb01e5d781e35af9ff6f933f1c525264116155696"
+    },
+    {
+      "shot": "revision",
+      "phase": 0.7,
+      "frame": 1733,
+      "uncaptioned_scene_sha256": "7bc34e2cce7281e539a5f8a2da6774e520871bd90080397e3992893ba468b12c"
+    },
+    {
+      "shot": "closure",
+      "phase": 0.2,
+      "frame": 1832,
+      "uncaptioned_scene_sha256": "b51ee7e75dff1f5f1931d6d8b79c7f9d41e2aa9e55177c1bb999a7a9bc24a7bb"
+    },
+    {
+      "shot": "closure",
+      "phase": 0.7,
+      "frame": 1960,
+      "uncaptioned_scene_sha256": "bbe6e8ea66deba04b7544f48061e46a8172b63478fdb159f4b27c93d948b1d8e"
+    },
+    {
+      "shot": "release",
+      "phase": 0.2,
+      "frame": 2075,
+      "uncaptioned_scene_sha256": "d98351ce29e4087c6f419a541458b9589e7ead824b8c3559ca86e23c93ea5e37"
+    },
+    {
+      "shot": "release",
+      "phase": 0.7,
+      "frame": 2172,
+      "uncaptioned_scene_sha256": "40e08e5c7812557f7e27ef5b17da82add85c2a0fd0e3d85ad6132e3f9a5bcb52"
+    },
+    {
+      "shot": "response",
+      "phase": 0.2,
+      "frame": 2263,
+      "uncaptioned_scene_sha256": "c5ea261f43a68917322576f936d4a0c6387a0ec2ef3702e8a419d52d1fce7b7f"
+    },
+    {
+      "shot": "response",
+      "phase": 0.7,
+      "frame": 2346,
+      "uncaptioned_scene_sha256": "6fac51b2fc4bae026ebd08d9bc19f764c01aeab77479c9a14855a53a970747ed"
+    },
+    {
+      "shot": "assessment",
+      "phase": 0.2,
+      "frame": 2426,
+      "uncaptioned_scene_sha256": "905f5af445830f3437f449260f33d31d1d721f900cc44d62a4e79326d2ee6843"
+    },
+    {
+      "shot": "assessment",
+      "phase": 0.7,
+      "frame": 2502,
+      "uncaptioned_scene_sha256": "052aaadd3059705e83d424204c5496483edf2a646e4df675760511e691dbcfee"
+    },
+    {
+      "shot": "recheck",
+      "phase": 0.2,
+      "frame": 2621,
+      "uncaptioned_scene_sha256": "13d875bdf77f78447b18fbb149d55d339c10f647c5fd0382fee4f2accaa0e49c"
+    },
+    {
+      "shot": "recheck",
+      "phase": 0.7,
+      "frame": 2806,
+      "uncaptioned_scene_sha256": "60436a3853c480fd98b3c1e29941b732883240e532fa47c72626f3ff1e8813db"
+    },
+    {
+      "shot": "evidence",
+      "phase": 0.2,
+      "frame": 2976,
+      "uncaptioned_scene_sha256": "d5022971f6e686fff85e295a50171f6a676262ec06ace6e476f5831bfe99b808"
+    },
+    {
+      "shot": "evidence",
+      "phase": 0.7,
+      "frame": 3127,
+      "uncaptioned_scene_sha256": "3de67143bddadc5aa37cd6042e3416d8e0eeedb9451d4b6e66473774d15a4a53"
+    },
+    {
+      "shot": "gate",
+      "phase": 0.2,
+      "frame": 3240,
+      "uncaptioned_scene_sha256": "cd4f028156cca7d7270e5b7771f2b5f8d6e4008a53506dbc2a9d876395823e0a"
+    },
+    {
+      "shot": "gate",
+      "phase": 0.7,
+      "frame": 3297,
+      "uncaptioned_scene_sha256": "2e8690d1655d898d85303b30e101cf297b64d0fa92f6b169fa7f2e754c3fc2a5"
+    },
+    {
+      "shot": "benchmark",
+      "phase": 0.2,
+      "frame": 3451,
+      "uncaptioned_scene_sha256": "8fe4f975d5c0fc0fcca28c0bb3f700767a189ee744eeb9117c4d45434a823aad"
+    },
+    {
+      "shot": "benchmark",
+      "phase": 0.7,
+      "frame": 3750,
+      "uncaptioned_scene_sha256": "03dbc417d96a6ece1749a8b7c4c71bc30e816033820b41d329f651da042f173c"
+    },
+    {
+      "shot": "h12",
+      "phase": 0.2,
+      "frame": 3989,
+      "uncaptioned_scene_sha256": "9f56a5fe04e90d82b76930acb0ff395c3629133e4b531ebc8f371a3af88f0e4a"
+    },
+    {
+      "shot": "h12",
+      "phase": 0.7,
+      "frame": 4139,
+      "uncaptioned_scene_sha256": "07740f9aaa89ee124330a4c8b4c2a1aad86fc394b614e3d50f0b01adc6ad10a5"
+    },
+    {
+      "shot": "closing",
+      "phase": 0.2,
+      "frame": 4278,
+      "uncaptioned_scene_sha256": "effc837085c44776478c77fc7e688a9a031ec71fd81ac9fcd3c21a1863be981c"
+    },
+    {
+      "shot": "closing",
+      "phase": 0.7,
+      "frame": 4402,
+      "uncaptioned_scene_sha256": "b971f15e9517b4759efe09a31c1b7ce33c397382a7f9deaf0df767a3a162ff73"
+    }
+  ],
+  "shots": [
+    {
+      "id": "home",
+      "kind": "home",
+      "start_char": 0,
+      "end_char": 83,
+      "start_seconds": 0.0,
+      "end_seconds": 5.387,
+      "title": "Who owns the next step?",
+      "subtitle": "A synthetic caregiver arrives home with an unresolved handover.",
+      "honesty_label": "CGI illustration | synthetic scenario, not patient footage",
+      "layers": [
+        {
+          "image": "illustrations/home-background.png",
+          "sha256": "da9b53f851976eb87232a59b7beb343b187ba43d760ee466feb9e21ddf4e645f",
+          "role": "background",
+          "depth": 0.0,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "provenance": "Built-in imagegen, November 4 2026: a new empty cinematic European apartment at early evening, quiet darker left title space, right dining table and armchair, teal and amber, no people, text, logos or clinical data. Original PNG retained without edits."
+        },
+        {
+          "image": "illustrations/home-subject.png",
+          "sha256": "1be8dfd8fc3dc574351b59b002bf5e9b47093ee726ac98473b5ea7bb98496619",
+          "role": "subject",
+          "depth": 0.8,
+          "anchor": [
+            0.8,
+            0.5
+          ],
+          "provenance": "Built-in imagegen, November 4 2026: new fictional middle-aged woman caregiver with dark curly hair, teal sweater and gold hoops, thoughtfully holding one unmarked sheet on right of true-alpha landscape canvas. Identity/style reference: previously generated fictional contact sheet SHA055905356ea49fbf540b12b7cf87a35e70d5170b064f87214294c8605a980532. No real patient or testimonial. Original PNG retained."
+        }
+      ]
+    },
+    {
+      "id": "pending",
+      "kind": "home",
+      "start_char": 83,
+      "end_char": 234,
+      "start_seconds": 5.387,
+      "end_seconds": 16.904,
+      "title": "A pending result. No named owner.",
+      "subtitle": "Readable words still leave a practical question.",
+      "honesty_label": "CGI illustration | synthetic scenario, not patient footage",
+      "layers": [
+        {
+          "image": "illustrations/home-background.png",
+          "sha256": "da9b53f851976eb87232a59b7beb343b187ba43d760ee466feb9e21ddf4e645f",
+          "role": "background",
+          "depth": 0.0,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "provenance": "Built-in imagegen, November 4 2026: a new empty cinematic European apartment at early evening, quiet darker left title space, right dining table and armchair, teal and amber, no people, text, logos or clinical data. Original PNG retained without edits."
+        },
+        {
+          "image": "illustrations/home-subject.png",
+          "sha256": "1be8dfd8fc3dc574351b59b002bf5e9b47093ee726ac98473b5ea7bb98496619",
+          "role": "subject",
+          "depth": 0.8,
+          "anchor": [
+            0.8,
+            0.5
+          ],
+          "provenance": "Built-in imagegen, November 4 2026: new fictional middle-aged woman caregiver with dark curly hair, teal sweater and gold hoops, thoughtfully holding one unmarked sheet on right of true-alpha landscape canvas. Identity/style reference: previously generated fictional contact sheet SHA055905356ea49fbf540b12b7cf87a35e70d5170b064f87214294c8605a980532. No real patient or testimonial. Original PNG retained."
+        }
+      ]
+    },
+    {
+      "id": "intro",
+      "kind": "intro",
+      "start_char": 234,
+      "end_char": 320,
+      "start_seconds": 16.904,
+      "end_seconds": 22.999,
+      "title": "A question with an accepted next step.",
+      "subtitle": "Source-cited clarification for discharge teams and caregivers.",
+      "honesty_label": "CGI illustration | synthetic scenario, not patient footage",
+      "layers": [
+        {
+          "image": "illustrations/home-background.png",
+          "sha256": "da9b53f851976eb87232a59b7beb343b187ba43d760ee466feb9e21ddf4e645f",
+          "role": "background",
+          "depth": 0.0,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "provenance": "Built-in imagegen, November 4 2026: a new empty cinematic European apartment at early evening, quiet darker left title space, right dining table and armchair, teal and amber, no people, text, logos or clinical data. Original PNG retained without edits."
+        },
+        {
+          "image": "illustrations/home-subject.png",
+          "sha256": "1be8dfd8fc3dc574351b59b002bf5e9b47093ee726ac98473b5ea7bb98496619",
+          "role": "subject",
+          "depth": 0.8,
+          "anchor": [
+            0.8,
+            0.5
+          ],
+          "provenance": "Built-in imagegen, November 4 2026: new fictional middle-aged woman caregiver with dark curly hair, teal sweater and gold hoops, thoughtfully holding one unmarked sheet on right of true-alpha landscape canvas. Identity/style reference: previously generated fictional contact sheet SHA055905356ea49fbf540b12b7cf87a35e70d5170b064f87214294c8605a980532. No real patient or testimonial. Original PNG retained."
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "kind": "architecture",
+      "start_char": 320,
+      "end_char": 426,
+      "start_seconds": 22.999,
+      "end_seconds": 30.151,
+      "title": "A governed handoff on AWS",
+      "subtitle": "Case and outbox commit together. The worker runs Strands through Bedrock.",
+      "honesty_label": "CGI illustration | synthetic scenario, not patient footage"
+    },
+    {
+      "id": "card",
+      "kind": "ui",
+      "start_char": 426,
+      "end_char": 552,
+      "start_seconds": 30.151,
+      "end_seconds": 38.359,
+      "title": "Ask before inventing",
+      "subtitle": "Original source statements remain inspectable. The regimen stays unresolved.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "card",
+      "capture": {
+        "slot": "card",
+        "image": "careflow-captures/card-focus.png",
+        "sha256": "009471c514db5bcf708841441494155df3dc252b1a0de698000cea7b4d9ba6ef",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "original_viewport_image": "card.png",
+        "original_journey_viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "capture_viewport_action": "Original journey viewport retained",
+        "original_viewport_sha256": "305532d990c118061db3fead6da37f569105eed138295a8aa1dbac4f5eb4e00f",
+        "original_pixel_clip": {
+          "x": 660,
+          "y": 555.0703125,
+          "width": 780,
+          "height": 440
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 0,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {},
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": []
+        }
+      }
+    },
+    {
+      "id": "assignment",
+      "kind": "ui",
+      "start_char": 552,
+      "end_char": 617,
+      "start_seconds": 38.359,
+      "end_seconds": 42.434,
+      "title": "Assign the question",
+      "subtitle": "A selected synthetic staff actor receives the task.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "assigned",
+      "capture": {
+        "slot": "assigned",
+        "image": "careflow-captures/assigned-focus.png",
+        "sha256": "d24186b4c3f98aad91e8cbaf960735e5366b07e07d8c33950fc3c02eecd228c3",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "original_viewport_image": "assigned.png",
+        "original_journey_viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "capture_viewport_action": "Original journey viewport retained",
+        "original_viewport_sha256": "672ecf666e967208913c11b0b548e852198630bd9ed7b256db6dcd350cee5734",
+        "original_pixel_clip": {
+          "x": 660,
+          "y": 280.328125,
+          "width": 780,
+          "height": 440
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 0,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {},
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": [
+            "Synthetic staff actor selected",
+            "Assignment recorded; acceptance still required"
+          ]
+        }
+      }
+    },
+    {
+      "id": "acceptance",
+      "kind": "ui",
+      "start_char": 617,
+      "end_char": 668,
+      "start_seconds": 42.434,
+      "end_seconds": 46.869,
+      "title": "Acceptance is explicit",
+      "subtitle": "Demo actors are selected lenses, not real hospital identities.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "accepted",
+      "capture": {
+        "slot": "accepted",
+        "image": "careflow-captures/accepted-focus.png",
+        "sha256": "df666b37ac320f82d8c3064accdf1f2b1c0d7474e0070265da8523b036d0c170",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "original_viewport_image": "accepted.png",
+        "original_journey_viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "capture_viewport_action": "Original journey viewport retained",
+        "original_viewport_sha256": "41800c67d53d23334b21955a4d59bb44e9f6030507e7f0d7ebceae2005aa74c0",
+        "original_pixel_clip": {
+          "x": 907.6328125,
+          "y": 412.734375,
+          "width": 520,
+          "height": 320
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 0,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {
+          "task_heading": "Who owns this pending result or follow-up, when is it due, and who will contact the patient?",
+          "task_status": "ACCEPTED",
+          "required_regions": [
+            "task heading",
+            "accepted status",
+            "resolution progress",
+            "explicit acceptance facts"
+          ]
+        },
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": [
+            "Synthetic demo role: reviewer",
+            "Assigned actor explicitly accepted responsibility"
+          ]
+        }
+      }
+    },
+    {
+      "id": "reply",
+      "kind": "ui",
+      "start_char": 668,
+      "end_char": 717,
+      "start_seconds": 46.869,
+      "end_seconds": 50.235,
+      "title": "A reply carries its sources",
+      "subtitle": "Task, original witnesses and artifact identity remain bound.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "reply",
+      "capture": {
+        "slot": "reply",
+        "image": "careflow-captures/reply-focus.png",
+        "sha256": "5000bcdfeaa333e000ace3e19e3ab35cdcf71ed8cdb986aaeda3f9342bc4bf21",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "original_viewport_image": "reply.png",
+        "original_journey_viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "capture_viewport_action": "Original journey viewport retained",
+        "original_viewport_sha256": "284dbad3c75caf7007f7cc187a9c68ea168b9e0894c32fa9eccbc6d15e1c7bd5",
+        "original_pixel_clip": {
+          "x": 660,
+          "y": 456.609375,
+          "width": 780,
+          "height": 440
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 0,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {},
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": [
+            "Reviewer note recorded; source revision still required"
+          ]
+        }
+      }
+    },
+    {
+      "id": "process",
+      "kind": "process",
+      "start_char": 717,
+      "end_char": 771,
+      "start_seconds": 50.235,
+      "end_seconds": 53.997,
+      "title": "A note does not rewrite the discharge",
+      "subtitle": "A new source revision must be independently verified.",
+      "honesty_label": "CGI illustration | synthetic scenario, not patient footage",
+      "nodes": [
+        "Private reply",
+        "Verified child",
+        "Human review"
+      ],
+      "process_note": "The source revision is submitted by operator/admin. Reviewer links and confirms closure."
+    },
+    {
+      "id": "revision",
+      "kind": "ui",
+      "start_char": 771,
+      "end_char": 839,
+      "start_seconds": 53.997,
+      "end_seconds": 59.373,
+      "title": "Operator records the new source",
+      "subtitle": "The parent and its original evidence remain unchanged.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "revision",
+      "capture": {
+        "slot": "revision",
+        "image": "careflow-captures/revision-focus.png",
+        "sha256": "8efaf943542d67638b74b2eab1484c9285646c30b1283b7349969f5eb4a3eb3b",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "original_viewport_image": "revision.png",
+        "original_journey_viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "capture_viewport_action": "Original journey viewport retained",
+        "original_viewport_sha256": "9bd86e430e0ef31b6a93d6b79fb43d2012b2817e326d6d3fe9acd5c1a1cc62f2",
+        "original_pixel_clip": {
+          "x": 660,
+          "y": 560,
+          "width": 780,
+          "height": 440
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 0,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {},
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": []
+        }
+      }
+    },
+    {
+      "id": "closure",
+      "kind": "ui",
+      "start_char": 839,
+      "end_char": 954,
+      "start_seconds": 59.373,
+      "end_seconds": 67.883,
+      "title": "Reviewer links the verified child",
+      "subtitle": "Explicit demo closure is not proof of clinical resolution.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "closed",
+      "capture": {
+        "slot": "closed",
+        "image": "careflow-captures/closed-focus.png",
+        "sha256": "5bbbd91291cfe55a0415181058fb86884c306d2f1b049b8cf2e2ee38aaf94830",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "original_viewport_image": "closed.png",
+        "original_journey_viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "capture_viewport_action": "Original journey viewport retained",
+        "original_viewport_sha256": "2b79a0ca2e6b4c4e87a453fab227d85dab1f04a81808d81e9ab847f54774fc4c",
+        "original_pixel_clip": {
+          "x": 637.3359375,
+          "y": 384.546875,
+          "width": 780,
+          "height": 440
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 0,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {},
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": [
+            "Demo closure recorded against the verified source revision"
+          ]
+        }
+      }
+    },
+    {
+      "id": "release",
+      "kind": "ui",
+      "start_char": 954,
+      "end_char": 1038,
+      "start_seconds": 67.883,
+      "end_seconds": 74.338,
+      "title": "Release this exact child artifact",
+      "subtitle": "The original patient share remains read-only.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "release",
+      "capture": {
+        "slot": "release",
+        "image": "careflow-captures/release-focus.png",
+        "sha256": "9f164f4fdf19dc65041b6758f888e50c433d30946a4f9e1a9f570d4eae4eaab3",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 375,
+          "height": 812
+        },
+        "original_viewport_image": "release.png",
+        "original_journey_viewport": {
+          "width": 375,
+          "height": 812
+        },
+        "capture_viewport_action": "Original journey viewport retained",
+        "original_viewport_sha256": "dafff0460ae3a94e62c4a6c7179cbb987a7b505323a8370e458397ad8ad6be51",
+        "original_pixel_clip": {
+          "x": 0,
+          "y": 32.25,
+          "width": 375,
+          "height": 320
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 0,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {
+          "actual_release_origin": "Released from a new offline fixture verification run.",
+          "required_regions": [
+            "actual released offline fixture origin in the patient view"
+          ]
+        },
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": []
+        }
+      }
+    },
+    {
+      "id": "response",
+      "kind": "ui",
+      "start_char": 1038,
+      "end_char": 1136,
+      "start_seconds": 74.338,
+      "end_seconds": 79.875,
+      "title": "Explain it in your own words",
+      "subtitle": "Private response access is separate from ordinary read access.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "response",
+      "capture": {
+        "slot": "response",
+        "image": "careflow-captures/response-focus.png",
+        "sha256": "3c9926932b89757867f654bf7cb5f6c9b5a4189a67771b7fb0daa00ef18829a8",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 375,
+          "height": 812
+        },
+        "original_viewport_image": "response.png",
+        "original_journey_viewport": {
+          "width": 375,
+          "height": 812
+        },
+        "capture_viewport_action": "Original journey viewport retained",
+        "original_viewport_sha256": "cc5e1528149eb2d5c3cf80579d252e101fd56f80eca2e3724076cb3799037257",
+        "original_pixel_clip": {
+          "x": 0,
+          "y": 242.515625,
+          "width": 375,
+          "height": 440
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 0,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {},
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": []
+        }
+      }
+    },
+    {
+      "id": "assessment",
+      "kind": "ui",
+      "start_char": 1136,
+      "end_char": 1213,
+      "start_seconds": 79.875,
+      "end_seconds": 84.914,
+      "title": "A provisional assessment",
+      "subtitle": "The model proposes what appears missing or misunderstood.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "assessment",
+      "capture": {
+        "slot": "assessment",
+        "image": "careflow-captures/assessment-focus.png",
+        "sha256": "75f909e1ca2ac242501c82da8f6d8a452c38cb12673d7188129f3fc9c0826a3c",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "original_viewport_image": "assessment.png",
+        "original_journey_viewport": {
+          "width": 375,
+          "height": 812
+        },
+        "capture_viewport_action": "Native browser resize for readable attempt capture, restored afterward",
+        "original_viewport_sha256": "0bf4a2397fc10ff961b589875de3e18cbf408e7fd364860947877ce7e4cc11b2",
+        "original_pixel_clip": {
+          "x": 728.0,
+          "y": 226.828125,
+          "width": 691,
+          "height": 341
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 1,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {
+          "response_number": 1,
+          "response_text": "Yes, I understand.",
+          "actual_status": "Assessed",
+          "assessment_heading": "Provisional assessment, reviewer required",
+          "required_regions": [
+            "Response 1 heading/status",
+            "actual raw response",
+            "actual provisional assessment heading",
+            "actual covered/missing/misunderstood partition"
+          ],
+          "actual_partition_text": "Source points covered0Source points not demonstrated3Possible misunderstanding0"
+        },
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": [
+            "Patient artifact released",
+            "Private synthetic response access created"
+          ]
+        }
+      }
+    },
+    {
+      "id": "recheck",
+      "kind": "ui",
+      "start_char": 1213,
+      "end_char": 1391,
+      "start_seconds": 84.914,
+      "end_seconds": 97.209,
+      "title": "Review. Re-explain. Recheck.",
+      "subtitle": "Retain each response. Understanding is not certified.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "recheck",
+      "capture": {
+        "slot": "recheck",
+        "image": "careflow-captures/recheck-focus.png",
+        "sha256": "232971da86db067ac3c3e81bc0d602dfeae2471a0785f44f1bd42412a06ec0ff",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "original_viewport_image": "recheck.png",
+        "original_journey_viewport": {
+          "width": 375,
+          "height": 812
+        },
+        "capture_viewport_action": "Native browser resize for readable attempt capture, restored afterward",
+        "original_viewport_sha256": "4a066ab86c49763eea6fd6143dec38be6a5a3cd8a36fb2c6d095bb2b099e67ee",
+        "original_pixel_clip": {
+          "x": 364.0,
+          "y": 662.375,
+          "width": 728,
+          "height": 320
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 0,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {
+          "response_number": 2,
+          "response_text": "I would ask the discharge team to confirm who will contact us about the pending potassium result. I would not decide a medication change from this card.",
+          "actual_status": "Assessed",
+          "assessment_heading": "Provisional assessment, reviewer required",
+          "required_regions": [
+            "Response 2 heading/status",
+            "actual raw response",
+            "actual provisional assessment heading",
+            "actual second-response follow-up output"
+          ],
+          "actual_follow_up_output": "Please describe the highlighted source information in your own words and say what still needs clarification."
+        },
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": []
+        }
+      }
+    },
+    {
+      "id": "evidence",
+      "kind": "ui",
+      "start_char": 1391,
+      "end_char": 1536,
+      "start_seconds": 97.209,
+      "end_seconds": 107.228,
+      "title": "Targeted, versioned support",
+      "subtitle": "Exact educational passages support workflow, never missing patient facts.",
+      "honesty_label": "Current 3cbe1dc | offline fixture capture; no new Bedrock result",
+      "capture_slot": "evidence",
+      "capture": {
+        "slot": "evidence",
+        "image": "careflow-captures/evidence-focus.png",
+        "sha256": "d92af0b253605397e5c45e8260ec04a7e31cae512fb584f30bf0b4e28fad4db2",
+        "kind": "current_fixture",
+        "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+        "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+        "evidence_reference": "careflow-captures/capture-proof.json SHA256 6adb9ca09189218330d1edca60a08a2bf8bf0af85c285837af3a754eb1c496b4",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "original_viewport_image": "evidence.png",
+        "original_journey_viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "capture_viewport_action": "Original journey viewport retained",
+        "original_viewport_sha256": "fef95f51a5e671bfb5ec4d974a9c79340ba1b91dc2a1bf679d712d16d931f6bc",
+        "original_pixel_clip": {
+          "x": 712.0,
+          "y": 337.96875,
+          "width": 707,
+          "height": 323
+        },
+        "original_viewport_label": "Privacy-masked original viewport capture",
+        "privacy_redaction": {
+          "method": "Playwright native screenshot mask",
+          "selector": "a[href*=\"#teachback=\"]",
+          "mask_color": "#0f1720",
+          "matched_elements": 0,
+          "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+          "application_dom_or_csp_changed": false
+        },
+        "semantic_framing": {
+          "evidence_uri": "https://www.ahrq.gov/patient-safety/settings/hospital/match/chapter-3.html",
+          "evidence_title": "Clarification responsibility workflow",
+          "evidence_quote_sha256": "b56e406b143bd8fbebef2ca7d159afd4c107d217b05ee2ca3e3166ea1cd81dad",
+          "required_regions": [
+            "actual returned publisher",
+            "source title",
+            "exact blockquote",
+            "source metadata"
+          ]
+        },
+        "dismissed_success_toasts": {
+          "method": "Actual Dismiss notification button clicks",
+          "messages": []
+        }
+      }
+    },
+    {
+      "id": "gate",
+      "kind": "gate",
+      "start_char": 1536,
+      "end_char": 1594,
+      "start_seconds": 107.228,
+      "end_seconds": 111.036,
+      "title": "The safety boundary stays strict",
+      "subtitle": "Verify supported source facts, correct a candidate or withhold it.",
+      "honesty_label": "CGI illustration | synthetic scenario, not patient footage"
+    },
+    {
+      "id": "benchmark",
+      "kind": "benchmark",
+      "start_char": 1594,
+      "end_char": 1877,
+      "start_seconds": 111.036,
+      "end_seconds": 130.97,
+      "title": "More context. An availability tradeoff.",
+      "subtitle": "Historical 43d: 9 annotated relationships versus 4; 25/30 versus 30/30 cards.",
+      "honesty_label": "Historical source evidence | CGI illustration"
+    },
+    {
+      "id": "h12",
+      "kind": "h12",
+      "start_char": 1877,
+      "end_char": 2004,
+      "start_seconds": 130.97,
+      "end_seconds": 140.955,
+      "title": "The later diagnostic stopped",
+      "subtitle": "Closed H12: retained failure, no completed comparison.",
+      "honesty_label": "Historical source evidence | CGI illustration"
+    },
+    {
+      "id": "closing",
+      "kind": "closing",
+      "start_char": 2004,
+      "end_char": 2126,
+      "start_seconds": 140.955,
+      "end_seconds": 149.209,
+      "title": "Follow the accepted next step.",
+      "subtitle": "Try the synthetic demo. Trace the sources. Inspect the evidence.",
+      "honesty_label": "CGI illustration | synthetic scenario, not patient footage",
+      "layers": [
+        {
+          "image": "illustrations/closing-background.png",
+          "sha256": "b15f7a2e2e54aa5a5a4a67e47cfacda6c4921068746dcbc66e5bf7e3fab27ddf",
+          "role": "background",
+          "depth": 0.0,
+          "anchor": [
+            0.5,
+            0.5
+          ],
+          "provenance": "Built-in imagegen, November 4 2026: architectural-continuity reference to the opening generated empty room; new calm morning apartment plate with right seating space and dark left title space, no people/text/logos/clinical data. Original PNG retained."
+        },
+        {
+          "image": "illustrations/closing-subject.png",
+          "sha256": "e1c2069c1d2f7cb7b160ab48d89c9726e282f35223f16aaece67e4d4df715d15",
+          "role": "subject",
+          "depth": 0.8,
+          "anchor": [
+            0.8,
+            0.5
+          ],
+          "provenance": "Built-in imagegen, November 4 2026: same entirely fictional caregiver and elderly father with grey beard/glasses/mustard cardigan, attentively viewing plain tablet, right half on true-alpha landscape canvas. Identity/style reference: previously generated fictional CGI contact sheet. No clinical cure, actual patient, lip-sync or testimonial claim. Original PNG retained."
+        }
+      ]
+    }
+  ],
+  "video_sha256": "6d6518b1cfb7da4f9d6326897b80e470188caa140b8b68e8026edd34cf6599ea",
+  "captions_sha256": "7c7f422c1b0dffa0912a882bc9997ba728f681052fb914983e71ce0945de16ae",
+  "model_calls_by_renderer": 0,
+  "application_requests_by_renderer": 0,
+  "publication": false
+}

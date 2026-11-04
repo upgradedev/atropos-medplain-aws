@@ -1,0 +1,125 @@
+name: MedPlain Final Careflow Pitch
+
+on:
+  push:
+    branches: ['codex/medplain-final-*']
+    paths:
+      - scripts/final_pitch*.py
+      - scripts/check_final_pitch_source.py
+      - scripts/prepare_final_pitch_request.py
+      - video/final-pitch-render-request.json
+      - .github/workflows/final-pitch.yml
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Must match the reviewed committed request
+        required: true
+        type: choice
+        options: [capture, full]
+
+permissions:
+  contents: read
+
+jobs:
+  final-pitch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FINAL_MODE: ${{ inputs.mode }}
+      GH_TOKEN: ${{ github.token }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+      OTEL_SDK_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check final media source and negative controls without dependencies
+        run: python -B scripts/check_final_pitch_source.py
+      - name: Admit only root-reviewed code and inputs
+        id: request
+        run: python -B scripts/prepare_final_pitch_request.py
+      - uses: actions/checkout@v4
+        if: steps.request.outputs.render == 'true'
+        with:
+          ref: 3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571
+          path: final-app-source
+      - name: Verify exact application source before building
+        if: steps.request.outputs.render == 'true'
+        run: test "$(git -C final-app-source rev-parse HEAD)" = '3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571'
+      - uses: actions/setup-node@v4
+        if: steps.request.outputs.render == 'true'
+        with:
+          node-version: '22'
+      - name: Build the unchanged source only in CI
+        if: steps.request.outputs.render == 'true'
+        run: |
+          cd final-app-source/web
+          npm ci
+          npm run build
+          cd ..
+          python scripts/stage_console.py
+          python -m pip install --disable-pip-version-check --no-cache-dir -c constraints-runtime.txt . playwright Pillow==13.0.0
+          python -m playwright install --with-deps chromium
+      - name: Execute and capture the asserted careflow fixture journey
+        if: steps.request.outputs.render == 'true'
+        run: python -B scripts/final_pitch_capture.py --app final-app-source --output artifacts/final-careflow-capture
+      - name: Publish bounded capture review artifacts before rendering
+        if: always() && steps.request.outputs.render == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: medplain-final-careflow-capture-${{ github.sha }}
+          path: artifacts/final-careflow-capture/
+          retention-days: 14
+      - name: Acquire only the reviewed full media inputs
+        if: steps.request.outputs.render == 'true' && env.FINAL_MODE == 'full'
+        run: |
+          mkdir -p artifacts/input-download
+          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --pattern medplain-final-source.zip --dir artifacts/input-download
+          python -B scripts/pitch_video.py unpack --archive artifacts/input-download/medplain-final-source.zip --sha256 "$SOURCE_ARCHIVE_SHA" --output artifacts/final-inputs
+      - name: Observe the live runtime without inference
+        if: steps.request.outputs.render == 'true' && env.FINAL_MODE == 'full'
+        run: |
+          python - <<'PY'
+          import json, pathlib, urllib.request
+          base='https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws'
+          proof={}
+          for path in ('/', '/api/health'):
+              with urllib.request.urlopen(base+path, timeout=30) as response:
+                  assert response.status == 200
+                  proof[path]={'http_status':response.status}
+                  if path == '/api/health':
+                      body=json.load(response)
+                      assert body['commit']=='3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571'
+                      proof[path]['source_commit']=body['commit']
+          pathlib.Path('artifacts/live-source.json').write_text(json.dumps(proof,indent=2)+'\n')
+          PY
+      - name: Bind captured original pixels to the preserved reviewed parent
+        if: steps.request.outputs.render == 'true' && env.FINAL_MODE == 'full'
+        run: |
+          CAPTURE_SHA="$(sha256sum artifacts/final-careflow-capture/capture-proof.json | cut -d' ' -f1)"
+          python -B scripts/final_pitch.py derive --inputs artifacts/final-inputs --manifest-sha256 "$SOURCE_MANIFEST_SHA" --captures artifacts/final-careflow-capture --capture-proof-sha256 "$CAPTURE_SHA"
+          DERIVED_SHA="$(sha256sum artifacts/final-inputs/derived-manifest.json | cut -d' ' -f1)"
+          echo "DERIVED_SHA=$DERIVED_SHA" >> "$GITHUB_ENV"
+      - name: Install media tools in CI only
+        if: steps.request.outputs.render == 'true' && env.FINAL_MODE == 'full'
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir Pillow==13.0.0
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg fonts-dejavu-core
+          fi
+      - name: Render one continuous final English pitch
+        if: steps.request.outputs.render == 'true' && env.FINAL_MODE == 'full'
+        run: python -B scripts/final_pitch.py render --inputs artifacts/final-inputs --manifest-sha256 "$DERIVED_SHA" --output artifacts/final-pitch
+      - name: Preserve media, audio diagnostics, sources and failed partials
+        if: always() && steps.request.outputs.render == 'true' && env.FINAL_MODE == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: medplain-final-pitch-${{ github.sha }}
+          path: |
+            artifacts/final-pitch/
+            artifacts/final-inputs/manifest.json
+            artifacts/final-inputs/derived-manifest.json
+            artifacts/live-source.json
+          retention-days: 14

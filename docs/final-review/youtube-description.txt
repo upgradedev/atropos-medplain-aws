@@ -1,0 +1,17 @@
+A caregiver arrives home with a discharge sheet, a pending result and no named owner. Atropos MedPlain connects the original evidence to a question, an explicitly accepted task and a reviewed response.
+
+Built with the AWS Strands SDK: three agents index source statements, plan contextual questions and bind a clarification card. A separate Strands assessment reviews a synthetic patient response. Deterministic checks keep source facts bound and the medication regimen unresolved. A new source revision needs its own verification and human release.
+
+The application is an anonymous, synthetic-only prototype. The careflow demonstration uses source-labelled offline fixture API and Strands SDK execution, alongside labelled CGI illustrations. Demo actors are selectable synthetic lenses, not authenticated hospital staff. Teach-back assessments remain provisional and require reviewer decisions.
+
+The latest completed actual Bedrock comparison is historical source 43d: 25/30 cards, context TP 9 / FP 2 / FN 6, precision 81.8%. The unchanged full baseline delivered 30/30, TP 4 / FP 2 / FN 11. Five refusals remain. The later H12 diagnostic stopped after 1 verified card and 1 refusal; 11 diagnostics and its 30-case comparison were not executed. The new careflow release has no completed live Bedrock efficacy comparison. Clinical benefit and patient comprehension are unmeasured.
+
+Try the anonymous AWS demo:
+https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/
+
+Source, architecture, reused patterns and retained evidence:
+https://github.com/upgradedev/atropos-medplain-aws
+
+Application 0.2.0, reviewed source 3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571. Built for AWS Strands SDK: Workshop to Ship, Health focus area.
+
+Narration: ElevenLabs stock Rachel voice. Character and environment imagery: generated fictional CGI illustrations.

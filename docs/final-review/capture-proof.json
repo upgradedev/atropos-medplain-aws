@@ -1,0 +1,728 @@
+{
+  "schema": "medplain-final-capture-v1",
+  "status": "completed_asserted_loopback_fixture_journey",
+  "runtime_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+  "journey_sha256": "e3967214323324ca756008f589ed53f1e7736dea46b28c6c57b73e02a11b251e",
+  "capture_helper_sha256": "7e75fb8d35ad281d983442f5cc988c298e0ea48dcd04a8606eeffa2d86292fce",
+  "screenshots": [
+    {
+      "slot": "preview",
+      "image": "preview-focus.png",
+      "sha256": "c399a9c71b2254c38ee6b6bcc7944ac0a542ae522800824fefbc3460c4fb4dde",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "preview.png",
+      "original_journey_viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "f6292520541a4e53c677430fad9b0459598642630f45832530ef834ccb24b340",
+      "original_pixel_clip": {
+        "x": 660,
+        "y": 6.6484375,
+        "width": 780,
+        "height": 440
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {},
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": []
+      }
+    },
+    {
+      "slot": "card",
+      "image": "card-focus.png",
+      "sha256": "009471c514db5bcf708841441494155df3dc252b1a0de698000cea7b4d9ba6ef",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "card.png",
+      "original_journey_viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "305532d990c118061db3fead6da37f569105eed138295a8aa1dbac4f5eb4e00f",
+      "original_pixel_clip": {
+        "x": 660,
+        "y": 555.0703125,
+        "width": 780,
+        "height": 440
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {},
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": []
+      }
+    },
+    {
+      "slot": "assigned",
+      "image": "assigned-focus.png",
+      "sha256": "d24186b4c3f98aad91e8cbaf960735e5366b07e07d8c33950fc3c02eecd228c3",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "assigned.png",
+      "original_journey_viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "672ecf666e967208913c11b0b548e852198630bd9ed7b256db6dcd350cee5734",
+      "original_pixel_clip": {
+        "x": 660,
+        "y": 280.328125,
+        "width": 780,
+        "height": 440
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {},
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": [
+          "Synthetic staff actor selected",
+          "Assignment recorded; acceptance still required"
+        ]
+      }
+    },
+    {
+      "slot": "accepted",
+      "image": "accepted-focus.png",
+      "sha256": "df666b37ac320f82d8c3064accdf1f2b1c0d7474e0070265da8523b036d0c170",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "accepted.png",
+      "original_journey_viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "41800c67d53d23334b21955a4d59bb44e9f6030507e7f0d7ebceae2005aa74c0",
+      "original_pixel_clip": {
+        "x": 907.6328125,
+        "y": 412.734375,
+        "width": 520,
+        "height": 320
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {
+        "task_heading": "Who owns this pending result or follow-up, when is it due, and who will contact the patient?",
+        "task_status": "ACCEPTED",
+        "required_regions": [
+          "task heading",
+          "accepted status",
+          "resolution progress",
+          "explicit acceptance facts"
+        ]
+      },
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": [
+          "Synthetic demo role: reviewer",
+          "Assigned actor explicitly accepted responsibility"
+        ]
+      }
+    },
+    {
+      "slot": "reply",
+      "image": "reply-focus.png",
+      "sha256": "5000bcdfeaa333e000ace3e19e3ab35cdcf71ed8cdb986aaeda3f9342bc4bf21",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "reply.png",
+      "original_journey_viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "284dbad3c75caf7007f7cc187a9c68ea168b9e0894c32fa9eccbc6d15e1c7bd5",
+      "original_pixel_clip": {
+        "x": 660,
+        "y": 456.609375,
+        "width": 780,
+        "height": 440
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {},
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": [
+          "Reviewer note recorded; source revision still required"
+        ]
+      }
+    },
+    {
+      "slot": "revision",
+      "image": "revision-focus.png",
+      "sha256": "8efaf943542d67638b74b2eab1484c9285646c30b1283b7349969f5eb4a3eb3b",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "revision.png",
+      "original_journey_viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "9bd86e430e0ef31b6a93d6b79fb43d2012b2817e326d6d3fe9acd5c1a1cc62f2",
+      "original_pixel_clip": {
+        "x": 660,
+        "y": 560,
+        "width": 780,
+        "height": 440
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {},
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": []
+      }
+    },
+    {
+      "slot": "linked",
+      "image": "linked-focus.png",
+      "sha256": "4417836ff7507edc2ca36f8ad5bcf3647f8618b97bcc7860340290a08f98c0b2",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "linked.png",
+      "original_journey_viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "2c35fca1bf446f8308137db8c11ededc0ff652c9ab27822dc6eaec3e4a66d825",
+      "original_pixel_clip": {
+        "x": 660,
+        "y": 435.140625,
+        "width": 780,
+        "height": 440
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {},
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": [
+          "Verified source revision linked"
+        ]
+      }
+    },
+    {
+      "slot": "closed",
+      "image": "closed-focus.png",
+      "sha256": "5bbbd91291cfe55a0415181058fb86884c306d2f1b049b8cf2e2ee38aaf94830",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "closed.png",
+      "original_journey_viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "2b79a0ca2e6b4c4e87a453fab227d85dab1f04a81808d81e9ab847f54774fc4c",
+      "original_pixel_clip": {
+        "x": 637.3359375,
+        "y": 384.546875,
+        "width": 780,
+        "height": 440
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {},
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": [
+          "Demo closure recorded against the verified source revision"
+        ]
+      }
+    },
+    {
+      "slot": "evidence",
+      "image": "evidence-focus.png",
+      "sha256": "d92af0b253605397e5c45e8260ec04a7e31cae512fb584f30bf0b4e28fad4db2",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "evidence.png",
+      "original_journey_viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "fef95f51a5e671bfb5ec4d974a9c79340ba1b91dc2a1bf679d712d16d931f6bc",
+      "original_pixel_clip": {
+        "x": 712.0,
+        "y": 337.96875,
+        "width": 707,
+        "height": 323
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {
+        "evidence_uri": "https://www.ahrq.gov/patient-safety/settings/hospital/match/chapter-3.html",
+        "evidence_title": "Clarification responsibility workflow",
+        "evidence_quote_sha256": "b56e406b143bd8fbebef2ca7d159afd4c107d217b05ee2ca3e3166ea1cd81dad",
+        "required_regions": [
+          "actual returned publisher",
+          "source title",
+          "exact blockquote",
+          "source metadata"
+        ]
+      },
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": []
+      }
+    },
+    {
+      "slot": "release",
+      "image": "release-focus.png",
+      "sha256": "9f164f4fdf19dc65041b6758f888e50c433d30946a4f9e1a9f570d4eae4eaab3",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "original_viewport_image": "release.png",
+      "original_journey_viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "dafff0460ae3a94e62c4a6c7179cbb987a7b505323a8370e458397ad8ad6be51",
+      "original_pixel_clip": {
+        "x": 0,
+        "y": 32.25,
+        "width": 375,
+        "height": 320
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {
+        "actual_release_origin": "Released from a new offline fixture verification run.",
+        "required_regions": [
+          "actual released offline fixture origin in the patient view"
+        ]
+      },
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": []
+      }
+    },
+    {
+      "slot": "response",
+      "image": "response-focus.png",
+      "sha256": "3c9926932b89757867f654bf7cb5f6c9b5a4189a67771b7fb0daa00ef18829a8",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "original_viewport_image": "response.png",
+      "original_journey_viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "cc5e1528149eb2d5c3cf80579d252e101fd56f80eca2e3724076cb3799037257",
+      "original_pixel_clip": {
+        "x": 0,
+        "y": 242.515625,
+        "width": 375,
+        "height": 440
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {},
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": []
+      }
+    },
+    {
+      "slot": "assessment",
+      "image": "assessment-focus.png",
+      "sha256": "75f909e1ca2ac242501c82da8f6d8a452c38cb12673d7188129f3fc9c0826a3c",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "assessment.png",
+      "original_journey_viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "capture_viewport_action": "Native browser resize for readable attempt capture, restored afterward",
+      "original_viewport_sha256": "0bf4a2397fc10ff961b589875de3e18cbf408e7fd364860947877ce7e4cc11b2",
+      "original_pixel_clip": {
+        "x": 728.0,
+        "y": 226.828125,
+        "width": 691,
+        "height": 341
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 1,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {
+        "response_number": 1,
+        "response_text": "Yes, I understand.",
+        "actual_status": "Assessed",
+        "assessment_heading": "Provisional assessment, reviewer required",
+        "required_regions": [
+          "Response 1 heading/status",
+          "actual raw response",
+          "actual provisional assessment heading",
+          "actual covered/missing/misunderstood partition"
+        ],
+        "actual_partition_text": "Source points covered0Source points not demonstrated3Possible misunderstanding0"
+      },
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": [
+          "Patient artifact released",
+          "Private synthetic response access created"
+        ]
+      }
+    },
+    {
+      "slot": "follow_up",
+      "image": "follow_up-focus.png",
+      "sha256": "9c2d7b96aabde85162b6abddf05977436ab08b8fdcc67b3db24a2dbad84cdfb6",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "original_viewport_image": "follow_up.png",
+      "original_journey_viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "capture_viewport_action": "Original journey viewport retained",
+      "original_viewport_sha256": "2b4269bb0b9b6b4c1e98b5f747fa9e21a5a775751ec0166a76576f8b31360e13",
+      "original_pixel_clip": {
+        "x": 0,
+        "y": 186.0,
+        "width": 375,
+        "height": 440
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {},
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": []
+      }
+    },
+    {
+      "slot": "recheck",
+      "image": "recheck-focus.png",
+      "sha256": "232971da86db067ac3c3e81bc0d602dfeae2471a0785f44f1bd42412a06ec0ff",
+      "kind": "current_fixture",
+      "source_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
+      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original_viewport_image": "recheck.png",
+      "original_journey_viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "capture_viewport_action": "Native browser resize for readable attempt capture, restored afterward",
+      "original_viewport_sha256": "4a066ab86c49763eea6fd6143dec38be6a5a3cd8a36fb2c6d095bb2b099e67ee",
+      "original_pixel_clip": {
+        "x": 364.0,
+        "y": 662.375,
+        "width": 728,
+        "height": 320
+      },
+      "original_viewport_label": "Privacy-masked original viewport capture",
+      "privacy_redaction": {
+        "method": "Playwright native screenshot mask",
+        "selector": "a[href*=\"#teachback=\"]",
+        "mask_color": "#0f1720",
+        "matched_elements": 0,
+        "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
+        "application_dom_or_csp_changed": false
+      },
+      "semantic_framing": {
+        "response_number": 2,
+        "response_text": "I would ask the discharge team to confirm who will contact us about the pending potassium result. I would not decide a medication change from this card.",
+        "actual_status": "Assessed",
+        "assessment_heading": "Provisional assessment, reviewer required",
+        "required_regions": [
+          "Response 2 heading/status",
+          "actual raw response",
+          "actual provisional assessment heading",
+          "actual second-response follow-up output"
+        ],
+        "actual_follow_up_output": "Please describe the highlighted source information in your own words and say what still needs clarification."
+      },
+      "dismissed_success_toasts": {
+        "method": "Actual Dismiss notification button clicks",
+        "messages": []
+      }
+    }
+  ],
+  "journey": {
+    "scope": "Real loopback fixture API and SDK workflow only; no clinical or live-model efficacy claim.",
+    "source_case": {
+      "case_id": "47ebd252bbc34bf7b8f9591420fbbc25",
+      "source_hash": "9d9af6beb0c04bb63eea108b3a26f9a50cd862d602c141a3a10e8ba64b5b3d4e",
+      "artifact_hash": "06efadb4284773533c8a70cd9632cd2071b48a3c4be6c25689f96dcc2d8774bd",
+      "model_mode": "fixture",
+      "commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "source_citations": 6,
+      "receipt_count": 1,
+      "correction_count": 0
+    },
+    "revision_case": {
+      "case_id": "23922119314a478398b1f4d0c39bd984",
+      "source_hash": "b5278c773093d85d794f507192c90fe68e53e1974f173c7d9b5051e41725297b",
+      "artifact_hash": "73e66c6c4767ad6c679073e37b312a64e28061d4dc06b1cb074372969bbe7127",
+      "model_mode": "fixture",
+      "commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+      "source_citations": 8,
+      "receipt_count": 1,
+      "correction_count": 0
+    },
+    "task_closed": "cf-90ea8871ad66906ee4a9ac8b",
+    "original_source_and_artifact_unchanged": true,
+    "regimen_withheld": true,
+    "roles_and_explicit_acceptance": true,
+    "verified_revision_required": true,
+    "patient_share_separate_response_capability": true,
+    "response_capability_not_console_session": [
+      {
+        "method": "GET",
+        "has_response_capability": true,
+        "has_console_session": false
+      },
+      {
+        "method": "POST",
+        "has_response_capability": true,
+        "has_console_session": false
+      },
+      {
+        "method": "GET",
+        "has_response_capability": true,
+        "has_console_session": false
+      },
+      {
+        "method": "GET",
+        "has_response_capability": true,
+        "has_console_session": false
+      },
+      {
+        "method": "GET",
+        "has_response_capability": true,
+        "has_console_session": false
+      },
+      {
+        "method": "GET",
+        "has_response_capability": true,
+        "has_console_session": false
+      },
+      {
+        "method": "POST",
+        "has_response_capability": true,
+        "has_console_session": false
+      },
+      {
+        "method": "GET",
+        "has_response_capability": true,
+        "has_console_session": false
+      },
+      {
+        "method": "GET",
+        "has_response_capability": true,
+        "has_console_session": false
+      }
+    ],
+    "actual_responses": 2,
+    "provisional_assessment_not_comprehension": true,
+    "reviewer_reexplain_recheck": true,
+    "read_only_careflow_preview": true,
+    "inline_role_and_revision_navigation": true,
+    "responses_on_verified_child": true,
+    "drafts_retained_after_deferred_workflow_GET": [
+      "clarification_note",
+      "teachback_review"
+    ],
+    "same_task_reselection_preserves_draft": true,
+    "explicit_attempt_change_resets_comment": true,
+    "injected_read_errors": [
+      "workflow503",
+      "evidence503"
+    ],
+    "mobile_width": 375
+  },
+  "live_provider_calls": 0,
+  "transmitted_non_loopback_application_requests": 0,
+  "representation": "Original application screenshot pixels from actual offline fixture execution, with explicit native screenshot privacy masks and bounded crops; no provider efficacy or clinical outcome claim."
+}
