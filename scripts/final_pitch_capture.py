@@ -24,9 +24,9 @@ HOOKS = {
     'assert linked.value.status == 200': ("linked", "page"),
     'expect(panel.get_by_text("Resolution recorded", exact=True)).to_be_visible()': ("closed", "page"),
     'expect(evidence.locator("blockquote").first).to_be_visible()': ("evidence", "page"),
-    'assert released.value.status == 200': ("release", "page"),
+    'assert not urlparse(patient.url).fragment, "response capability must be stripped after tab-scoped storage"': ("release", "patient"),
     'expect(feedback.get_by_label("Your synthetic response", exact=True)).to_have_value("Yes, I understand.")': ("response", "patient"),
-    'expect(feedback.get_by_test_id("teachback-next-step")).to_contain_text("waiting for human review")': ("assessment", "patient"),
+    'assert len(attempts) == 1 and attempts[0]["status"] == "assessed"': ("assessment", "page"),
     'expect(feedback.get_by_text("Reviewer recorded follow-up", exact=False)).to_be_visible()': ("follow_up", "patient"),
     'wait_attempt(patient, feedback, expect, count=2)': ("recheck", "patient"),
 }
@@ -36,9 +36,9 @@ FOCUS = {
     "reply": ("button", "Prepare clarified source revision"), "revision": ("test", "start-reconciliation"),
     "linked": ("button", "Confirm resolution and close"), "closed": ("text", "Resolution recorded"),
     "evidence": ("css", '[data-testid="careflow-evidence"] .careflow-evidence > article:has(a[href="https://www.ahrq.gov/patient-safety/settings/hospital/match/chapter-3.html"])'),
-    "release": ("button", "Enable synthetic patient responses"),
-    "response": ("label", "Your synthetic response"), "assessment": ("test", "teachback-next-step"),
-    "follow_up": ("text", "Reviewer recorded follow-up"), "recheck": ("test", "teachback-next-step"),
+    "release": ("text", "Released from a new offline fixture verification run."),
+    "response": ("label", "Your synthetic response"), "assessment": ("attempt", "Response 1"),
+    "follow_up": ("text", "Reviewer recorded follow-up"), "recheck": ("attempt", "Response 2"),
 }
 
 
@@ -120,7 +120,7 @@ def capture(app, output):
     sys.path.insert(0, str(app / "scripts"))
     rows = []
 
-    def record(page, name):
+    def record_capture(page, name, original_viewport):
         media.require(urlparse(page.url).hostname in {"127.0.0.1", "localhost"}, "Capture target escaped loopback")
         media.require(public_capture_fragment(urlparse(page.url).fragment), "Only an empty fragment or the public teachback anchor may be captured")
         path = output / (name + ".png")
@@ -138,13 +138,21 @@ def capture(app, output):
             toast.get_by_role("button", name="Dismiss notification", exact=True).click()
         media.require(success_toasts.count() == 0, "Success notifications still obscure capture")
         kind, value = FOCUS[name]
-        locator = (page.get_by_test_id(value) if kind == "test" else page.get_by_role("button", name=value, exact=True)
+        locator = (page.get_by_role("list", name="Teach-back attempt history", exact=True).locator(":scope > li")
+                   .filter(has=page.get_by_text(value, exact=True)) if kind == "attempt"
+                   else page.get_by_test_id(value) if kind == "test" else page.get_by_role("button", name=value, exact=True)
                    if kind == "button" else page.get_by_label(value, exact=True) if kind == "label"
                    else page.locator(value) if kind == "css"
                    else page.get_by_text(value, exact=(name != "follow_up")))
         media.require(locator.count() == 1, "Ambiguous capture focus; do not choose arbitrary UI pixels")
-        locator.scroll_into_view_if_needed()
-        bounds = locator.bounding_box()
+        anchor = locator
+        if name == "assessment":
+            anchor = locator.locator(":scope > .careflow-feedback > .careflow-facts")
+        elif name == "recheck":
+            anchor = locator.locator(":scope > .careflow-feedback > strong")
+        media.require(anchor.count() == 1, "Actual attempt assessment anchor is missing or ambiguous")
+        anchor.scroll_into_view_if_needed()
+        bounds = anchor.bounding_box()
         media.require(bounds is not None, "Capture focus is not visible")
         viewport = page.viewport_size
         required, semantics = [], {}
@@ -174,6 +182,40 @@ def capture(app, output):
             semantics = {"evidence_uri": document["uri"], "evidence_title": document["title"],
                          "evidence_quote_sha256": document["spans"][0]["sha256"],
                          "required_regions": ["actual returned publisher", "source title", "exact blockquote", "source metadata"]}
+        elif name == "release":
+            media.require(locator.text_content().strip() == "Released from a new offline fixture verification run.",
+                          "Patient view must show its actual released fixture origin")
+            required = [bounds]
+            semantics = {"actual_release_origin": locator.text_content().strip(),
+                         "required_regions": ["actual released offline fixture origin in the patient view"]}
+        elif name in {"assessment", "recheck"}:
+            heading = locator.locator(":scope > .careflow-title")
+            response = locator.locator(":scope > blockquote")
+            provisional = locator.locator(":scope > .careflow-feedback > strong")
+            status = heading.locator(".careflow-status")
+            media.require(heading.count() == response.count() == provisional.count() == status.count() == 1
+                          and status.text_content().strip() == "Assessed"
+                          and provisional.text_content().strip() == "Provisional assessment, reviewer required"
+                          and response.text_content().strip(), "Actual numbered response and provisional assessment must be present")
+            required = [heading.bounding_box(), response.bounding_box(), provisional.bounding_box()]
+            semantics = {"response_number": 1 if name == "assessment" else 2,
+                         "response_text": response.text_content().strip(), "actual_status": status.text_content().strip(),
+                         "assessment_heading": provisional.text_content().strip(),
+                         "required_regions": [value + " heading/status", "actual raw response", "actual provisional assessment heading"]}
+            if name == "assessment":
+                partition = locator.locator(":scope > .careflow-feedback > .careflow-facts")
+                media.require(partition.count() == 1 and all(partition.get_by_text(label, exact=True).count() == 1 for label in
+                              ("Source points covered", "Source points not demonstrated", "Possible misunderstanding")),
+                              "Reviewer capture must expose the actual provisional partition")
+                required.append(partition.bounding_box())
+                semantics["actual_partition_text"] = partition.text_content().strip()
+                semantics["required_regions"].append("actual covered/missing/misunderstood partition")
+            else:
+                follow_up = locator.locator(":scope > .careflow-feedback > p:not(.control-reason)")
+                media.require(follow_up.count() == 1 and follow_up.text_content().strip(), "Second response needs its actual provisional follow-up output")
+                required.append(follow_up.bounding_box())
+                semantics["actual_follow_up_output"] = follow_up.text_content().strip()
+                semantics["required_regions"].append("actual second-response follow-up output")
         clip = focus_clip(viewport, bounds, required)
         width, height = clip["width"], clip["height"]
         focused = output / (name + "-focus.png")
@@ -194,10 +236,22 @@ def capture(app, output):
                      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, privacy-masked pixels, no new Bedrock execution",
                      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
                      "viewport": viewport, "original_viewport_image": path.name,
+                     "original_journey_viewport": original_viewport,
+                     "capture_viewport_action": "Native browser resize for readable attempt capture, restored afterward" if viewport != original_viewport else "Original journey viewport retained",
                      "original_viewport_sha256": media.digest(path), "original_pixel_clip": clip,
                      "original_viewport_label": "Privacy-masked original viewport capture",
                      "privacy_redaction": redaction, "semantic_framing": semantics,
                      "dismissed_success_toasts": {"method": "Actual Dismiss notification button clicks", "messages": dismissed}})
+
+    def record(page, name):
+        original_viewport = page.viewport_size
+        if name in {"assessment", "recheck"}:
+            page.set_viewport_size({"width": 1440, "height": 1000})
+        try:
+            record_capture(page, name, original_viewport)
+        finally:
+            if page.viewport_size != original_viewport:
+                page.set_viewport_size(original_viewport)
 
     namespace = {"__name__": "final_capture_journey", "__file__": str(source_path), "record_final_frame": record}
     exec(compile(tree, str(source_path), "exec"), namespace)
