@@ -21,9 +21,41 @@ def rejected(name, function):
     raise AssertionError("Control unexpectedly passed: " + name)
 
 
+def capture_security_contract(source):
+    """A capture helper cannot rewrite the document, transport headers or browser CSP."""
+    tree = ast.parse(source)
+    prohibited = {"add_style_tag", "add_script_tag", "add_init_script", "evaluate", "evaluate_handle", "set_content",
+                  "set_extra_http_headers", "route", "fulfill"}
+    screenshots = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        assert not any(keyword.arg == "bypass_csp" for keyword in node.keywords), "Capture must preserve browser CSP enforcement"
+        if isinstance(node.func, ast.Attribute):
+            assert node.func.attr not in prohibited, "Capture must preserve document and transport security"
+            if node.func.attr == "screenshot":
+                options = {keyword.arg: keyword.value for keyword in node.keywords}
+                assert "style" not in options, "Screenshot CSS injection is prohibited"
+                assert "mask" in options and "mask_color" in options, "Native screenshot privacy mask required"
+                assert not isinstance(options["mask"], (ast.List, ast.Tuple)) or options["mask"].elts, "Empty privacy mask is prohibited"
+                screenshots.append(node)
+    assert screenshots, "Actual screenshot call must enforce its privacy mask"
+
+
 def main():
     source = Path(__file__).resolve().parent.parent
     controls = []
+    capture_security_contract((source / "scripts/final_pitch_capture.py").read_text(encoding="utf-8"))
+    for name, unsafe in [
+        ("capture_csp_bypass", 'context = browser.new_context(bypass_csp=True)\npage.screenshot(mask=[secret], mask_color="#111111")'),
+        ("capture_inline_css_injection", 'page.add_style_tag(content="a {visibility:hidden}")\npage.screenshot(mask=[secret], mask_color="#111111")'),
+        ("capture_document_script_mutation", 'page.evaluate("document.body.innerHTML = replacement")\npage.screenshot(mask=[secret], mask_color="#111111")'),
+        ("capture_header_rewrite", 'page.set_extra_http_headers(headers)\npage.screenshot(mask=[secret], mask_color="#111111")'),
+        ("capture_screenshot_style_injection", 'page.screenshot(mask=[secret], mask_color="#111111", style="a {display:none}")'),
+        ("capture_unmasked_secret_pixels", 'page.screenshot(path="frame.png")'),
+        ("capture_empty_privacy_mask", 'page.screenshot(mask=[], mask_color="#111111")'),
+    ]:
+        controls.append(rejected(name, lambda: capture_security_contract(unsafe)))
     tree, hooks = capture.instrument((source / "scripts/careflow_browser_smoke.py").read_text(encoding="utf-8"))
     assert len(hooks) == 14 and isinstance(tree, ast.Module)
     drift = (source / "scripts/careflow_browser_smoke.py").read_text(encoding="utf-8").replace("assert assigned.value.status == 200", "assert assigned.value.status == 201")
