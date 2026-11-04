@@ -1,0 +1,79 @@
+A potassium result is still pending. Follow-up is due within two days. The discharge sheet does not name anyone to call the family.
+
+The caregiver's first question is practical: who has accepted the next step?
+
+Atropos MedPlain uses source-cited Strands agents to turn an unresolved discharge instruction into a clarification with an explicitly accepted next step. Its anonymous console follows that question through original evidence, a selected demo actor, a separately verified source revision and a reviewed patient response. Every person and clinical record in the demonstration is invented.
+
+[Open the anonymous application](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/console/overview) or inspect the [MIT-licensed source and evidence](https://github.com/upgradedev/atropos-medplain-aws).
+
+## Start with one question, not a dashboard
+
+On Overview, choose Preview coordinated follow-up. The pending-result example opens its original documents and caregiver concern. Inspecting that preview creates no case and starts no model job. The initial collection also contains twelve separately labelled prepared examples; those records came from offline SDK fixtures.
+
+The pending-result packet includes the original statement:
+
+Pending test: potassium; owner: not assigned; follow-up: within 2 days.
+
+Its caregiver note has a hospital switchboard number but no named contact. Another passage records an old medicine bottle. The original words stay available, including their disagreements and uncertainty. MedPlain cannot fill the blank with a made-up result, contact or medication decision.
+
+To start a new run, use the operator demo role, confirm the sources are invented and submit the packet. DynamoDB commits the captured source and its outbox event together; a separate SQS worker runs Strands through the configured Bedrock models. Submitting is a budgeted verification, distinct from opening the preview.
+
+## Follow the handoff in the application
+
+Once the source-cited card verifies, open Clarifications. The card explains what to ask; the workspace records what happens next.
+
+1. With the reviewer role, assign the pending-result question, explicitly select the assigned synthetic actor and accept responsibility.
+2. Record a private reply tied to those original witnesses. The reply explains the clarification work; it cannot overwrite the discharge instructions.
+3. Switch to operator and prepare a separate source revision. In the demonstration, an invented addendum names the discharge team for pending-result follow-up. Submit that new source through verification.
+4. Return to reviewer, select the actor, link the exact verified child and confirm demo closure. The original case, source and receipts remain intact.
+5. Review and release the child itself, then choose Enable synthetic patient responses. The ordinary patient share remains read-only; the separate private response link lets the synthetic patient answer its teach-back prompt.
+
+The two selectors have different jobs. The console role enables an action. The selected demo actor identifies whose acceptance, answer or review is recorded. They simulate staff responsibility, not authenticated hospital identity. Accepting a clarification task is also distinct from the follow-up owner named in a source addendum.
+
+The visible change is inspectable: an unassigned question becomes an accepted task with a source-bound reply and a linked verified revision. Demo closure records that workflow confirmation. It does not establish that a clinical problem has been resolved.
+
+## A response is more useful than an acknowledgement
+
+The first synthetic patient reply in the retained fixture walkthrough is: Yes, I understand.
+
+That acknowledgement does not demonstrate the highlighted source points. A bounded CareflowTeachbackAssessmentAgent reads the actual response, exact released prompt and original quotations. It proposes what appears covered, missing or misunderstood. The interface keeps the assessment provisional and requires reviewer review.
+
+The reviewer can request follow-up against an exact source passage. A new patient answer is retained as a separate attempt rather than replacing the first one. This gives the reviewer words to inspect; it does not certify comprehension or authorize treatment. We have not measured patient understanding or clinical benefit.
+
+## What the agents contribute
+
+The multi-document task goes beyond copying a structured medication list into a template. DischargeEvidenceIndexerAgent covers the original statements. CrossDocumentClarificationPlannerAgent uses fresh constraint and reference tools to select relevant relationships and their witnesses. ClarificationCardPublisherAgent binds the card to its source and invocation.
+
+The semantic task is bounded to supported question meanings, such as an intentional medicine change, formulation ambiguity, an unresolved owner or a caregiver concern. Deterministic clauses render validated proposals. Valid citations make those proposals inspectable, but do not prove relevance or clinical correctness.
+
+Strands is load-bearing in this governed agent, tool and correction execution. The full deterministic baseline remains a real comparator: stronger orchestration alone does not establish better outcomes.
+
+## The safety boundary stays strict
+
+Custom tools, typed Pydantic outputs and lifecycle hooks independently check source coverage, quotations, supported clinical atoms and publication identity. A discrepancy follows a bounded correction edge. If verification cannot finish, patient content is withheld.
+
+The separate single-note workflow checks supported numeric, unit and frequency parity and demonstrates a deliberately changed dose being refused and corrected. The complex workflow produces a clarification card and keeps the medication regimen unresolved. Neither a staff reply nor a reviewer can turn a failed gate into a released prescription.
+
+Small, versioned educational excerpts support workflow questions. Results show exact text, publisher links, applicability and hashes. They cannot supply a patient's missing result, dose or owner. The current English snapshots are engineering-reviewed educational material, not a clinically approved pharmacology corpus. Lexical retrieval is not proof of semantic support.
+
+## Read the evidence with its limits
+
+The deployed application is version 0.2.0. Its exact current source identity is available in [live health metadata](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/api/health). Offline integration and browser journeys exercise the real API and SDK with fixture models. Their complete workflow is distinct from new Bedrock efficacy.
+
+The latest completed paired Bedrock comparison remains historical source 43d6244 on thirty known, engineering-annotated synthetic cases:
+
+| Measure | Strands | Full unchanged deterministic baseline |
+| --- | --- | --- |
+| Verified cards | 25/30 | 30/30 |
+| Context TP / FP / FN | 9 / 2 / 6 | 4 / 2 / 11 |
+| Context precision | 81.8% | 66.7% |
+
+The agents found more annotated contextual relationships and delivered fewer cards. All five refusals remain in the denominator. These are context-question metrics, not comprehensive interaction recall or patient outcomes. The thirty-card and twelve-TP goals remain open; this known-corpus repeat does not evaluate the new careflow workflow.
+
+The later H12 diagnostic stopped after one verified card and one refusal. Eleven diagnostics and all thirty comparison cases were unexecuted. Its guard is false and that cycle remains closed.
+
+## What we reused and what comes next
+
+We use the public [Strands Python SDK](https://github.com/strands-agents/sdk-python) and [Strands Evals](https://github.com/strands-agents/evals/tree/v1.7.0), standard web/schema dependencies and the transactional-outbox pattern. The synthetic corpus, annotations, full baseline and deterministic scorers were written for this project. Lachesis supplied conceptual inspiration for deterministic lifecycle decisions and session-bound state, inspected read-only without copied code, fixtures or benchmarks.
+
+The practical test is simple: open the pending-result preview, trace the question to its original passages and follow who accepted its next step. Then inspect the verified revision and the patient's actual words. Production staff identity, EHR integration and a human clinical-utility study remain future work.

@@ -1,0 +1,238 @@
+{
+  "schema": "medplain-experience-owner-review-delivery-v1",
+  "status": "actual_media_owner_listening_and_publication_pending",
+  "prepared_utc": "2026-11-04T12:50:23.142761+00:00",
+  "ci_run": "https://github.com/upgradedev/atropos-medplain-aws/actions/runs/41827298195",
+  "runtime_commit": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
+  "context_inputs_runtime_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+  "duration_seconds": 149.233333,
+  "frames": 4477,
+  "caption_cues": 39,
+  "actual_chronological_UI_seconds": 94.06760115600002,
+  "no_time_compression": true,
+  "watch_for_chapters": [
+    {
+      "title": "Inspect the packet and verification",
+      "clock": "0:19",
+      "film_seconds": 18.893417516000003,
+      "details": [
+        {
+          "label": "Open the editable source preview",
+          "film_seconds": 18.893417516000003,
+          "clock": "0:19",
+          "source_event_kind": "click_target",
+          "source_event_label": "Preview coordinated follow-up",
+          "recorded_event_seconds": 2.0608290069999953
+        },
+        {
+          "label": "Inspect actual verification and the Strands trace",
+          "film_seconds": 27.39901853700002,
+          "clock": "0:27",
+          "source_event_kind": "click_target",
+          "source_event_label": "Inspect actual Strands execution while verification runs",
+          "recorded_event_seconds": 10.566430028000013
+        }
+      ]
+    },
+    {
+      "title": "Assign, accept and reply",
+      "clock": "0:39",
+      "film_seconds": 38.52715263099998,
+      "details": [
+        {
+          "label": "Assign the question",
+          "film_seconds": 38.52715263099998,
+          "clock": "0:39",
+          "source_event_kind": "click_target",
+          "source_event_label": "Assign follow-up",
+          "recorded_event_seconds": 21.694564121999974
+        },
+        {
+          "label": "Record explicit acceptance",
+          "film_seconds": 42.424833010999976,
+          "clock": "0:42",
+          "source_event_kind": "click_target",
+          "source_event_label": "Explicitly accept responsibility",
+          "recorded_event_seconds": 25.59224450199997
+        },
+        {
+          "label": "Record a source-bound reply",
+          "film_seconds": 46.95865404900002,
+          "clock": "0:47",
+          "source_event_kind": "click_target",
+          "source_event_label": "Submit source-bound reply",
+          "recorded_event_seconds": 30.126065540000013
+        }
+      ]
+    },
+    {
+      "title": "Verify a separate source revision",
+      "clock": "0:54",
+      "film_seconds": 54.090827128,
+      "details": [
+        {
+          "label": "Prepare the invented source addendum",
+          "film_seconds": 54.090827128,
+          "clock": "0:54",
+          "source_event_kind": "click_target",
+          "source_event_label": "Prepare separate child source revision",
+          "recorded_event_seconds": 37.258238619
+        },
+        {
+          "label": "Submit the separate child verification",
+          "film_seconds": 56.95725690400002,
+          "clock": "0:57",
+          "source_event_kind": "click_target",
+          "source_event_label": "Submit independent child verification",
+          "recorded_event_seconds": 40.124668395000015
+        },
+        {
+          "label": "Link the verified revision and record demo closure",
+          "film_seconds": 60.74147052899997,
+          "clock": "1:01",
+          "source_event_kind": "click_target",
+          "source_event_label": "Record explicit demo closure",
+          "recorded_event_seconds": 43.908882019999965
+        }
+      ]
+    },
+    {
+      "title": "Release, respond and recheck",
+      "clock": "1:08",
+      "film_seconds": 67.85903772400002,
+      "details": [
+        {
+          "label": "Release the exact child card",
+          "film_seconds": 67.85903772400002,
+          "clock": "1:08",
+          "source_event_kind": "click_target",
+          "source_event_label": "Release verified child card",
+          "recorded_event_seconds": 51.026449215000014
+        },
+        {
+          "label": "Submit the first synthetic response",
+          "film_seconds": 74.40705843500001,
+          "clock": "1:14",
+          "source_event_kind": "click_target",
+          "source_event_label": "Submit actual first response",
+          "recorded_event_seconds": 57.574469926000006
+        },
+        {
+          "label": "Inspect the provisional assessment",
+          "film_seconds": 76.89031446199999,
+          "clock": "1:17",
+          "source_event_kind": "click_target",
+          "source_event_label": "Read actual response in reviewer view",
+          "recorded_event_seconds": 60.05772595299999
+        },
+        {
+          "label": "Retain the separate recheck response",
+          "film_seconds": 89.07406820299997,
+          "clock": "1:29",
+          "source_event_kind": "click_target",
+          "source_event_label": "Submit actual second response",
+          "recorded_event_seconds": 72.24147969399996
+        }
+      ]
+    },
+    {
+      "title": "Inspect support and the evidence",
+      "clock": "1:37",
+      "film_seconds": 97.25665732300001,
+      "details": [
+        {
+          "label": "Retrieve the educational passage",
+          "film_seconds": 97.25665732300001,
+          "clock": "1:37",
+          "source_event_kind": "click_target",
+          "source_event_label": "Retrieve actual versioned educational passage",
+          "recorded_event_seconds": 80.42406881400001
+        },
+        {
+          "label": "Inspect the actual verification receipt",
+          "film_seconds": 107.20518905799997,
+          "clock": "1:47",
+          "source_event_kind": "click_target",
+          "source_event_label": "Inspect the actual child verification receipt",
+          "recorded_event_seconds": 90.37260054899997
+        },
+        {
+          "label": "Read the separately labelled historical comparison",
+          "film_seconds": 111.036,
+          "clock": "1:51",
+          "source": "retained context benchmark shot"
+        }
+      ]
+    }
+  ],
+  "representation": "Actual chronological UI automation with genuine page switches and visible real waits, surrounded by labelled CGI/historical context. Native temporal resampling repeats frames without optical interpolation. No provider efficacy or clinical outcome claimed.",
+  "source_audio_sha256": "62122e08d1fa168b01dc72e98c5b2d0a4a3fbe25fec6d8c9e883862295ea2212",
+  "source_context_manifest_sha256": "69f3ea06d34f1c00f13e0d243f9d92ee7db017048f75253830b175162a45c402",
+  "recording_proof_sha256": "485d924caedfdca809ea3f47915d102a3e6080cf216af3db92236c9be1aedad2",
+  "recording_review_sha256": "9d4256ea6d3674f4d688bfc46cf006b52d6c075333e46183cff862f9ead3a5d8",
+  "independent_media_review_sha256": "67fae82fd5f35542a2554f1c2c4bc80f74721c17810b675aa63ce02cdb4ba53f",
+  "poster": {
+    "origin": "actual_compositor_preencode_QA_not_encoded_frame",
+    "frame": 1020,
+    "dimensions_pixels": [
+      960,
+      540
+    ]
+  },
+  "article_sha256": "54f343d146df9561a4be3e70fcf6c71a10dcb2705183677eb1bb673bd6e43330",
+  "vtt_derivation": "Exact SRT words/cues with WEBVTT header and timestamp comma-to-dot conversion",
+  "clinical_model_jobs_by_generator": 0,
+  "human_listening_approval": false,
+  "youtube_publication": "pending_owner",
+  "builder_publication": "pending_owner",
+  "files": {
+    "article.html": {
+      "bytes": 10966,
+      "sha256": "19682df3a2640f7fe6370ef5a269b7f905865a9877e1c8a0feabb782b3fd13dc"
+    },
+    "article.txt": {
+      "bytes": 8445,
+      "sha256": "54f343d146df9561a4be3e70fcf6c71a10dcb2705183677eb1bb673bd6e43330"
+    },
+    "index.html": {
+      "bytes": 9604,
+      "sha256": "b5140faef88d2ee99b5ce0ac6fd5fed5cb65eafce212568571fc596bcab06603"
+    },
+    "media-gate.json": {
+      "bytes": 9785,
+      "sha256": "c1fcb7d243927b107f6df174f2909fd07a803cf8419e1bd80c9eec2f8ec875e5"
+    },
+    "medplain-experience-poster.png": {
+      "bytes": 211457,
+      "sha256": "021db2b00713c5fe29be52c8ee0907da557e38321968c88e482686536c325163"
+    },
+    "medplain-experience.mp4": {
+      "bytes": 16172637,
+      "sha256": "4f82400885a0d568daf0039269116dc6134a09939147de3fec4072c0fe256419"
+    },
+    "medplain-experience.srt": {
+      "bytes": 3437,
+      "sha256": "7c7f422c1b0dffa0912a882bc9997ba728f681052fb914983e71ce0945de16ae"
+    },
+    "medplain-experience.vtt": {
+      "bytes": 3445,
+      "sha256": "4e9ec060a154a095fc72be2204ca84e6b918bd7a6ff0ca769c4d280646028cd4"
+    },
+    "render-proof.json": {
+      "bytes": 8481,
+      "sha256": "8bea4f0bb7fba66b6a9302db25a3f7f5d43fdb931ed9143c84593d4e27b2e514"
+    },
+    "scope-and-owner-checklist.txt": {
+      "bytes": 1508,
+      "sha256": "09bfa5d0e347422e4f2d271cbc49027446eb97f8c9085401eb9d501603d32796"
+    },
+    "youtube-description.txt": {
+      "bytes": 2357,
+      "sha256": "6aacab2716b09909a6b83f034615b500d15f6862974edc654063de4fd1676870"
+    },
+    "youtube-title.txt": {
+      "bytes": 66,
+      "sha256": "e3b1b0c77129ff67c85b28f9f33dabd3dd208e94da847770322bf19cffd84bd3"
+    }
+  }
+}

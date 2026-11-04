@@ -1,0 +1,47 @@
+name: Review Existing Native Recording Pixels
+
+on:
+  push:
+    branches: ['codex/medplain-experience-capture-20261104']
+    paths:
+      - .github/workflows/native-review-qa.yml
+      - scripts/native_review_qa.py
+      - scripts/check_native_review_qa.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  native-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reject changed archive before media parsing
+        run: python -B scripts/check_native_review_qa.py
+      - name: Read the exact already-spent private archive
+        run: |
+          mkdir -p artifacts
+          gh api repos/upgradedev/atropos-medplain-aws/actions/artifacts/13318070109/zip > artifacts/native-input.zip
+          python -B scripts/native_review_qa.py --archive artifacts/native-input.zip
+      - name: Install media decoder in CI only
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+      - name: Extract native pixels without UI replay or clinical requests
+        run: python -B scripts/native_review_qa.py --archive artifacts/native-input.zip --output artifacts/native-review
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: medplain-native-review-41821289683-${{ github.sha }}
+          path: artifacts/native-review/
+          retention-days: 14

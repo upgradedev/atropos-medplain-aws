@@ -1,0 +1,64 @@
+name: Review Accepted Encoded Film Pixels
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/medplain-experience*']
+    paths:
+      - scripts/encoded_film_qa.py
+      - video/encoded-film-qa-request.json
+      - .github/workflows/encoded-film-qa.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  encoded-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependency-free negative controls
+        run: python -B scripts/encoded_film_qa.py --self-check
+      - name: Admit exact completed film or remain blocked
+        id: request
+        run: python -B scripts/encoded_film_qa.py
+      - name: Read exact completed composition and already-spent native proof
+        if: steps.request.outputs.admitted == 'true'
+        run: |
+          mkdir -p artifacts
+          python - <<'PY'
+          import json,pathlib,subprocess
+          request=json.loads(pathlib.Path('video/encoded-film-qa-request.json').read_bytes())
+          info=json.loads(subprocess.check_output(['gh','api',f"repos/upgradedev/atropos-medplain-aws/actions/artifacts/{request['artifact_id']}"]))
+          assert info['workflow_run']['id']==request['compose_run_id'] and info['workflow_run']['head_sha']==request['compose_head']
+          assert info['name']==request['artifact_name'] and not info['expired'] and info['digest']=='sha256:'+request['archive_sha256']
+          pathlib.Path('artifacts/composition-artifact-metadata.json').write_text(json.dumps(info,indent=2)+'\n')
+          with open('artifacts/completed-film.zip','wb') as target:
+              subprocess.run(['gh','api',f"repos/upgradedev/atropos-medplain-aws/actions/artifacts/{request['artifact_id']}/zip"],stdout=target,check=True)
+          PY
+          gh api repos/upgradedev/atropos-medplain-aws/actions/artifacts/13318070109/zip > artifacts/original-native.zip
+      - name: Install decoder in CI only
+        if: steps.request.outputs.admitted == 'true'
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg fonts-dejavu-core
+          fi
+      - name: Extract encoded pixels without recomposition or application replay
+        if: steps.request.outputs.admitted == 'true'
+        run: python -B scripts/encoded_film_qa.py --archive artifacts/completed-film.zip --native-archive artifacts/original-native.zip --output artifacts/encoded-review
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.request.outputs.admitted == 'true'
+        with:
+          name: medplain-encoded-film-review-${{ github.sha }}
+          path: |
+            artifacts/encoded-review/
+            artifacts/composition-artifact-metadata.json
+          retention-days: 14

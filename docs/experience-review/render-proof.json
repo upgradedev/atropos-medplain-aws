@@ -1,0 +1,234 @@
+{
+  "status": "rendered_continuous_ui_pending_quality_and_owner_review",
+  "runtime_commit": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
+  "context_inputs_runtime_commit": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+  "recorded_application_source": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
+  "manifest_sha256": "69f3ea06d34f1c00f13e0d243f9d92ee7db017048f75253830b175162a45c402",
+  "requested_application_source": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
+  "reviewed_recorder_sha256": "4a5cfd5ed26955c408c0e2a54c1f93943a5e11796d7e506768b99ab353a168db",
+  "recording_proof_sha256": "485d924caedfdca809ea3f47915d102a3e6080cf216af3db92236c9be1aedad2",
+  "recording_review_sha256": "9d4256ea6d3674f4d688bfc46cf006b52d6c075333e46183cff862f9ead3a5d8",
+  "native_origins": {
+    "console": {
+      "selected_origin_seconds": 0.09641979449998672,
+      "origin_lower_seconds": 0.08237395399996841,
+      "origin_upper_seconds": 0.11046563500000503,
+      "uncertainty_seconds": 0.028091681000036617,
+      "native_duration_seconds": 94.04,
+      "measured_native_frame_seconds": 0.04,
+      "claim": "Origin bounded by actual metadata and measured video duration; no subframe synchronization asserted."
+    },
+    "patient": {
+      "selected_origin_seconds": 52.13535640949999,
+      "origin_lower_seconds": 52.07933409599999,
+      "origin_upper_seconds": 52.19137872299999,
+      "uncertainty_seconds": 0.11204462700000306,
+      "native_duration_seconds": 42.4,
+      "measured_native_frame_seconds": 0.04,
+      "claim": "Origin bounded by actual metadata and measured video duration; no subframe synchronization asserted."
+    }
+  },
+  "native_final_frame_holds": {
+    "console": [
+      {
+        "requested_index": 2821,
+        "last_decoded_index": 2820,
+        "native_seconds": 94.03765836316668,
+        "measured_native_duration": 94.04,
+        "maximum_boundary_seconds": 0.03333333333333333,
+        "reason": "Successful decoder EOF within one final output frame; retain actual last pixels and full wall clock."
+      }
+    ],
+    "patient": []
+  },
+  "native_decoder_cleanup": {
+    "console": {
+      "stdout_reader_closed": true,
+      "terminate_requested": false,
+      "kill_requested": false,
+      "return_code": 0,
+      "maximum_wait_per_stage_seconds": 2,
+      "full_native_stream_decode_claimed": false,
+      "already_exited": true
+    },
+    "patient": {
+      "stdout_reader_closed": true,
+      "terminate_requested": true,
+      "kill_requested": false,
+      "return_code": 255,
+      "maximum_wait_per_stage_seconds": 2,
+      "full_native_stream_decode_claimed": false,
+      "already_exited": false
+    }
+  },
+  "ui_clock_start": 0.07141149099999211,
+  "ui_clock_end": 94.13901264700002,
+  "actual_page_windows": [
+    {
+      "page": "console",
+      "start": 0.07141149099999211,
+      "end": 52.152481223999985
+    },
+    {
+      "page": "patient",
+      "start": 52.152481223999985,
+      "end": 60.02054641000001
+    },
+    {
+      "page": "console",
+      "start": 60.02054641000001,
+      "end": 68.761839527
+    },
+    {
+      "page": "patient",
+      "start": 68.761839527,
+      "end": 74.77936188799998
+    },
+    {
+      "page": "console",
+      "start": 74.77936188799998,
+      "end": 94.13901264700002
+    }
+  ],
+  "ui_film_offset": 16.904,
+  "no_time_compression": true,
+  "actual_complete_ui_seconds": 94.06760115600002,
+  "source_audio_sha256": "62122e08d1fa168b01dc72e98c5b2d0a4a3fbe25fec6d8c9e883862295ea2212",
+  "audio_policy": {
+    "continuous": true,
+    "padding_seconds": 0,
+    "speed": 1,
+    "music": false,
+    "effects": [
+      "loudness_normalization"
+    ]
+  },
+  "source_pcm_signal": {
+    "sample_count": 7162149,
+    "sample_rate": 48000,
+    "sample_width_bits": 16,
+    "dc_offset_fraction_fs": -3.105023556117288e-05,
+    "rms_fraction_fs": 0.04778830009127473,
+    "peak_fraction_fs": 0.7982177734375,
+    "peak_dbfs": -1.9575721253798273,
+    "negative_peak_pcm": -22522,
+    "positive_peak_pcm": 26156,
+    "rail_clipped_sample_count": 0,
+    "rail_clipped_sample_fraction": 0.0,
+    "longest_exact_zero_run_seconds": 0.0153125,
+    "scope": "Decoded signal statistics; no absence-of-noise, naturalness or listening verdict."
+  },
+  "normalized_pcm_signal": {
+    "sample_count": 7162149,
+    "sample_rate": 48000,
+    "sample_width_bits": 16,
+    "dc_offset_fraction_fs": -0.00010559991088464903,
+    "rms_fraction_fs": 0.14280878784233358,
+    "peak_fraction_fs": 0.844482421875,
+    "peak_dbfs": -1.4681877190682573,
+    "negative_peak_pcm": -27609,
+    "positive_peak_pcm": 27672,
+    "rail_clipped_sample_count": 0,
+    "rail_clipped_sample_fraction": 0.0,
+    "longest_exact_zero_run_seconds": 0.0153125,
+    "scope": "Decoded signal statistics; no absence-of-noise, naturalness or listening verdict."
+  },
+  "normalization": {
+    "passes": 2,
+    "target": {
+      "integrated_lufs": -16,
+      "true_peak_dbtp": -1.5,
+      "loudness_range_lu": 11
+    },
+    "source_pcm_sha256": "a30c7490ecaf023c52a6c1be15a84377fc9a10ad82b3852c00b08b9186fb9b12",
+    "normalized_pcm_sha256": "8fdd46e9a17fd68e2eb02e6632fa5fd56e766881afa1c5adc9db92da0db5f2a8",
+    "source_seconds": 149.211438,
+    "normalized_seconds": 149.211438,
+    "duration_difference_seconds": 0.0,
+    "first_pass_filter": "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json",
+    "second_pass_filter": "loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=-25.710000:measured_TP=-1.910000:measured_LRA=2.200000:measured_thresh=-35.890000:offset=0.680000:linear=true:print_format=json",
+    "first_pass_measurement": {
+      "input_i": "-25.71",
+      "input_tp": "-1.91",
+      "input_lra": "2.20",
+      "input_thresh": "-35.89",
+      "output_i": "-16.68",
+      "output_tp": "-1.50",
+      "output_lra": "2.10",
+      "output_thresh": "-26.87",
+      "normalization_type": "dynamic",
+      "target_offset": "0.68"
+    },
+    "second_pass_measurement": {
+      "input_i": "-25.71",
+      "input_tp": "-1.91",
+      "input_lra": "2.20",
+      "input_thresh": "-35.89",
+      "output_i": "-16.20",
+      "output_tp": "-1.50",
+      "output_lra": "2.10",
+      "output_thresh": "-26.38",
+      "normalization_type": "dynamic",
+      "target_offset": "0.20"
+    },
+    "timing_text_speed_padding_changed": false
+  },
+  "continuous_audio_seconds": 149.211438,
+  "expected_frames": 4477,
+  "visual_rounding_seconds": 0.021895333333333156,
+  "video_sha256": "4f82400885a0d568daf0039269116dc6134a09939147de3fec4072c0fe256419",
+  "captions_sha256": "7c7f422c1b0dffa0912a882bc9997ba728f681052fb914983e71ce0945de16ae",
+  "qa_samples": [
+    {
+      "frame": 507,
+      "rgb_sha256": "b7f34fa5e0fdeb233c759f668a5154293498a5012ca6134dd9e7d94fb95e8503"
+    },
+    {
+      "frame": 764,
+      "rgb_sha256": "a21810083d0d3c4d8ae8920be75a35a9c9e637a0f29388f59146efe580d11f77"
+    },
+    {
+      "frame": 1020,
+      "rgb_sha256": "077c84f239c9c80d00c84f2eef74dd312cc60a7a8ab34becf0b4d042c66fabba"
+    },
+    {
+      "frame": 1277,
+      "rgb_sha256": "b9c74ecc1b9eeaea8aae3b615d59026a52115b155df8fe121756a4dd801f7891"
+    },
+    {
+      "frame": 1533,
+      "rgb_sha256": "407a5c663484c2347f66643cddf8395b88cab5296ae8878f409e6c0406f4f0e8"
+    },
+    {
+      "frame": 1790,
+      "rgb_sha256": "b83130e5ad15bde826586077badb78ffa24764b1b08da308a045d39e09d97684"
+    },
+    {
+      "frame": 2046,
+      "rgb_sha256": "a606679f8d3ce18aceb88d941426c75960fc4d8952724e1ca2948ede64fb8b2f"
+    },
+    {
+      "frame": 2303,
+      "rgb_sha256": "a0fa4d48c3ca28d4cd389994a5aa065568e51fce5e6be2091b9652a3971e3f0a"
+    },
+    {
+      "frame": 2560,
+      "rgb_sha256": "db716cc4875dbe874d5919facaa357e9f65f3228086022fb24d7c0d831b96a45"
+    },
+    {
+      "frame": 2816,
+      "rgb_sha256": "fb3315ddadbef8041e46280e169dabb93d211ae779e83f6fa7aea1c9b33b7f83"
+    },
+    {
+      "frame": 3073,
+      "rgb_sha256": "2422ce69b3b8c60dce728fc6cb9f8fdfc6ff01cc60b8c98f2f714c948ee9a8d4"
+    },
+    {
+      "frame": 3329,
+      "rgb_sha256": "717a322f56e88fbdeea17b575d704d1c55e6be5a7acdd4c481102abfcbb39552"
+    }
+  ],
+  "representation": "Actual chronological UI automation with genuine page switches and visible real waits, surrounded by labelled CGI/historical context. Native temporal resampling repeats frames without optical interpolation. No provider efficacy or clinical outcome claimed.",
+  "cursor_annotation": "Pulses use actual logged click-target coordinates, active page and monotonic time only; no invented or interpolated cursor movement.",
+  "publication": false
+}

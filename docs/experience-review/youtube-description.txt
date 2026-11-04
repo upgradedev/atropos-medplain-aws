@@ -1,0 +1,28 @@
+A caregiver gets home with a pending potassium result and no named follow-up contact. Atropos MedPlain connects the original sources to a cited question, an explicitly accepted task and a reviewed response.
+
+This film contains one actual chronological application journey at 1x, including genuine page switches and visible waits (94.068 seconds of UI). The recorded application uses offline fixture API and Strands SDK models at source db0a25ad4865a36d2f8196be26e2f365abded2b4. Labelled fictional CGI and the original ElevenLabs narration provide context. This is not a new Bedrock clinical-effectiveness result.
+
+Three Strands agents index original statements, select supported contextual relationships and bind a clarification card. A separate bounded assessment reads the synthetic patient's submitted words. The deterministic safety gate remains strict; a new source revision requires its own verification and human release. Demo roles and staff actors simulate responsibility, not authenticated hospital identity. Assessments stay provisional and require reviewer decisions.
+
+Historical source 43d delivered 25/30 cards, context TP 9 / FP 2 / FN 6, precision 81.8%. The full unchanged baseline delivered 30/30, TP 4 / FP 2 / FN 11, precision 66.7%. Five refusals remain. Closed H12 stopped after 1 verified card and 1 refusal; 11 diagnostics and its 30-case comparison were unexecuted. The 30/30 and 12-TP goals remain open. Clinical benefit and patient comprehension are unmeasured.
+
+Anonymous application:
+https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/console/overview
+
+Source, architecture and reused patterns:
+https://github.com/upgradedev/atropos-medplain-aws
+
+Full historical comparison:
+https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-reconciliation-43d6244
+
+Stopped H12 evidence:
+https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-converse-diagnostic-efe6c3e
+
+Narration: original ElevenLabs stock Rachel voice, reused without new synthesis. People and environments are fictional CGI illustrations. Owner listening and final publication approval remain pending.
+
+0:00 The caregiver's question
+0:19 Inspect the packet and verification
+0:39 Assign, accept and reply
+0:54 Verify a separate source revision
+1:08 Release, respond and recheck
+1:37 Inspect support and the evidence
