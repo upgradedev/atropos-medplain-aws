@@ -1,0 +1,129 @@
+name: MedPlain Continuous Real-Time UI Capture
+
+on:
+  push:
+    branches: ['codex/medplain-experience*']
+    paths:
+      - scripts/realtime_careflow.py
+      - scripts/realtime_pitch.py
+      - scripts/check_realtime_source.py
+      - scripts/prepare_realtime_request.py
+      - video/realtime-render-request.json
+      - video/realtime-reading-schedule.json
+      - video/realtime-narration-alignment.json
+      - .github/workflows/realtime-pitch.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  real-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      OTEL_SDK_DISABLED: 'true'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependency-free real-time recording source controls
+        run: python -B scripts/check_realtime_source.py
+      - name: Validate actual independent source review and root request
+        id: request
+        run: python -B scripts/prepare_realtime_request.py
+      - uses: actions/checkout@v4
+        if: steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'capture'
+        with:
+          ref: ${{ env.APPLICATION_SOURCE }}
+          path: real-app-source
+      - name: Verify exact recording source checkout
+        if: steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'capture'
+        run: test "$(git -C real-app-source rev-parse HEAD)" = "$APPLICATION_SOURCE"
+      - uses: actions/setup-node@v4
+        if: steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'capture'
+        with:
+          node-version: '22'
+      - name: Build actual application and install recording tools in CI only
+        if: steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'capture'
+        run: |
+          cd real-app-source/web
+          npm ci
+          npm run build
+          cd ..
+          python scripts/stage_console.py
+          python -m pip install --disable-pip-version-check --no-cache-dir -c constraints-runtime.txt . playwright
+          python -m playwright install --with-deps chromium
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+      - name: Observe public demo without submitting any job
+        if: steps.request.outputs.capture == 'true'
+        run: |
+          mkdir -p artifacts
+          python - <<'PY'
+          import json,os,pathlib,urllib.request
+          base='https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws'
+          proof={}
+          for path in ('/','/api/health'):
+              with urllib.request.urlopen(base+path,timeout=30) as response:
+                  assert response.status==200
+                  proof[path]={'http_status':response.status}
+                  if path=='/api/health':
+                      proof[path]['observed_live_source']=json.load(response)['commit']
+                      if os.environ['REALTIME_MODE']=='compose':assert proof[path]['observed_live_source']==os.environ['APPLICATION_SOURCE']
+          pathlib.Path('artifacts/realtime-live-readonly.json').write_text(json.dumps(proof,indent=2)+'\n')
+          PY
+      - name: Record actual UI-created parent and child through response recheck
+        if: steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'capture'
+        run: |
+          if [ -n "${READING_SCHEDULE_SHA:-}" ]; then
+            python -B scripts/realtime_careflow.py --app real-app-source --expected-source "$APPLICATION_SOURCE" --reading-seconds 0 --schedule video/realtime-reading-schedule.json --schedule-sha256 "$READING_SCHEDULE_SHA" --alignment video/realtime-narration-alignment.json --alignment-sha256 "$NARRATION_ALIGNMENT_SHA" --output artifacts/realtime-ui
+          else
+            python -B scripts/realtime_careflow.py --app real-app-source --expected-source "$APPLICATION_SOURCE" --reading-seconds "$READING_SECONDS" --output artifacts/realtime-ui
+          fi
+      - name: Retain native evidence privately for independent video and privacy review
+        if: always() && steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'capture'
+        uses: actions/upload-artifact@v4
+        with:
+          name: medplain-realtime-private-evidence-${{ github.sha }}
+          path: |
+            artifacts/realtime-ui/
+            artifacts/realtime-live-readonly.json
+          retention-days: 14
+      - uses: actions/download-artifact@v4
+        if: steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'compose'
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.NATIVE_RUN_ID }}
+          name: ${{ env.NATIVE_ARTIFACT_NAME }}
+          path: artifacts/realtime-recording
+      - name: Acquire the exact reused voice and CGI source without synthesis
+        if: steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'compose'
+        run: |
+          mkdir -p artifacts/input-download
+          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --pattern medplain-final-source.zip --dir artifacts/input-download
+          python -B scripts/pitch_video.py unpack --archive artifacts/input-download/medplain-final-source.zip --sha256 "$SOURCE_ARCHIVE_SHA" --output artifacts/realtime-inputs
+          python -m pip install --disable-pip-version-check --no-cache-dir Pillow==13.0.0
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg fonts-dejavu-core
+          fi
+      - name: Compose the whole reviewed UI clock at real speed with unchanged speech
+        if: steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'compose'
+        run: |
+          python -B scripts/realtime_pitch.py --inputs artifacts/realtime-inputs --manifest-sha256 "$SOURCE_MANIFEST_SHA" --recordings artifacts/realtime-recording/realtime-ui --recording-proof-sha256 "$NATIVE_PROOF_SHA" --review video/realtime-recording-review.json --review-sha256 "$RECORDING_REVIEW_SHA" --ui-start-seconds "$UI_START_SECONDS" --expected-source "$APPLICATION_SOURCE" --expected-recorder-sha256 "$REVIEWED_RECORDER_SHA" --output artifacts/realtime-pitch
+      - name: Preserve real-time film, raw quality diagnostics and partials for owner review
+        if: always() && steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'compose'
+        uses: actions/upload-artifact@v4
+        with:
+          name: medplain-realtime-composition-${{ github.sha }}
+          path: |
+            artifacts/realtime-pitch/
+            artifacts/realtime-live-readonly.json
+          retention-days: 14

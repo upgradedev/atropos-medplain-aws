@@ -1,0 +1,30 @@
+{
+  "status": "root_requested_after_independent_source_review",
+  "independent_review_sha256": "81b67b39f2449b35e8002965cacc306a284aa31c30aab48acccc797e4881aee7",
+  "mode": "compose",
+  "application_source": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
+  "reading_seconds": 0,
+  "code_sha256": {
+    "recorder": "4a5cfd5ed26955c408c0e2a54c1f93943a5e11796d7e506768b99ab353a168db",
+    "checker": "5f3586872a56dd45fb7426ae2b593a20a2b808e2ef25fd15c3ece7119db6f10f",
+    "compositor": "afd98e5c8a46390e913d4071523ffb854788d81e171062fb140c17732dec731c",
+    "validator": "2d59d1d4621a94fba273dda72380fefb0c1c409b246164e1646bfc62b26fb0b5",
+    "workflow": "d3ac70de689ec4bf7eaf387f23becca82c23ec45280940484354f6facac47ae3",
+    "media_helpers": "14592d9d41dfe43977c8718862d8daf62982924949f2a4f1779b8674b65e75cc",
+    "original_careflow_journey": "e3967214323324ca756008f589ed53f1e7736dea46b28c6c57b73e02a11b251e",
+    "original_capture": "7e75fb8d35ad281d983442f5cc988c298e0ea48dcd04a8606eeffa2d86292fce",
+    "audio_helpers": "808d7428b122e5fcd3810013bd9462dff103cf5c3922204a7fd0a7108d41f269",
+    "final_renderer": "57be31087d6c73482545a490c653f3bf3232df16bfabc07b83363b83af9d3daf",
+    "final_graphics": "f415ca7ef9aa2f32cc8c5f427c4ed1a270c0c4c6b16a26fb740d00fb397ed403",
+    "motion_graphics": "b68a48123883708e17ccebc08b0af02e41f0017c973f6bcd4fe68d4bc09e9265",
+    "motion_helpers": "58c614912c16af24992c6e31e0b04514e771b16c225c72ce79a56efa093046a5"
+  },
+  "native_run_id": 41821289683,
+  "native_artifact_name": "medplain-realtime-private-evidence-c55117c3b25876b1c76f39914d09effabb9f9007",
+  "native_proof_sha256": "485d924caedfdca809ea3f47915d102a3e6080cf216af3db92236c9be1aedad2",
+  "recording_review_sha256": "9d4256ea6d3674f4d688bfc46cf006b52d6c075333e46183cff862f9ead3a5d8",
+  "source_tag": "medplain-final-inputs-20261104-v1",
+  "source_archive_sha256": "7a7333236f113b860f45d72fec9e05375b2228b75b6f9fd2765faa2ffc162ec7",
+  "source_manifest_sha256": "69f3ea06d34f1c00f13e0d243f9d92ee7db017048f75253830b175162a45c402",
+  "ui_start_seconds": 16.904
+}

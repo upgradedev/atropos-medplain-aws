@@ -1,1 +1,5 @@
 * text=auto eol=lf
+
+# Preserve reviewed input and owner media payload bytes.
+video/realtime-narration-alignment.json -text
+docs/experience-review/* -text

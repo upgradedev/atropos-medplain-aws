@@ -1,0 +1,16 @@
+OWNER REVIEW PACKAGE, NOT A YOUTUBE OR BUILDER SUBMISSION
+
+Recorded application source: db0a25ad4865a36d2f8196be26e2f365abded2b4
+Movie SHA-256: 4f82400885a0d568daf0039269116dc6134a09939147de3fec4072c0fe256419
+Actual movie: 149.233333 seconds. Chronological application UI: 94.067601 seconds at 1x.
+The UI uses offline fixture API/Strands SDK models. It is not a new Bedrock clinical comparison.
+The original ElevenLabs stock Rachel track and fictional CGI are reused. No new voice synthesis.
+Historical 43d/H12 measurements remain separate; clinical benefit and comprehension are unmeasured.
+
+1. Watch and listen to this exact complete movie. Check speech, waits, labels and readability before approving it.
+2. Read article.txt and compare the existing Builder draft. Preserve the fixture/historical distinction and all failures.
+3. After owner approval, upload the exact MP4 with captions and metadata to Public YouTube. Personally complete any account/content Terms shown. Verify the real anonymous watch URL.
+4. Add that actual watch URL to the existing Builder project. Publish only after owner approval and verify the real public/contest state. Do not call an unobserved state Submitted.
+5. The owner cutoff remains 2026-11-04 20:00 UTC. This package does not extend it or authorize a new clinical/model cycle.
+
+Raw native recordings, private response capabilities and unprojected recording ledgers are deliberately not included in this public reading copy. The old docs/final-review remains preserved.
