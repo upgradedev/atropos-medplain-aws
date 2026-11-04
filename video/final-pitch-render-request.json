@@ -1,0 +1,19 @@
+{
+  "utc": "2026-11-04T05:49:24.539527+00:00",
+  "status": "root_requested_after_independent_source_and_input_review",
+  "independent_review_sha256": "e9f0d9fdb3aae77ccb74bb5a4e4735c3edb5b16e3d7bffe081d574227611b6e5",
+  "mode": "capture",
+  "application_source": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+  "code_sha256": {
+    "renderer": "57be31087d6c73482545a490c653f3bf3232df16bfabc07b83363b83af9d3daf",
+    "graphics": "f415ca7ef9aa2f32cc8c5f427c4ed1a270c0c4c6b16a26fb740d00fb397ed403",
+    "capture": "f2fdaec2e83316ff50e318345127154f01ffa37ce3629a5f36c518abfbdae883",
+    "checker": "316aa59013021a7a8d3ed87ed1573a4e353006bc5d990ef6fdacc41aea27e576",
+    "request_validator": "ea98c9437094f15516f0200f0f5d645540c0f68931556b5638ff5942b05d8b22",
+    "workflow": "2464bc097fca369646384c4eae238ef633a06d34ed23edf8bcd8e79ffd415a9b",
+    "audio_helpers": "808d7428b122e5fcd3810013bd9462dff103cf5c3922204a7fd0a7108d41f269",
+    "legacy_helpers": "14592d9d41dfe43977c8718862d8daf62982924949f2a4f1779b8674b65e75cc",
+    "retained_graphics": "b68a48123883708e17ccebc08b0af02e41f0017c973f6bcd4fe68d4bc09e9265",
+    "retained_motion": "58c614912c16af24992c6e31e0b04514e771b16c225c72ce79a56efa093046a5"
+  }
+}
