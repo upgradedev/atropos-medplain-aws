@@ -530,6 +530,22 @@ export default function CareflowPanel({
           regimen.
         </p>
       </div>
+      <details data-testid="careflow-role-guide">
+        <summary>Which demo role and staff actor should I use?</summary>
+        <p>
+          Start as Operator to assign follow-up or prepare revised documents.
+          Switch to Reviewer, select the assigned staff actor and explicitly
+          accept responsibility before recording that actor's answer. Reviewer
+          decisions also control release and response follow-up. Admin can
+          coordinate these demo steps; Auditor is read-only.
+        </p>
+        <p className="control-reason" data-testid="careflow-role-context">
+          Current demo role: {label(role)}. Acting as:{" "}
+          {actorId ? actorLabel(actorId) : "no staff actor selected"}. The role
+          controls available actions; the selected actor identifies who records
+          them. Changing either does not accept a task.
+        </p>
+      </details>
       <div className="careflow-toolbar">
         {onRoleChange ? (
           <label>

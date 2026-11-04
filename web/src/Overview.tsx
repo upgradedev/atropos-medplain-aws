@@ -88,7 +88,7 @@ export default function Overview({
     <>
       <PageHeader
         title="Operations overview"
-        description="Every explanation has a source. Every release has a verification trail."
+        description="Turn synthetic discharge documents into questions with a named next step."
       >
         <button className="button secondary" onClick={retry} disabled={loading}>
           <Icon name="refresh" />
@@ -111,6 +111,46 @@ export default function Overview({
         <span>As of {clock(data.as_of)}</span>
         {loading ? <span role="status">Refreshing snapshot</span> : null}
       </div>
+      <section
+        className="welcome card"
+        data-testid="careflow-entry"
+        aria-labelledby="careflow-entry-title"
+      >
+        <div className="eyebrow">START HERE WITH AN INVENTED DISCHARGE</div>
+        <h2 id="careflow-entry-title">Who will follow up after discharge?</h2>
+        <p>
+          A potassium result is still pending, but nobody is named to call the
+          family. Compare the invented documents and caregiver concern, inspect
+          the cited question, then record who explicitly accepts the next step.
+        </p>
+        <button className="button secondary" onClick={coordinate}>
+          Preview coordinated follow-up
+          <Icon name="arrow" />
+        </button>
+        <p className="control-reason" data-testid="careflow-preview-boundary">
+          Opening the preview creates no case and starts no model job. You choose
+          whether to confirm the invented sources and submit a verification.
+          Prepared examples stay labelled offline.
+        </p>
+        <details data-testid="careflow-input-action-outcome">
+          <summary>See the input, action and outcome</summary>
+          <ol>
+            <li>
+              <strong>Bring the sources:</strong> discharge documents and the
+              caregiver's unanswered question.
+            </li>
+            <li>
+              <strong>Verify a clarification card:</strong> Strands agents connect
+              source passages; the safety gate checks their fidelity.
+            </li>
+            <li>
+              <strong>Follow the next step:</strong> assign a question, record
+              acceptance and review a response. Medication decisions stay with
+              the care team.
+            </li>
+          </ol>
+        </details>
+      </section>
       <div className="kpi-grid">
         {cards.map((card) => (
           <button
@@ -127,25 +167,6 @@ export default function Overview({
           </button>
         ))}
       </div>
-      <section className="welcome card" data-testid="careflow-entry">
-        <div className="eyebrow">FOLLOW A QUESTION THROUGH TO REVIEW</div>
-        <h2>Follow a pending result through an accountable handoff.</h2>
-        <p>
-          Preview an invented discharge packet, then follow assignment, explicit
-          acceptance, a source-bound reply and a separately verified revision.
-          After release, a private response link supports provisional teach-back
-          assessment and human follow-up.
-        </p>
-        <button className="button secondary" onClick={coordinate}>
-          Preview coordinated follow-up
-          <Icon name="arrow" />
-        </button>
-        <p className="control-reason">
-          Preview only. No verification starts until you confirm the synthetic
-          sources and submit. Prepared examples, when present, are labelled
-          offline.
-        </p>
-      </section>
       {data.counts.total === 0 ? (
         <section className="welcome card">
           <div className="eyebrow">START WITH A SYNTHETIC PACKET</div>
