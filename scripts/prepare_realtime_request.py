@@ -10,7 +10,9 @@ FILES = {"recorder": "scripts/realtime_careflow.py", "checker": "scripts/check_r
          "compositor": "scripts/realtime_pitch.py",
          "validator": "scripts/prepare_realtime_request.py", "workflow": ".github/workflows/realtime-pitch.yml",
          "media_helpers": "scripts/demo_video.py", "original_careflow_journey": "scripts/careflow_browser_smoke.py",
-         "original_capture": "scripts/final_pitch_capture.py"}
+         "original_capture": "scripts/final_pitch_capture.py", "audio_helpers": "scripts/pitch_video.py",
+         "final_renderer": "scripts/final_pitch.py", "final_graphics": "scripts/final_pitch_graphics.py",
+         "motion_graphics": "scripts/motion_graphics.py", "motion_helpers": "scripts/motion_video.py"}
 
 
 def validate(root, request):
