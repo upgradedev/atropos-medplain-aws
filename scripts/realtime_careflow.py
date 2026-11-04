@@ -26,6 +26,7 @@ class Recorder:
         self.output, self.reading = output, reading_seconds
         self.origin = time.monotonic()
         self.events, self.pages, self.contexts, self.secrets = [], [], [], []
+        self.closed_rows = None
 
     def elapsed(self):
         elapsed = time.monotonic() - self.origin
@@ -48,7 +49,7 @@ class Recorder:
         page = context.new_page()
         page.set_default_timeout(30_000)
         self.pages.append({"page": page, "video": page.video, "alias": alias, "created_before_seconds": before,
-                           "created_after_seconds": self.elapsed()})
+                           "created_after_seconds": self.elapsed(), "context_index": len(self.contexts)})
         self.contexts.append(context)
         return page
 
@@ -85,20 +86,35 @@ class Recorder:
     def mark(self, name, page, read=True):
         self.activate(page)
         self.event("milestone", page, name=name)
+        media.require(page.locator(".toast-error").count() == 0, "Keep actual error notification visible; capture must fail")
+        success = page.locator(".toast:not(.toast-error)")
+        for _ in range(4):
+            if success.count() == 0:
+                break
+            toast = success.nth(0)
+            self.event("dismiss_success_notification", page, message=toast.locator(":scope > span").inner_text())
+            self.click(toast.get_by_role("button", name="Dismiss notification", exact=True), "Dismiss completed action notification")
+        media.require(success.count() == 0, "Notifications still obstruct the actual recording")
         if read and self.reading:
             self.event("operator_reading_started", page, deliberate_seconds=self.reading)
             page.wait_for_timeout(self.reading * 1000)
             self.event("operator_reading_finished", page)
 
     def close(self):
-        closing = time.monotonic() - self.origin
-        for context in self.contexts:
+        if self.closed_rows is not None:
+            return self.closed_rows
+        brackets = {}
+        for index, context in enumerate(self.contexts):
+            before = time.monotonic() - self.origin
             context.close()
+            brackets[index] = {"closed_before_seconds": before, "closed_after_seconds": time.monotonic() - self.origin}
         rows = []
         for item in self.pages:
             path = Path(item["video"].path())
+            media.require(path.resolve().is_relative_to((self.output / "native").resolve()), "Native video escaped recording directory")
             rows.append({key: value for key, value in item.items() if key not in {"page", "video"}}
-                        | {"native_video": "native/" + path.name, "sha256": media.digest(path), "closed_before_seconds": closing})
+                        | {"native_video": "native/" + path.name, "sha256": media.digest(path), **brackets[item["context_index"]]})
+        self.closed_rows = rows
         return rows
 
 
@@ -297,6 +313,7 @@ def run(app, expected, output, reading_seconds):
                              "application_source": expected, "recorder_sha256": media.digest(Path(__file__)), "wall_seconds": elapsed,
                              "reading_pause_seconds_per_milestone": reading_seconds, "page_videos": pages, "events": recorder.events,
                              "journey": result, "timeline_policy": "One monotonic real-time UI journey. Preserve all waits and actual page switches. No speed changes or hidden gaps.",
+                             "clock_sync_claim": "Monotonic creation and context-close brackets only; measure native video origin independently before composition. No subframe synchronization claimed.",
                              "raw_recording_private_until_review": True, "public_upload_authorized": False}
                     (output / "recording-proof.json").write_bytes(media.encoded(proof))
                     return proof
