@@ -32,10 +32,11 @@ HOOKS = {
 }
 FOCUS = {
     "preview": ("test", "careflow-preview-notice"), "card": ("test", "careflow-next-action"),
-    "assigned": ("button", "Accept responsibility"), "accepted": ("label", "Source-bound clarification note"),
+    "assigned": ("button", "Accept responsibility"), "accepted": ("css", "#careflow-task-title"),
     "reply": ("button", "Prepare clarified source revision"), "revision": ("test", "start-reconciliation"),
     "linked": ("button", "Confirm resolution and close"), "closed": ("text", "Resolution recorded"),
-    "evidence": ("text", "Matching reviewed passages"), "release": ("button", "Enable synthetic patient responses"),
+    "evidence": ("css", '[data-testid="careflow-evidence"] .careflow-evidence > article:has(a[href="https://www.ahrq.gov/patient-safety/settings/hospital/match/chapter-3.html"])'),
+    "release": ("button", "Enable synthetic patient responses"),
     "response": ("label", "Your synthetic response"), "assessment": ("test", "teachback-next-step"),
     "follow_up": ("text", "Reviewer recorded follow-up"), "recheck": ("test", "teachback-next-step"),
 }
@@ -46,7 +47,35 @@ def public_capture_fragment(fragment):
     return fragment in {"", "teachback"}
 
 
+def focus_clip(viewport, bounds, required=()):
+    """Contain actual semantic regions; never silently crop off the claimed confirmation."""
+    regions = list(required) or [bounds]
+    media.require(all(box is not None for box in regions), "Required capture region is not visible")
+    left, top = min(box["x"] for box in regions), min(box["y"] for box in regions)
+    right = max(box["x"] + box["width"] for box in regions)
+    bottom = max(box["y"] + box["height"] for box in regions)
+    if required:
+        media.require(0 <= left < right <= viewport["width"] and 110 <= top < bottom <= viewport["height"],
+                      "Required stage/source content is outside the visible drawer; retain failure")
+        width = min(980, viewport["width"], max(520, right - left + 48))
+        height = min(560, viewport["height"], max(320, bottom - top + 48))
+        media.require(right - left <= width and bottom - top <= height, "Required semantic regions exceed bounded readable crop")
+    else:
+        width, height = min(780, viewport["width"]), min(440, viewport["height"])
+    clip = {"x": max(0, min(viewport["width"] - width, (left + right - width) / 2)),
+            "y": max(0, min(viewport["height"] - height, (top + bottom - height) / 2)),
+            "width": round(width), "height": round(height)}
+    if required:
+        media.require(clip["x"] <= left and clip["y"] <= top and clip["x"] + clip["width"] >= right
+                      and clip["y"] + clip["height"] >= bottom, "Crop clips claimed task/source content")
+    return clip
+
+
 def instrument(source):
+    # Actual dismissal of success toasts is eligible only while the original journey has no toast assertions.
+    literals = [node.value.lower() for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Constant) and isinstance(node.value, str)]
+    media.require(not any("toast" in value or "notification" in value for value in literals),
+                  "Original journey now observes notifications; re-review screenshot dismissal")
     tree = ast.parse(source)
     originals = {ast.dump(ast.parse(key).body[0], include_attributes=False): value for key, value in HOOKS.items()}
     found = []
@@ -97,24 +126,61 @@ def capture(app, output):
         path = output / (name + ".png")
         media.require(not path.exists(), "Duplicate accepted screenshot milestone")
         page.wait_for_load_state("networkidle")
+        dismissed = []
+        # Dismiss through the real user control, retaining each success message as provenance.
+        media.require(page.locator(".toast-error").count() == 0, "Error toast must remain visible and fail capture")
+        success_toasts = page.locator(".toast:not(.toast-error)")
+        for _ in range(4):
+            if not success_toasts.count():
+                break
+            toast = success_toasts.nth(0)
+            dismissed.append(toast.locator(":scope > span").inner_text())
+            toast.get_by_role("button", name="Dismiss notification", exact=True).click()
+        media.require(success_toasts.count() == 0, "Success notifications still obscure capture")
         kind, value = FOCUS[name]
         locator = (page.get_by_test_id(value) if kind == "test" else page.get_by_role("button", name=value, exact=True)
                    if kind == "button" else page.get_by_label(value, exact=True) if kind == "label"
+                   else page.locator(value) if kind == "css"
                    else page.get_by_text(value, exact=(name != "follow_up")))
         media.require(locator.count() == 1, "Ambiguous capture focus; do not choose arbitrary UI pixels")
         locator.scroll_into_view_if_needed()
         bounds = locator.bounding_box()
         media.require(bounds is not None, "Capture focus is not visible")
         viewport = page.viewport_size
-        width, height = min(780, viewport["width"]), min(440, viewport["height"])
-        clip = {"x": max(0, min(viewport["width"] - width, bounds["x"] + bounds["width"] / 2 - width / 2)),
-                "y": max(0, min(viewport["height"] - height, bounds["y"] + bounds["height"] / 2 - height / 2)),
-                "width": width, "height": height}
+        required, semantics = [], {}
+        if name == "accepted":
+            selected = page.locator('section[aria-labelledby="careflow-task-title"]')
+            status = selected.locator(".careflow-title > .careflow-status")
+            progress = selected.locator('ol[aria-label="Resolution progress"]')
+            facts = selected.locator(":scope > .careflow-facts")
+            media.require(selected.count() == status.count() == progress.count() == facts.count() == 1,
+                          "Acceptance capture needs one selected task and its actual status/facts")
+            media.require(status.inner_text().strip().lower() == "accepted"
+                          and facts.get_by_text("Awaiting the assigned actor", exact=True).count() == 0,
+                          "Acceptance is not confirmed in the actual task state")
+            required = [locator.bounding_box(), status.bounding_box(), progress.bounding_box(), facts.bounding_box()]
+            semantics = {"task_heading": locator.inner_text(), "task_status": status.inner_text(),
+                         "required_regions": ["task heading", "accepted status", "resolution progress", "explicit acceptance facts"]}
+        elif name == "evidence":
+            corpus = json.loads((app / "src/medplain/data/careflow_evidence_v1.json").read_bytes())
+            document = next(row for row in corpus["documents"] if row["source_id"] == "ahrq-match-roles")
+            link, quote = locator.get_by_role("link", name=document["title"], exact=True), locator.locator("blockquote")
+            media.require(link.count() == quote.count() == 1 and link.get_attribute("href") == document["uri"]
+                          and quote.inner_text().strip() == document["spans"][0]["quote"]
+                          and document["publisher"] in locator.locator(".careflow-label").inner_text(),
+                          "Actual returned AHRQ card must contain its publisher/title and exact quote")
+            required = [bounds]
+            semantics = {"evidence_uri": document["uri"], "evidence_title": document["title"],
+                         "evidence_quote_sha256": document["spans"][0]["sha256"],
+                         "required_regions": ["actual returned publisher", "source title", "exact blockquote", "source metadata"]}
+        clip = focus_clip(viewport, bounds, required)
+        width, height = clip["width"], clip["height"]
         focused = output / (name + "-focus.png")
         # Native screenshot masks redact pixels without mutating the document or its CSP.
         private_links = page.locator('a[href*="#teachback="]')
         redaction = {"method": "Playwright native screenshot mask", "selector": 'a[href*="#teachback="]',
                      "mask_color": "#0f1720", "matched_elements": private_links.count(),
+                     "scope": "Privacy mask only; actual user notification dismissals are recorded separately",
                      "application_dom_or_csp_changed": False}
         page.screenshot(path=str(path), full_page=False, mask=[private_links], mask_color="#0f1720")
         # Crop the retained privacy-masked viewport pixels, avoiding scroll-coordinate ambiguity.
@@ -129,7 +195,8 @@ def capture(app, output):
                      "viewport": viewport, "original_viewport_image": path.name,
                      "original_viewport_sha256": media.digest(path), "original_pixel_clip": clip,
                      "original_viewport_label": "Privacy-masked original viewport capture",
-                     "privacy_redaction": redaction})
+                     "privacy_redaction": redaction, "semantic_framing": semantics,
+                     "dismissed_success_toasts": {"method": "Actual Dismiss notification button clicks", "messages": dismissed}})
 
     namespace = {"__name__": "final_capture_journey", "__file__": str(source_path), "record_final_frame": record}
     exec(compile(tree, str(source_path), "exec"), namespace)

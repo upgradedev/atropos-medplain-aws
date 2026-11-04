@@ -46,6 +46,23 @@ def capture_security_contract(source):
 def main():
     source = Path(__file__).resolve().parent.parent
     controls = []
+    viewport = {"width": 1440, "height": 1000}
+    semantic_regions = [{"x": 940, "y": 310, "width": 455, "height": 70},
+                        {"x": 940, "y": 390, "width": 455, "height": 58},
+                        {"x": 940, "y": 460, "width": 455, "height": 100}]
+    contained = capture.focus_clip(viewport, semantic_regions[0], semantic_regions)
+    assert contained["width"] <= 980 and contained["height"] <= 560
+    assert all(contained["x"] <= box["x"] and contained["y"] <= box["y"]
+               and contained["x"] + contained["width"] >= box["x"] + box["width"]
+               and contained["y"] + contained["height"] >= box["y"] + box["height"] for box in semantic_regions)
+    evidence_region = {"x": 715, "y": 280, "width": 700, "height": 360}
+    evidence_crop = capture.focus_clip(viewport, evidence_region, [evidence_region])
+    assert evidence_crop["x"] + evidence_crop["width"] >= 1415 and evidence_crop["y"] + evidence_crop["height"] >= 640
+    controls.append(rejected("capture_offscreen_semantic_source", lambda: capture.focus_clip(viewport, evidence_region,
+                             [{**evidence_region, "y": 850}])))
+    controls.append(rejected("capture_oversized_semantic_region", lambda: capture.focus_clip(viewport, evidence_region,
+                             [{**evidence_region, "height": 650}])))
+    controls.append(rejected("capture_missing_semantic_region", lambda: capture.focus_clip(viewport, evidence_region, [None])))
     for allowed in ("http://127.0.0.1/patient/example", "http://127.0.0.1/patient/example#teachback"):
         assert capture.public_capture_fragment(urlparse(allowed).fragment)
     for fragment in ("teachback=secret", "teachback%3Dsecret", "other", "other=secret", "teachback&other=secret", "Teachback", "teachback%00"):
@@ -66,6 +83,8 @@ def main():
     assert len(hooks) == 14 and isinstance(tree, ast.Module)
     drift = (source / "scripts/careflow_browser_smoke.py").read_text(encoding="utf-8").replace("assert assigned.value.status == 200", "assert assigned.value.status == 201")
     controls.append(rejected("capture_anchor_drift", lambda: capture.instrument(drift)))
+    notification_dependency = (source / "scripts/careflow_browser_smoke.py").read_text(encoding="utf-8") + '\nassert page.locator(".toast").count() == 1\n'
+    controls.append(rejected("future_original_toast_assertion_dependency", lambda: capture.instrument(notification_dependency)))
     for depth in (0.0, 0.5, 1.0):
         assert graphics.camera_state(0.5, 8, depth) != graphics.camera_state(6, 8, depth)
     assert graphics.camera_state(4, 8, 0) != graphics.camera_state(4, 8, 1)
