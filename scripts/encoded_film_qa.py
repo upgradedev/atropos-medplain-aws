@@ -61,6 +61,25 @@ def safe_zip(path, expected):
                     pass  # Read to CRC-checked EOF, without retaining unrelated audio copies.
 
 
+def semantic_samples(native, proof):
+    """Sample state milestones and changes of visible context, not repeated activation calls."""
+    samples = [{"reason": "context_history_closing", "requested_seconds": float(t)} for t in (0, 8, 15, 111, 118, 130, 142, 148)]
+    offset, start, active = proof["ui_film_offset"], proof["ui_clock_start"], None
+    for event in native["events"]:
+        if event["kind"] == "milestone":
+            samples.append({"reason": "actual_native_milestone", "label": event.get("name", event.get("label", "milestone")),
+                            "page": event["page"], "requested_seconds": offset + event["seconds"] - start})
+        elif event["kind"] == "active_page" and event["page"] != active:
+            active = event["page"]
+            for delta in (-.15, .15):
+                samples.append({"reason": "actual_page_switch_boundary", "page": event["page"], "delta": delta,
+                                "requested_seconds": offset + event["seconds"] - start + delta})
+    for sample in samples:
+        sample["encoded_frame_index"] = max(0, min(proof["expected_frames"] - 1, math.floor(sample["requested_seconds"] * 30)))
+        sample["encoded_frame_seconds"] = sample["encoded_frame_index"] / 30
+    return samples
+
+
 def extract(args, request):
     require(os.environ.get("GITHUB_ACTIONS") == "true", "Media decoding must run in CI")
     require(not args.output.exists(), "Preserve prior output evidence")
@@ -98,19 +117,7 @@ def extract(args, request):
     duration = float(metadata["format"]["duration"])
     require(rate == 30 and 140 < duration < 180 and int(video["nb_frames"]) == proof["expected_frames"],
             "Expected completed constant-rate film required")
-    samples = [{"reason": "context_history_closing", "requested_seconds": float(t)} for t in (0, 8, 15, 111, 118, 130, 142, 148)]
-    offset, start = proof["ui_film_offset"], proof["ui_clock_start"]
-    for event in native["events"]:
-        if event["kind"] == "milestone":
-            samples.append({"reason": "actual_native_milestone", "label": event.get("name", event.get("label", "milestone")),
-                            "page": event["page"], "requested_seconds": offset + event["seconds"] - start})
-        elif event["kind"] == "active_page":
-            for delta in (-.15, .15):
-                samples.append({"reason": "actual_page_switch_boundary", "page": event["page"], "delta": delta,
-                                "requested_seconds": offset + event["seconds"] - start + delta})
-    for sample in samples:
-        sample["encoded_frame_index"] = max(0, min(proof["expected_frames"] - 1, math.floor(sample["requested_seconds"] * rate)))
-        sample["encoded_frame_seconds"] = sample["encoded_frame_index"] / float(rate)
+    samples = semantic_samples(native, proof)
     indices = sorted({row["encoded_frame_index"] for row in samples})
     require(len(indices) <= 100, "Bounded semantic frame selection required")
     expression = "+".join(f"eq(n\\,{number})" for number in indices)
@@ -159,7 +166,16 @@ def self_check():
             pass
         else:
             raise AssertionError("Unsafe admission: " + key)
-    print("PASS: blocked default and six negative admission controls; no actual media admission or decoding claimed")
+    events = [{"kind": "active_page", "page": page, "seconds": seconds}
+              for page, seconds in [("console", 0), ("console", 1), ("console", 2),
+                                    ("patient", 4), ("patient", 5), ("console", 7), ("console", 8)]]
+    events.insert(3, {"kind": "milestone", "page": "console", "seconds": 3, "name": "real_card"})
+    projected = semantic_samples({"events": events}, {"ui_film_offset": 10, "ui_clock_start": 0, "expected_frames": 4477})
+    boundaries = [round(row["requested_seconds"], 2) for row in projected if row["reason"] == "actual_page_switch_boundary"]
+    assert boundaries == [9.85, 10.15, 13.85, 14.15, 16.85, 17.15]
+    assert [row["requested_seconds"] for row in projected if row["reason"] == "actual_native_milestone"] == [13]
+    assert len([row for row in projected if row["reason"] == "context_history_closing"]) == 8
+    print("PASS: blocked default, six negative admission controls and literal repeated-activation/context-switch projection; no decoding claimed")
 
 
 def main():
