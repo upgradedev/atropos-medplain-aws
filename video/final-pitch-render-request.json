@@ -1,12 +1,12 @@
 {
   "status": "root_requested_after_independent_source_and_input_review",
-  "independent_review_sha256": "0b44df8a5d71dfeba42d547cd02c457da91763b7ff4969c361c5f821803e0668",
+  "independent_review_sha256": "b6ab1e0b3a408bcde294854cd5a7e5ac6e043ea21b9a3eb33b75c00369f1f282",
   "mode": "full",
   "application_source": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
   "code_sha256": {
     "renderer": "57be31087d6c73482545a490c653f3bf3232df16bfabc07b83363b83af9d3daf",
     "graphics": "f415ca7ef9aa2f32cc8c5f427c4ed1a270c0c4c6b16a26fb740d00fb397ed403",
-    "capture": "ff12357b084635534769c138c84995882bb69cdd61df274aa857921fe6f992c4",
+    "capture": "7e75fb8d35ad281d983442f5cc988c298e0ea48dcd04a8606eeffa2d86292fce",
     "checker": "407ce819b55ddf8d27f24db5fb7053ad0bf833e2efd5b8e355c0c7b3e3a53a90",
     "request_validator": "ea98c9437094f15516f0200f0f5d645540c0f68931556b5638ff5942b05d8b22",
     "workflow": "2464bc097fca369646384c4eae238ef633a06d34ed23edf8bcd8e79ffd415a9b",
