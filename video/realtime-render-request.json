@@ -1,16 +1,25 @@
 {
   "status": "root_requested_after_independent_source_review",
-  "independent_review_sha256": "20af8f427748510ff8e16e37e02055b731d7392e6b1709f0c7581fa6e455d206",
+  "independent_review_sha256": "ffd941ae9afb229b97216e897f5d68b59c4da0529ede1530aa757923221b45aa",
+  "schedule_input_review_sha256": "0f64b5f400c1639a9805b562c49530713d223d434f69c035767ea4c0748c83c7",
   "mode": "capture",
-  "application_source": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+  "application_source": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
   "reading_seconds": 0,
+  "reading_schedule_sha256": "c6ff7f598720ec0f334ce608c9018b5b02cdb477f6c7b258dd03148da50008a6",
+  "narration_alignment_sha256": "53ebc5ad880f279beb14deff839c267c92f466bf379e4e5ffa1f89dee60ad38c",
   "code_sha256": {
-    "recorder": "1af39a0a8b134d9bf2edbbb75d650bc615dac75c7c0353b1969fea6b63766d23",
-    "checker": "55da3842e275d79e83a5b05ba5776d2bb7832a8f8a1f2fe8474a2d9014b361d8",
-    "validator": "02be3808acd717979da107520709bcf30c335c30f01dc2b3f4bf13a644223438",
-    "workflow": "b43d9b7b7dca35be23fe282cb1cbc4f5ea8874552b444a03ca50acf886ecb361",
+    "recorder": "4a5cfd5ed26955c408c0e2a54c1f93943a5e11796d7e506768b99ab353a168db",
+    "checker": "2ec1a30eeaef83eae4705c53f95b1ad12137f2dba3a0f1d9bcdf61b138b163e2",
+    "compositor": "f608ee70f0be91031a998e1c91773fb6066df3b294db9ce5164806259eb24eb4",
+    "validator": "2d59d1d4621a94fba273dda72380fefb0c1c409b246164e1646bfc62b26fb0b5",
+    "workflow": "d3ac70de689ec4bf7eaf387f23becca82c23ec45280940484354f6facac47ae3",
     "media_helpers": "14592d9d41dfe43977c8718862d8daf62982924949f2a4f1779b8674b65e75cc",
     "original_careflow_journey": "e3967214323324ca756008f589ed53f1e7736dea46b28c6c57b73e02a11b251e",
-    "original_capture": "7e75fb8d35ad281d983442f5cc988c298e0ea48dcd04a8606eeffa2d86292fce"
+    "original_capture": "7e75fb8d35ad281d983442f5cc988c298e0ea48dcd04a8606eeffa2d86292fce",
+    "audio_helpers": "808d7428b122e5fcd3810013bd9462dff103cf5c3922204a7fd0a7108d41f269",
+    "final_renderer": "57be31087d6c73482545a490c653f3bf3232df16bfabc07b83363b83af9d3daf",
+    "final_graphics": "f415ca7ef9aa2f32cc8c5f427c4ed1a270c0c4c6b16a26fb740d00fb397ed403",
+    "motion_graphics": "b68a48123883708e17ccebc08b0af02e41f0017c973f6bcd4fe68d4bc09e9265",
+    "motion_helpers": "58c614912c16af24992c6e31e0b04514e771b16c225c72ce79a56efa093046a5"
   }
 }

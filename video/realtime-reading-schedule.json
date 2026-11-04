@@ -1,0 +1,110 @@
+{
+  "schema": "medplain-realtime-reading-schedule-v1",
+  "status": "root_reviewed_reading_schedule",
+  "application_source": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
+  "narration_alignment_sha256": "53ebc5ad880f279beb14deff839c267c92f466bf379e4e5ffa1f89dee60ad38c",
+  "ui_film_offset_seconds": 16.904,
+  "complete_after_seconds": 94.132,
+  "phases": [
+    {
+      "id": "overview",
+      "at_seconds": 2.0,
+      "reading_reason": "Read the actual empty-session problem and entry point"
+    },
+    {
+      "id": "source_submit",
+      "at_seconds": 10.0,
+      "reading_reason": "Read the actual original sources before confirming and submitting"
+    },
+    {
+      "id": "card",
+      "at_seconds": 13.247,
+      "voice_char": 426,
+      "voice_phrase": "The medication regimen stays unresolved."
+    },
+    {
+      "id": "assigned",
+      "at_seconds": 21.455000000000002,
+      "voice_char": 552,
+      "voice_phrase": "Now the question can move."
+    },
+    {
+      "id": "accepted",
+      "at_seconds": 25.529999999999998,
+      "voice_char": 617,
+      "voice_phrase": "explicitly select that actor"
+    },
+    {
+      "id": "reply",
+      "at_seconds": 29.965,
+      "voice_char": 668,
+      "voice_phrase": "Record an answer tied"
+    },
+    {
+      "id": "child_revision",
+      "at_seconds": 37.093,
+      "voice_char": 771,
+      "voice_phrase": "Switch to operator"
+    },
+    {
+      "id": "child_submit",
+      "at_seconds": 40.0,
+      "reading_reason": "Read the actual new addendum before confirming and submitting the child"
+    },
+    {
+      "id": "closure",
+      "at_seconds": 42.468999999999994,
+      "voice_char": 839,
+      "voice_phrase": "After verification"
+    },
+    {
+      "id": "release",
+      "at_seconds": 50.979,
+      "voice_char": 954,
+      "voice_phrase": "Review and release"
+    },
+    {
+      "id": "response1",
+      "at_seconds": 57.434,
+      "voice_char": 1038,
+      "voice_phrase": "A separate response link"
+    },
+    {
+      "id": "assessment1",
+      "at_seconds": 62.971000000000004,
+      "voice_char": 1136,
+      "voice_phrase": "A bounded Strands assessment"
+    },
+    {
+      "id": "reviewer_follow_up",
+      "at_seconds": 68.01,
+      "voice_char": 1213,
+      "voice_phrase": "The reviewer checks"
+    },
+    {
+      "id": "recheck",
+      "at_seconds": 71.911,
+      "voice_char": 1280,
+      "voice_phrase": "and retains the next response as a separate attempt."
+    },
+    {
+      "id": "rag",
+      "at_seconds": 80.305,
+      "voice_char": 1391,
+      "voice_phrase": "Targeted retrieval supplies"
+    },
+    {
+      "id": "gate",
+      "at_seconds": 90.324,
+      "voice_char": 1536,
+      "voice_phrase": "The deterministic safety gate"
+    },
+    {
+      "id": "complete",
+      "at_seconds": 94.132,
+      "voice_char": 1594,
+      "voice_phrase": "The evidence is mixed."
+    }
+  ],
+  "representation": "Deliberate real operator-reading waits before actual UI actions. Original voice anchors guide presentation, not clinical latency. No hidden or compressed time."
+}
