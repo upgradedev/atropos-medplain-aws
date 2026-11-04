@@ -1,6 +1,12 @@
 name: Review Existing Native Recording Pixels
 
 on:
+  push:
+    branches: ['codex/medplain-experience-capture-20261104']
+    paths:
+      - .github/workflows/native-review-qa.yml
+      - scripts/native_review_qa.py
+      - scripts/check_native_review_qa.py
   workflow_dispatch:
 
 permissions:
