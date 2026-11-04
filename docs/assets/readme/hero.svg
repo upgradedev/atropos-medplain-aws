@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 680" role="img" aria-labelledby="title desc">
+<title id="title">From a missing follow-up owner to an accepted next step</title>
+<desc id="desc">An invented discharge packet has a pending potassium result and follow-up within two days but no named owner. Source-cited clarification leads to explicit task acceptance, a separately verified revision and a reviewed patient response. This is a workflow illustration, not patient evidence or a completed clinical result.</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#081722"/><stop offset="1" stop-color="#102a32"/></linearGradient><linearGradient id="line"><stop stop-color="#80dfc3"/><stop offset="1" stop-color="#719fff"/></linearGradient></defs><style>text{font-family:Segoe UI,Arial,sans-serif;fill:#edf5f8}.eyebrow{fill:#80dfc3;font-size:18px;font-weight:700;letter-spacing:2px}.title{font-size:44px;font-weight:700}.body{font-size:23px;fill:#b9ced9}.small{font-size:18px;fill:#a4becd}.label{font-size:19px;fill:#80dfc3;font-weight:700}.card{fill:#132631;stroke:#3a5360;stroke-width:1.5}.name{font-size:26px;font-weight:700}.muted{fill:#9cb4c4}</style><rect width="1440" height="680" rx="24" fill="url(#bg)"/>
+<text x="56" y="55" class="eyebrow">ATROPOS MEDPLAIN</text>
+<text x="56" y="116" class="title">Who has accepted the next step?</text>
+<text x="56" y="157" class="body">One discharge question. Original evidence. A visible handoff.</text>
+<path d="M88 220H1350" stroke="#284753"/>
+<rect x="56" y="250" width="390" height="282" rx="18" class="card"/>
+<text x="82" y="289" class="label">THE SYNTHETIC INPUT</text>
+<text x="82" y="337" class="name">Discharge packet</text>
+<text x="82" y="384" class="body">Potassium result: pending</text>
+<text x="82" y="423" class="body">Follow-up: within two days</text>
+<text x="82" y="462" class="body">Owner: not named</text>
+<text x="82" y="502" class="small">Original quotations stay inspectable.</text>
+<path d="M468 390H526M512 376l14 14-14 14" fill="none" stroke="url(#line)" stroke-width="4"/>
+<rect x="550" y="250" width="326" height="282" rx="18" class="card"/>
+<text x="576" y="289" class="label">THE AGENT TASK</text>
+<text x="576" y="337" class="name">Cite the question</text>
+<text x="576" y="384" class="body">Connect the source passages.</text>
+<text x="576" y="423" class="body">Ask who will contact</text>
+<text x="576" y="453" class="body">the family.</text>
+<text x="576" y="502" class="small">Do not invent a result or owner.</text>
+<path d="M898 390H956M942 376l14 14-14 14" fill="none" stroke="url(#line)" stroke-width="4"/>
+<rect x="980" y="250" width="404" height="282" rx="18" class="card"/>
+<text x="1006" y="289" class="label">THE HUMAN NEXT STEP</text>
+<text x="1006" y="337" class="name">Accept responsibility</text>
+<text x="1006" y="384" class="body">A selected demo actor accepts.</text>
+<text x="1006" y="423" class="body">A new source is verified.</text>
+<text x="1006" y="462" class="body">A patient response is reviewed.</text>
+<text x="1006" y="502" class="small">Workflow closure is not clinical resolution.</text>
+<text x="56" y="591" class="body">The gate protects supported source facts. The clarification card keeps the regimen unresolved.</text>
+<text x="56" y="635" class="small">Workflow illustration | invented example | provisional assessment | clinical benefit unmeasured</text></svg>

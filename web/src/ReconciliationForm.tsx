@@ -253,14 +253,34 @@ export default function ReconciliationForm({
           <div className="notice" data-testid="careflow-preview-notice">
             <strong>Coordinated follow-up preview</strong>
             <p>
-              The pending-result example loads into these editable fields only.
-              Inspect the missing owner, confirm the sources are invented, then
-              submit to start one new verification. A verified card unlocks its
-              Clarifications workspace; no assignment or patient answer is
-              pre-recorded by this preview.
+              Opening this preview creates no case and starts no model job. The
+              invented pending-result packet loads into editable fields only.
+              Inspect the missing owner before deciding whether to submit. No
+              assignment or patient answer is pre-recorded.
             </p>
           </div>
         ) : null}
+        <details data-testid="reconciliation-steps">
+          <summary>What will happen when I submit?</summary>
+          <ol className="mb-3 list-decimal space-y-2 pl-5">
+            <li>
+              Inspect the original documents and caregiver concerns below.
+            </li>
+            <li>
+              Confirm the sources are invented, then choose Reconcile source
+              packet to start one verification run.
+            </li>
+            <li>
+              {seed
+                ? "Review the new case's verified artifact, then return to the original task to link this separate revision. The previous case stays unchanged."
+                : "If verified, inspect the cited questions and open Clarifications to assign follow-up. A failed gate withholds the card."}
+            </li>
+          </ol>
+          <p className="muted">
+            Verification does not release a patient card or authorize a
+            medication change. Review and release are separate actions.
+          </p>
+        </details>
         {seed ? (
           <div className="notice">
             New source revision for case{" "}

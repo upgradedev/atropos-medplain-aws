@@ -325,10 +325,15 @@ export default function CaseDrawer({
               <strong>
                 Continue from the verified card to accountable follow-up
               </strong>
+              <p data-testid="careflow-case-orientation">
+                Source holds the original documents. Clarification shows the
+                cited questions. Clarifications is the follow-up workspace:
+                assign a question, record acceptance and link a separately
+                verified source revision.
+              </p>
               <p>
-                Assign a question, record the selected actor's acceptance, then
-                link a separately verified source revision. Patient responses
-                require release and a separate private response link.
+                The card and its follow-up record are separate. Patient
+                responses require release and a separate private response link.
               </p>
               <button
                 className="button secondary"

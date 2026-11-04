@@ -175,13 +175,19 @@ export default function NewCase({
       <form className="new-case-body" onSubmit={(event) => void submit(event)}>
         <div className="eyebrow">SYNTHETIC INPUT ONLY</div>
         <p>
-          Choose a sample or enter a new synthetic note. Each new case runs the
-          actual Strands Graph, tools and lifecycle safety gate.
+          Verify one invented discharge note for a source-matched explanation,
+          or compare several documents to produce source-cited clarification
+          questions. Opening this form starts no verification.
+        </p>
+        <p id="source-choice-guide" className="control-reason">
+          Sample packet uses a ready-made source. Import synthetic note lets you
+          write one note. Reconcile multiple sources compares documents and
+          caregiver concerns without deciding a conflicting medication regimen.
         </p>
         <fieldset
           className="intake-mode"
           disabled={busy}
-          aria-describedby="new-case-reason"
+          aria-describedby="source-choice-guide new-case-reason"
         >
           <legend>Source type</legend>
           <label>
