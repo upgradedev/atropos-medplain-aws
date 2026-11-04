@@ -222,7 +222,7 @@ def journey(rec, browser, url, expected_source, expect):
     parent = wait_case(client, parent_id)
     parent_proof = audit_detail(parent, dossier, "fixture", expected_source)
     expect(drawer.locator(".drawer-meta .badge")).to_have_text("Review required", timeout=30_000)
-    trace = drawer.locator("ol.timeline").filter(has=drawer.get_by_text("AtroposReconciliationSafetyGate", exact=True))
+    trace = drawer.locator("ol.timeline").filter(has=page.get_by_text("AtroposReconciliationSafetyGate", exact=True))
     expect(trace).to_have_count(1)
     for agent in ("DischargeEvidenceIndexerAgent", "CrossDocumentClarificationPlannerAgent", "ClarificationCardPublisherAgent"):
         expect(trace).to_contain_text(agent)
