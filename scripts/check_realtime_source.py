@@ -4,6 +4,7 @@ from copy import deepcopy
 import io
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 from types import SimpleNamespace
 
@@ -55,6 +56,51 @@ def main():
             controls.append(name)
         else:
             raise AssertionError(name)
+    def cleanup_decoder(initial=None, waits=(0,)):
+        calls, results = [], iter(waits)
+        class LoggedOutput(io.BytesIO):
+            def close(self):
+                calls.append("stdout.close")
+                super().close()
+        class Process:
+            stdout = LoggedOutput()
+            def poll(self):
+                calls.append("poll")
+                return initial
+            def terminate(self):
+                assert self.stdout.closed, "Release the blocked pipe reader before terminating"
+                calls.append("terminate")
+            def kill(self):
+                calls.append("kill")
+            def wait(self, timeout):
+                assert timeout == 2
+                calls.append("wait")
+                result = next(results)
+                if result == "timeout":
+                    raise subprocess.TimeoutExpired("constructed-ffmpeg-control", timeout)
+                return result
+        instance = composition.NativeDecoder.__new__(composition.NativeDecoder)
+        instance.process, instance.log = Process(), io.BytesIO()
+        return instance, calls
+    closed, calls = cleanup_decoder(waits=(-15,))
+    closed.close()
+    assert calls == ["stdout.close", "poll", "terminate", "wait"] and closed.cleanup["return_code"] == -15
+    assert closed.log.closed and closed.cleanup["full_native_stream_decode_claimed"] is False
+    forced, calls = cleanup_decoder(waits=("timeout", -9))
+    forced.close()
+    assert calls == ["stdout.close", "poll", "terminate", "wait", "kill", "wait"]
+    assert forced.cleanup["kill_requested"] and forced.cleanup["return_code"] == -9 and forced.log.closed
+    exited, calls = cleanup_decoder(initial=0)
+    exited.close()
+    assert calls == ["stdout.close", "poll"] and exited.cleanup["already_exited"] and exited.cleanup["return_code"] == 0
+    stuck, calls = cleanup_decoder(waits=("timeout", "timeout"))
+    try:
+        stuck.close()
+    except subprocess.TimeoutExpired:
+        controls.append("unreaped_decoder_cannot_be_reported_as_completed_cleanup")
+        assert stuck.log.closed and stuck.cleanup["return_code"] is None and calls[-2:] == ["kill", "wait"]
+    else:
+        raise AssertionError("Unreaped decoder was silently accepted")
     artifacts = root / "artifacts"
     artifacts.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="schedule-control-", dir=artifacts) as directory:

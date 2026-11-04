@@ -103,11 +103,30 @@ class NativeDecoder:
         return self.pixels
 
     def close(self):
-        if self.process.poll() is None:
-            self.process.terminate()
-            self.process.wait(timeout=20)
-        self.process.stdout.close()
-        self.log.close()
+        self.cleanup = {"stdout_reader_closed": False, "terminate_requested": False, "kill_requested": False,
+                        "return_code": None, "maximum_wait_per_stage_seconds": 2,
+                        "full_native_stream_decode_claimed": False}
+        try:
+            # The unneeded tail can fill stdout. Release its reader before signalling the writer.
+            try:
+                self.process.stdout.close()
+                self.cleanup["stdout_reader_closed"] = True
+            finally:
+                code = self.process.poll()
+                self.cleanup["already_exited"] = code is not None
+                if code is None:
+                    self.cleanup["terminate_requested"] = True
+                    self.process.terminate()
+                    try:
+                        code = self.process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        self.cleanup["kill_requested"] = True
+                        self.process.kill()
+                        code = self.process.wait(timeout=2)
+                self.cleanup["return_code"] = code
+        finally:
+            self.log.write(media.encoded({"native_decoder_cleanup": self.cleanup}))
+            self.log.close()
 
 
 class RealtimeCanvas(graphics.FinalCanvas):
@@ -278,6 +297,7 @@ def render(inputs, manifest_sha, recordings, proof_sha, review_path, review_sha,
                     "requested_application_source": expected_source, "reviewed_recorder_sha256": expected_recorder_sha,
                     "recording_proof_sha256": proof_sha, "recording_review_sha256": review_sha, "native_origins": origins,
                     "native_final_frame_holds": {alias: decoder.tail_frame_holds for alias, decoder in decoders.items()},
+                    "native_decoder_cleanup": {alias: decoder.cleanup for alias, decoder in decoders.items()},
                     "ui_clock_start": start, "ui_clock_end": end, "actual_page_windows": windows, "ui_film_offset": ui_offset,
                     "no_time_compression": True, "actual_complete_ui_seconds": end - start, "source_audio_sha256": media.digest(original),
                     "audio_policy": audio.POLICY, "source_pcm_signal": audio.pcm_signal_metrics(raw),
