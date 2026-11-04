@@ -1,16 +1,13 @@
 {
   "status": "root_requested_after_independent_source_review",
-  "independent_review_sha256": "ffd941ae9afb229b97216e897f5d68b59c4da0529ede1530aa757923221b45aa",
-  "schedule_input_review_sha256": "0f64b5f400c1639a9805b562c49530713d223d434f69c035767ea4c0748c83c7",
-  "mode": "capture",
+  "independent_review_sha256": "b3bf47fffa7298ea55a98635f28decbc0348d24515de7e02c8d7992042ba236c",
+  "mode": "compose",
   "application_source": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
   "reading_seconds": 0,
-  "reading_schedule_sha256": "c6ff7f598720ec0f334ce608c9018b5b02cdb477f6c7b258dd03148da50008a6",
-  "narration_alignment_sha256": "53ebc5ad880f279beb14deff839c267c92f466bf379e4e5ffa1f89dee60ad38c",
   "code_sha256": {
     "recorder": "4a5cfd5ed26955c408c0e2a54c1f93943a5e11796d7e506768b99ab353a168db",
-    "checker": "2ec1a30eeaef83eae4705c53f95b1ad12137f2dba3a0f1d9bcdf61b138b163e2",
-    "compositor": "f608ee70f0be91031a998e1c91773fb6066df3b294db9ce5164806259eb24eb4",
+    "checker": "8ccae16f6fcc51ea176432a52d31ee3960a0f98f08f8f9e62bfabcc7fe6fd1bc",
+    "compositor": "15c4fc9995be28ca7c8a4c6da392ddc0a08070c38f18f5aaeacde9454eeca0ee",
     "validator": "2d59d1d4621a94fba273dda72380fefb0c1c409b246164e1646bfc62b26fb0b5",
     "workflow": "d3ac70de689ec4bf7eaf387f23becca82c23ec45280940484354f6facac47ae3",
     "media_helpers": "14592d9d41dfe43977c8718862d8daf62982924949f2a4f1779b8674b65e75cc",
@@ -21,5 +18,13 @@
     "final_graphics": "f415ca7ef9aa2f32cc8c5f427c4ed1a270c0c4c6b16a26fb740d00fb397ed403",
     "motion_graphics": "b68a48123883708e17ccebc08b0af02e41f0017c973f6bcd4fe68d4bc09e9265",
     "motion_helpers": "58c614912c16af24992c6e31e0b04514e771b16c225c72ce79a56efa093046a5"
-  }
+  },
+  "native_run_id": 41821289683,
+  "native_artifact_name": "medplain-realtime-private-evidence-c55117c3b25876b1c76f39914d09effabb9f9007",
+  "native_proof_sha256": "485d924caedfdca809ea3f47915d102a3e6080cf216af3db92236c9be1aedad2",
+  "recording_review_sha256": "9d4256ea6d3674f4d688bfc46cf006b52d6c075333e46183cff862f9ead3a5d8",
+  "source_tag": "medplain-final-inputs-20261104-v1",
+  "source_archive_sha256": "7a7333236f113b860f45d72fec9e05375b2228b75b6f9fd2765faa2ffc162ec7",
+  "source_manifest_sha256": "69f3ea06d34f1c00f13e0d243f9d92ee7db017048f75253830b175162a45c402",
+  "ui_start_seconds": 16.904
 }

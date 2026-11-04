@@ -1,0 +1,270 @@
+{
+  "schema": "medplain.actual_native_recording_review.v3",
+  "status": "approved_for_realtime_composition",
+  "reviewer": "Codex independent submission reviewer /root/submission_review",
+  "recording_proof_sha256": "485d924caedfdca809ea3f47915d102a3e6080cf216af3db92236c9be1aedad2",
+  "native_video_sha256": {
+    "console": "2782fa02b82969ead3e51d690ee679fe9a1fd24e69a9fac2f903aa1a6099604a",
+    "patient": "310b9fbbbaadab38cab7c2c13a9a937d77b3f8b6fe4dd7ca2f4aa01aaa27626c"
+  },
+  "privacy_reviewed": true,
+  "ui_pixels_reviewed": true,
+  "application_source": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
+  "recorder_sha256": "4a5cfd5ed26955c408c0e2a54c1f93943a5e11796d7e506768b99ab353a168db",
+  "findings": [],
+  "source_run": 41821289683,
+  "native_qa_run": 41823214019,
+  "native_capture_archive_sha256": "878dd1653638752b1cfcbe208822c781d8b00d5bdc7eb9f0017ff8425c37833c",
+  "native_qa_archive_sha256": "9c6d78979f0bf3dff12ef5db59019a15ff97578d57110dba81b00f03c0990d13",
+  "native_qa_receipt_sha256": "2b76fd36bd323a1d27e4126f372384f7b76c3ab5f8d0cd3c6fb674ae58c2599e",
+  "metadata_audit_sha256": "3e5ba508172e7549556682ba264dda0b2a88b87dc4e8aebd0278c94626285e88",
+  "qa_archive_binding_audit_sha256": "9c55f5c1f960b2799b1849820d8dd5339aa08172bf164f0addeac46df90fe005",
+  "reviewed_current_compositor_source_sha256": "b3bf47fffa7298ea55a98635f28decbc0348d24515de7e02c8d7992042ba236c",
+  "actual_UI_seconds": 94.06760115600002,
+  "clock_findings": [],
+  "milestone_review": [
+    {
+      "milestone": "overview",
+      "image": "milestones/overview.png",
+      "sha256": "e452c7daa0928c0a1b2476eeb0eaf1391d460f72817b8f2a04ad692ac85c89ce",
+      "observation": "Current problem-first English entry appears before KPIs: pending potassium, unnamed follow-up contact, inspect preview without creating a job. Empty synthetic fixture session."
+    },
+    {
+      "milestone": "source_preview_no_job",
+      "image": "milestones/source_preview_no_job.png",
+      "sha256": "55456219578cf4f282e3fb345190a45ff6b8426ff693a70a0a21b18d72cfe05d",
+      "observation": "Actual editable synthetic source preview and pending-result example. Visible boundary says no case or model job is created until submit. Source body is lower in the scroller at this marker."
+    },
+    {
+      "milestone": "original_verification_wait",
+      "image": "milestones/original_verification_wait.png",
+      "sha256": "b399c5df759d3d3f030fc28ed0619ad90f4aa98088f988d18ba1d43a9b1b1d9a",
+      "observation": "Actual processing state, withheld regimen and incomplete execution are visible. No fabricated completed agent event."
+    },
+    {
+      "milestone": "actual_completed_strands_trace",
+      "image": "milestones/actual_completed_strands_trace.png",
+      "sha256": "57edbeb2c3aee7154445c5b7feb3845ffb0c5edda4589b7cc340df697a7f9903",
+      "observation": "Actual completed timeline contains all three SDK node names and AtroposReconciliationSafetyGate with fixture identification. The view verifies structural source fidelity, not clinical resolution."
+    },
+    {
+      "milestone": "verified_source_card",
+      "image": "milestones/verified_source_card.png",
+      "sha256": "69d18d3a5525a3312bcab1e9c34d0cc5dba76c5446d05772751b14b283117e15",
+      "observation": "Internal clarification preview states release requires exact source, artifact and version review. Medication regimen withheld and clarification-not-prescription notices visible."
+    },
+    {
+      "milestone": "assigned",
+      "image": "milestones/assigned.png",
+      "sha256": "7fcb287936c546cdb73afcba74ff6e09f6a6b57613095cd7f7fadba56b2c2f89",
+      "observation": "Assignment controls name synthetic pharmacist and explicitly state assignment does not imply acceptance. Role restrictions have visible reasons."
+    },
+    {
+      "milestone": "accepted",
+      "image": "milestones/accepted.png",
+      "sha256": "dacef978832718051cdd5a440a86f8b7463c581ce1b9f9abeaf6e8ada7656031",
+      "observation": "Explicit acceptance timestamp and task history are visible; the source-bound note field appears separately after acceptance."
+    },
+    {
+      "milestone": "source_bound_reply",
+      "image": "milestones/source_bound_reply.png",
+      "sha256": "64fb310196708ff7bfeb0aae668d8c4b23644643941b09848f03aba9f1024feb",
+      "observation": "Recorded note says a named follow-up contact is recorded in a separate addendum, with care-team medication decisions preserved. Operator role is required for source revision."
+    },
+    {
+      "milestone": "new_source_addendum",
+      "image": "milestones/new_source_addendum.png",
+      "sha256": "5ddbd7df84d05078b2d8592304f8b870074298d84a5f1c0b22c71b79318b4cef",
+      "observation": "Actual third source records potassium owner as discharge team, follow-up within 2 days and no medication change. Original record editing and new addendum are distinct."
+    },
+    {
+      "milestone": "child_verification_wait",
+      "image": "milestones/child_verification_wait.png",
+      "sha256": "0cbd788f90cdbe5102039d343f04ad601b63516c246be989c101a42195b7785a",
+      "observation": "Actual separate new verification run is processing, with English source packet and withheld medication regimen. No premature success presented."
+    },
+    {
+      "milestone": "verified_child_closure",
+      "image": "milestones/verified_child_closure.png",
+      "sha256": "ffea09d7e1bfe4ead1ce87d6e359411633dbdf7101eaf708c1aae8b479b9c128",
+      "observation": "Linked verified revision displays source and artifact hashes. Resolution recorded against the linked revision, with original source and card explicitly unchanged."
+    },
+    {
+      "milestone": "child_released_private_link_issued",
+      "image": "milestones/child_released_private_link_issued.png",
+      "sha256": "b52aa5f6c8005f5f01d02d2f193786e6be7993e6f64ce68caefa4263f76d6858",
+      "observation": "Marker viewport shows teach-back/create-link region. Independent nearby native boundary frames show actual release and separate private-access success toasts; no capability string is painted."
+    },
+    {
+      "milestone": "released_patient_view",
+      "image": "milestones/released_patient_view.png",
+      "sha256": "d596be4e7e8e69489b507ad3f36d889e0a0aa529d617586e1bd8b76044757de5",
+      "observation": "Actual patient landing says synthetic example, released from a new offline fixture run, read-only patient view and not a reconciled prescription. Disabled device voice has a visible no-local-English-voice reason."
+    },
+    {
+      "milestone": "first_provisional_assessment",
+      "image": "milestones/first_provisional_assessment.png",
+      "sha256": "1b2b5b6f7e3f175833204addd4003d46a29a442c33c6d214f5bc109b776470fc",
+      "observation": "Actual Response 1 is Yes, I understand. Provisional reviewer-required assessment shows 0 covered and 3 not demonstrated, with original source quotes."
+    },
+    {
+      "milestone": "reviewer_follow_up",
+      "image": "milestones/reviewer_follow_up.png",
+      "sha256": "65e1a4bfb7b7971e94dc5e72fe0e99fed00ec1a80adb90f1d54a8f40df4e7565",
+      "observation": "Reviewer follow-up/recheck text is recorded. This viewport also states released card and no medication regimen authorized. Queued assessment wording is a real interim state."
+    },
+    {
+      "milestone": "second_response_and_provisional_assessment",
+      "image": "milestones/second_response_and_provisional_assessment.png",
+      "sha256": "f4eede2152a068db7e652f74654e54ee7f9318d6c91e703dffe5e59c1e3714d2",
+      "observation": "Actual Response 2 asks discharge team about pending potassium and refuses to infer a medication change. Assessed remains provisional/reviewer-required, not confirmed comprehension."
+    },
+    {
+      "milestone": "actual_targeted_educational_retrieval",
+      "image": "milestones/actual_targeted_educational_retrieval.png",
+      "sha256": "03d378de633e5c3f8f59b0deb4870b5952daaba85b07eb9ae51f338da6b01e42",
+      "observation": "Actual matching AHRQ educational workflow passage, source scope and lexical-score limitation are visible. Retrieval is explicitly not clinical judgment or patient-specific support."
+    },
+    {
+      "milestone": "actual_strict_gate_receipt",
+      "image": "milestones/actual_strict_gate_receipt.png",
+      "sha256": "a0f5b3fea001929508a3a615e5d58578b0b145500287e1585e67d81afcba3400",
+      "observation": "Actual candidate verified source-fidelity result and exact-version release control are visible. No override or medication authorization is implied."
+    }
+  ],
+  "one_fps_contact_sheets_visually_inspected": [
+    {
+      "path": "console/sheet-01.png",
+      "sha256": "58ba8b4328058c73f3abd31a336802810b9fc64496d9485a967bf561fec1c5ec"
+    },
+    {
+      "path": "console/sheet-02.png",
+      "sha256": "2afc9f6ab76fa79b0d04e03246ac202c625072f5c4983d7fd7e4db6c6b683d44"
+    },
+    {
+      "path": "console/sheet-03.png",
+      "sha256": "5ad3d0a5f6cfab2ab1dc9e5da603de3d9c9c9e3d75446020ae7db24625dc1a30"
+    },
+    {
+      "path": "console/sheet-04.png",
+      "sha256": "0b64a194cebbc1cacfddb5bd90b75715f8fc07f1f5340f856a62b878c2a623f6"
+    },
+    {
+      "path": "console/sheet-05.png",
+      "sha256": "c6885e675f0dad4c31686df8d934ea0aa86afe8344ff3bdfb442aa0dd24334f0"
+    },
+    {
+      "path": "console/sheet-06.png",
+      "sha256": "5a4b9508002569af4caee53253b4b4487a78dc316649c7e427beae5e0b2dfa8c"
+    },
+    {
+      "path": "console/sheet-07.png",
+      "sha256": "ec997eb01905c10853b5968e58ef584485f009b6c22529392eae5f6f1af0711c"
+    },
+    {
+      "path": "console/sheet-08.png",
+      "sha256": "ff3fe20ca95d1743cc0b6b1e2ba8c964e2e2263ed2fe0964483d4bf8efaa489f"
+    },
+    {
+      "path": "patient/sheet-01.png",
+      "sha256": "cd1bead01763d2542fd2cce33fde26bd0c3f088faf5ee6050452ed0571040c96"
+    },
+    {
+      "path": "patient/sheet-02.png",
+      "sha256": "539702fde2d5818353ab5f008ad6ea30462d61b37921aa6a4dca63961d8b5e4a"
+    },
+    {
+      "path": "patient/sheet-03.png",
+      "sha256": "767d2f1de7758ba692b3e2d8381a23765371aa1d76ecf402dfa7c767c91babab"
+    },
+    {
+      "path": "patient/sheet-04.png",
+      "sha256": "d2fe19179236ea414ab2abb8d30bd5b4a1ab098f704fd5297828f2c438d69cc8"
+    }
+  ],
+  "sensitive_full_resolution_native_frames_visually_inspected": [
+    {
+      "path": "console/boundary-162.png",
+      "sha256": "2eecb9ce382ea4d4114040b7f61e8e12d6d3935a7c00d5d0649145c6978fad96"
+    },
+    {
+      "path": "console/boundary-163.png",
+      "sha256": "3e69f281c552e1ed3c30a21fec72e3451d9cacec316ce21fe4b5778c06ac3a6a"
+    },
+    {
+      "path": "console/boundary-164.png",
+      "sha256": "bfd1fdb0c84b3d57d11a63da071f389967e6b53e07dbe8693284135a95fbb9d2"
+    },
+    {
+      "path": "console/boundary-165.png",
+      "sha256": "8ed297787bc4a20e981e2e964b989cf90f2a83e5eacc77bfc6ef64ce3eed7c44"
+    },
+    {
+      "path": "console/boundary-166.png",
+      "sha256": "fc5f7eed03766581fa21c2c69432afca14f168a4ec7499e2bc1de9a4428483cb"
+    },
+    {
+      "path": "console/boundary-169.png",
+      "sha256": "42a6c430a55387a6a86d4261e6c010d885449ad7b6ddce10a48e516d2f8c880f"
+    },
+    {
+      "path": "console/boundary-170.png",
+      "sha256": "4ecdb2246db3d074728fd139c53ad9a5f6bef2c7f619f16ae847f28e8becf6db"
+    },
+    {
+      "path": "console/boundary-172.png",
+      "sha256": "df05df100723d1cf7c86f9ebf363a73c0c4b04fdd2d88a771155b1f8675bb0e6"
+    },
+    {
+      "path": "console/boundary-173.png",
+      "sha256": "85bec43ed5075aa6b26020521647803e160d35a62089d6fb9bcfa3c8e4140102"
+    },
+    {
+      "path": "patient/boundary-000.png",
+      "sha256": "14212f1c8d2b147233777213a76662a5d2fba1891d33fc7309be8103bc6d29fb"
+    },
+    {
+      "path": "patient/boundary-001.png",
+      "sha256": "6c58912d75a414c674026722ec78408a9099aaefe3fc7da262159aa1c65fe65c"
+    },
+    {
+      "path": "patient/boundary-002.png",
+      "sha256": "9e8fe3181509a3c2caf4e8f04af947dcd99bae39b17aee6b3b0ea199de3381bc"
+    },
+    {
+      "path": "patient/boundary-004.png",
+      "sha256": "f4ac5c29ed7dc4c7bc7bb4c30a668297d0d909abc801b161b8a5e13a4648739c"
+    },
+    {
+      "path": "patient/boundary-005.png",
+      "sha256": "35492d7faba60e0d987761bb690dd00f8e51fb51b736f62b4bee900afa2e3363"
+    },
+    {
+      "path": "patient/boundary-006.png",
+      "sha256": "30cf21ccddbd575e1381ddc268d518782b656acb32b358f4162d7cf059102a43"
+    },
+    {
+      "path": "patient/boundary-008.png",
+      "sha256": "6b2e839e016eb8627768330cbaac916d84faf66255f199311ca60e9896d6d695"
+    },
+    {
+      "path": "patient/boundary-009.png",
+      "sha256": "2d97e685f4ceb522d3a47c4c25f935f69536363e18c4bd5c0a36ee8f78d53eef"
+    }
+  ],
+  "pixel_coverage": "All 18 original milestone PNGs, all 12 chronological one-fps contact sheets covering 94 console and 42 patient samples, and all 17 distinct full-resolution native boundary frames around release/private-link creation and patient navigation were visually inspected. Duplicate sensitive samples are hash-equivalent to inspected frames.",
+  "privacy_conclusion": "No painted private response capability, owner token, credential, browser address bar, real patient identity or Greek footage was observed. The source-bound recorder checks every logged event body against its in-memory capability and records no capability value in proof/events. Both browser contexts are synthetic loopback fixture contexts; patient header checks preserve response access while excluding owner session access. The capability link is read by automation without hovering or painting its raw URL.",
+  "limitations": [
+    "This is sampled pixel review plus immutable source, exact-byte and recorded body/header controls. It is not an assertion that every native video frame was individually watched or OCR-scanned.",
+    "Contact sheets are downscaled survey images. Full-resolution milestone and selected sensitive boundary PNGs support the detailed text/privacy review; no new decoding or image transformation was performed by this reviewer.",
+    "The genuine UI waits and scrolled regions remain real. Some headings and source text are outside a particular viewport. Continuous footage and spoken explanation must not imply that every relevant field is simultaneously visible.",
+    "The native evidence uses the real application and SDK with the explicit offline fixture model. It is not a new Bedrock run, efficacy evaluation, latency benchmark or clinical success.",
+    "Composition must retain actual forward 1x native clock/page windows, db0 identity, visible fixture scope and existing strict audio/AV/caption gates. Any final clean EOF hold must be logged and checked against its one-frame bound.",
+    "Actual final composite pixels, media gates, full owner watch/listen, creative approval and final publication remain pending. This receipt authorizes composition admission only."
+  ],
+  "human_full_video_watch_claimed": false,
+  "human_audio_listening_claimed": false,
+  "clinical_benefit_or_current_Bedrock_success_claimed": false,
+  "public_publication_authorized": false,
+  "reviewer_cloud_UI_provider_model_CI_render_publication_calls": 0
+}
