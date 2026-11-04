@@ -167,7 +167,8 @@ def capture(app, output):
             link, quote = locator.get_by_role("link", name=document["title"], exact=True), locator.locator("blockquote")
             media.require(link.count() == quote.count() == 1 and link.get_attribute("href") == document["uri"]
                           and quote.inner_text().strip() == document["spans"][0]["quote"]
-                          and document["publisher"] in locator.locator(".careflow-label").inner_text(),
+                          # text_content preserves source spelling; inner_text applies the label's CSS uppercase.
+                          and document["publisher"] in (locator.locator(".careflow-label").text_content() or ""),
                           "Actual returned AHRQ card must contain its publisher/title and exact quote")
             required = [bounds]
             semantics = {"evidence_uri": document["uri"], "evidence_title": document["title"],
