@@ -1,0 +1,67 @@
+A caregiver can leave hospital with a discharge sheet and still not know who will act on a pending result. Clearer wording helps, but the next questions are practical: who accepts the task, what evidence should they inspect, and how can the family explain its understanding afterwards?
+
+Atropos MedPlain uses Strands agents to turn conflicting synthetic discharge documents into source-cited questions. A deterministic safety gate checks supported facts before publication. The deployed application connects that card to clarification ownership, a separately verified source revision and a reviewed teach-back response.
+
+[Try the anonymous AWS demo](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/) or inspect the [MIT-licensed source and retained evidence](https://github.com/upgradedev/atropos-medplain-aws).
+
+## A question with a named next step
+
+Our invented pending-result packet records a potassium test, follow-up within two days and no assigned owner. The caregiver has the hospital switchboard number but no named contact. MedPlain must not invent a result, contact or treatment change to complete the story.
+
+The original documents and concern remain visible. Mandatory structural checks are separate from agent-proposed contextual questions. Each proposal cites its original witnesses. A valid citation makes a question inspectable; it does not establish relevance or clinical correctness.
+
+An operator assigns the question to a named synthetic actor and sets a due time. The selected actor explicitly accepts it. Their private answer records the task and source identities, but cannot change the discharge packet or authorize treatment. These actors are demo selections, not authenticated hospital staff.
+
+To proceed, an operator submits a separate child source revision through verification. A reviewer links that verified child's exact source and artifact and records explicit demo closure. The parent remains intact. The child requires its own review and release before reaching the patient. Closure records a synthetic workflow confirmation, not proof that a clinical problem was resolved.
+
+## Why Strands is load-bearing
+
+Three actual Strands Agents run in a Graph. DischargeEvidenceIndexerAgent covers the source statements. CrossDocumentClarificationPlannerAgent uses fresh constraint and reference tools to select supported relationships and their witnesses. ClarificationCardPublisherAgent binds the immutable card to its source and invocation.
+
+The semantic task is bounded: choose among nine question meanings, including an intentional medicine change, identity or formulation ambiguity, an unresolved follow-up owner and a caregiver concern. This is not unrestricted prescribing. Deterministic English or Greek clauses render validated proposals, and the complex card keeps patient_regimen null.
+
+Custom tools, Pydantic outputs and lifecycle hooks check source coverage, quotations, supported clinical atoms and publication identity. A discrepancy follows a bounded correction edge. If verification cannot finish, patient content is withheld. The separate simple-note workflow also checks supported numeric, unit and frequency parity. SHA-256 hash-chained receipts record verification; they are unsigned engineering records, not clinical certification.
+
+Removing Strands would remove the governed agent, tool and correction execution. The deterministic renderer alone cannot perform the registered semantic selection. That distinction still needs measurement: plausible reasoning is not automatically useful reasoning.
+
+## Teach-back includes a response
+
+A released patient card is read-only. A separate expiring private capability permits a synthetic response to its exact teach-back prompt, without revealing staff notes or owner credentials.
+
+CareflowTeachbackAssessmentAgent reads the submitted words, bound prompt and original quotations. It proposes which focused passages appear addressed, missing or misunderstood. A reviewer acknowledges the response or requests follow-up. A recheck is a retained new attempt. Assessment remains provisional: it cannot certify comprehension, change a prescription or close a task.
+
+The workflow has offline integration evidence, including two synthetic responses and retained reviewer follow-up. We have not measured patient comprehension or clinical benefit.
+
+## Small, targeted retrieval
+
+Retrieval searches a small versioned collection of educational workflow excerpts. Results carry exact snippets, publisher links, language, jurisdiction, dates, offsets and hashes. Missing or out-of-scope support is visible. The current collection is English; choosing Greek does not silently translate or substitute that evidence.
+
+These engineering-reviewed snapshots are not a clinically approved pharmacology corpus. A lexical match is not entailment. Educational guidance can support an own-word explanation or accepted responsibility, but cannot supply this patient's missing owner, dose or start date.
+
+## Durable delivery on AWS
+
+An API Lambda commits the case and an outbox event together in DynamoDB. A Streams relay sends identifiers to SQS. A worker Lambda runs Strands through Bedrock. Conditional claims and version fencing prevent stale accepted publication. Delivery can repeat, and a crash can repeat inference; we do not promise exactly-once model execution.
+
+Response assessments share the bounded outbox and daily allowance. Conditional transactions fence actor changes and child-revision closure. Separate read and response capabilities preserve the distinction between viewing a card and answering a prompt. EHR integration and production authorization for real health data are outside this prototype.
+
+## Evidence includes the failures
+
+Application version 0.2.0 is deployed at reviewed source 3cbe1dc. Offline integration and browser checks used deterministic fixture models, including real SDK orchestration. Anonymous read-only checks verified deployment and mobile presentation. They do not establish a new Bedrock careflow end-to-end result.
+
+The latest completed paired Bedrock comparison remains historical source 43d6244, on thirty known, engineering-annotated synthetic cases:
+
+| Measure | Strands | Full unchanged deterministic baseline |
+| --- | --- | --- |
+| Verified cards | 25/30 | 30/30 |
+| Context TP / FP / FN | 9 / 2 / 6 | 4 / 2 / 11 |
+| Context precision | 81.8% | 66.7% |
+
+Five agent refusals remain in the denominator. These are context-question metrics, not interaction recall or patient outcomes. The thirty-card and twelve-TP goals remain open. This known-corpus repeat does not evaluate the new careflow release.
+
+The later H12 diagnostic stopped after one verified card and one refusal. Eleven diagnostics and the thirty-case comparison were unexecuted. That cycle is closed; we preserve its evidence rather than presenting a subset as a completed comparison.
+
+## Reuse and the lesson
+
+We use the public [Strands Python SDK](https://github.com/strands-agents/sdk-python) and [Strands Evals](https://github.com/strands-agents/evals/tree/v1.7.0). The synthetic corpus, annotations, full baseline and deterministic scorers were written for this project. Our AWS handoff follows the transactional-outbox pattern. Lachesis provided conceptual inspiration for deterministic lifecycle decisions and session-bound state, inspected read-only without copying code, fixtures or benchmarks. Standard web and schema dependencies are declared in the repository.
+
+Intact numbers and valid citations do not establish a useful clinical interpretation. MedPlain makes the next question inspectable, records who accepted it and preserves the response for review. Try the pending-result packet, follow the evidence and inspect the retained failures as carefully as the successful path.
