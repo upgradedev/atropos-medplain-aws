@@ -1,18 +1,60 @@
 # Atropos MedPlain
 
-Atropos MedPlain uses a Strands SDK Graph to turn multiple synthetic discharge documents into source-cited clarification cards, with a deterministic gate that withholds altered clinical facts.
+**Atropos MedPlain uses source-cited Strands agents to turn an unresolved discharge instruction into a clarification with an explicitly accepted next step.**
 
-Built as a prototype for adults leaving hospital with changed medicines and limited support interpreting clinical jargon. The anonymous console keeps conflicting instructions, caregiver questions and original source passages available for review. Its clarification card never supplies a reconciled prescription. A separate simple-note workflow explains invented discharge packets and demonstrates deliberately altered facts being refused and corrected.
+For a discharge reviewer and a caregiver asking: **a test is still pending, so who will contact the family?** The prototype keeps the original evidence, records demo task acceptance and reviews the patient's own-word response. It does not create a reconciled prescription.
 
-[Open the anonymous AWS demo](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/) · [Source and CI](https://github.com/upgradedev/atropos-medplain-aws/actions)
+**[Open the anonymous AWS console](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/console/overview)** · [Watch the current 2:29 pitch](https://upgradedev.github.io/atropos-medplain-aws/final-review/) · [Read the article](https://upgradedev.github.io/atropos-medplain-aws/final-review/article.html)
 
-The Builder Center article is currently a draft under owner review. Final public YouTube hosting and the submitted state remain pending.
+![An invented pending potassium result with no named owner becomes a source-cited question, explicit demo task acceptance, a verified source revision and a reviewed patient response. Workflow illustration, not patient evidence.](docs/assets/readme/hero.svg)
 
-[Watch the final English film, 2:29](https://upgradedev.github.io/atropos-medplain-aws/final-review/) with ElevenLabs narration, animated fictional CGI, architecture and the current clarification-to-recheck workflow. [Read the final article](https://upgradedev.github.io/atropos-medplain-aws/final-review/article.html), [download timed captions](https://upgradedev.github.io/atropos-medplain-aws/final-review/medplain-final.srt) and inspect the [source-bound media proof](https://upgradedev.github.io/atropos-medplain-aws/final-review/media-manifest.json). Current workflow screenshots use actual offline fixture API and Strands SDK execution at `3cbe1dc`; historical Bedrock measurements are labelled separately. [Final render CI](https://github.com/upgradedev/atropos-medplain-aws/actions/runs/41787175675) passes the technical media gate. Owner listening/creative approval, Public YouTube hosting and final Builder publication remain pending.
+## Start with one discharge question
 
-The [previous-release walkthrough, 2:48](https://github.com/upgradedev/atropos-medplain-aws/releases/download/medplain-demo-video-20261102/medplain-demo.mp4) and its [captions and proof](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-demo-video-20261102) remain preserved; it does not demonstrate the current careflow release.
+The **pending-result example** has a potassium result still pending, follow-up within two days and no named person to call the family. The useful outcome is an inspectable question and a recorded next step. Clinical resolution and patient understanding remain unmeasured.
+
+1. Open **Overview > Preview coordinated follow-up**. Read the original documents and caregiver concern. Opening the preview creates no case and starts no model job.
+2. To run a new verification, use the **operator** demo role, confirm the sources are invented and choose **Reconcile source packet**. This submits a budgeted job to the configured Strands/Bedrock workflow.
+3. Once a clarification card verifies, open its **Clarifications** workspace. With the **reviewer** role, assign the question, explicitly select the assigned demo actor, accept the task and record the source-bound reply.
+4. Switch to **operator** to record and submit a separate child source revision. After that child verifies, return to **reviewer**, select the actor, link the exact child and confirm demo closure. Review and release the child itself.
+5. Open the child's separate **private response link**. Submit a synthetic own-word answer, inspect the provisional assessment, then return as reviewer for follow-up. The next patient answer stays a separate attempt.
+
+The console role enables actions; the selected demo actor identifies whose acceptance, answer or review is recorded. These are selectable synthetic roles, not hospital authentication.
+
+![Five-stage source-to-recheck workflow with input, agent clarification, accepted task, separate verified revision and provisional patient response review.](docs/assets/readme/process.svg)
+
+## Choose the right starting point
+
+| Your question | Where to start | What you get |
+|---|---|---|
+| What does the console contain? | The initial prepared collection | Twelve labelled synthetic examples. Loading them starts no inference; their available records came from offline SDK fixtures. |
+| Who owns this pending result? | **Preview coordinated follow-up** | A read-only source preview first. Submitting starts a new cross-document clarification job. |
+| Do these documents disagree or leave something unclear? | **New case > Reconcile source packet** | A source-cited clarification card, mandatory structural checks and separately labelled agent-proposed questions. |
+| Does this supported note preserve its doses and frequencies? | **New case > Import synthetic note** | A constrained patient explanation checked against an independent source ledger and the same strict gate. |
+| Can the gate stop a changed dose? | **Catch a tenfold dose change** | A separate deliberate mutation exercise with refusal, correction and verification receipts. |
+
+## Read the result correctly
+
+| Artifact | What it tells you | What still needs a person |
+|---|---|---|
+| Clarification card | Which original passages support a question | Decide whether the proposal is relevant and who should act |
+| Accepted task and reply | Which selected demo actor accepted and what they recorded | Verify a separate source revision; a reply cannot replace a prescription |
+| Verified child and release | Which exact new source/artifact was reviewed | Confirm the workflow action; demo closure does not prove clinical resolution |
+| Patient response assessment | What a bounded model proposes is missing or misunderstood | Review the proposal and follow up; it does not certify comprehension |
+
+The clinical gate protects supported source facts. Valid citations do not prove useful interpretation. Educational retrieval cannot fill in a missing patient dose, result or owner.
+
+[Ownership and patient responses](#clarification-ownership-and-patient-rechecks) · [Safety drill](#try-the-safety-boundary) · [New-note intake](#import-a-new-synthetic-discharge-note) · [Complex cases and evaluation](#complex-discharge-packets-clarify-across-sources) · [Architecture](#what-runs) · [Scope](#safety-and-scope) · [Build](#run-and-verify) · [Reuse](#pre-existing-open-source-patterns)
+
+<details>
+<summary>Measurement and publication status, including the retained failures</summary>
+
+The Builder article is saved as a draft for owner review. Public YouTube hosting and final challenge confirmation remain pending. The current film is a source-labelled screenshot pitch; a continuous real-time UI recording is being prepared separately. Its screenshots use offline fixture API and actual Strands SDK execution at source 3cbe1dc, not new Bedrock efficacy.
 
 The latest completed thirty-case comparison remains historical `43d6244`: **25/30 verified cards, TP9 / FP2 / FN6 and 81.8% precision**, versus baseline 30/30 and 66.7%. H10 later produced three cards with two strict passes; H11 refused its first job before a planner output. Their full comparisons were blocked. The [H12 diagnostic at `efe6c3e`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-converse-diagnostic-efe6c3e) delivered one verified card and then refused the second case after a provider ToolUse error. Eleven diagnostics and all thirty comparison cases remain unexecuted. Neither the 30/30 nor 12 TP target is claimed.
+
+The [previous-release walkthrough](https://github.com/upgradedev/atropos-medplain-aws/releases/download/medplain-demo-video-20261102/medplain-demo.mp4) and every failed or partial measurement remain preserved.
+
+</details>
 
 ## Clarification ownership and patient rechecks
 
