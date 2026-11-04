@@ -27,10 +27,10 @@ The console role enables actions; the selected demo actor identifies whose accep
 | Your question | Where to start | What you get |
 |---|---|---|
 | What does the console contain? | The initial prepared collection | Twelve labelled synthetic examples. Loading them starts no inference; their available records came from offline SDK fixtures. |
-| Who owns this pending result? | **Preview coordinated follow-up** | A read-only source preview first. Submitting starts a new cross-document clarification job. |
-| Do these documents disagree or leave something unclear? | **New case > Reconcile source packet** | A source-cited clarification card, mandatory structural checks and separately labelled agent-proposed questions. |
+| Who owns this pending result? | **Preview coordinated follow-up** | An editable preview first, with no case or model job until submission. Submitting starts a new cross-document clarification job. |
+| Do these documents disagree or leave something unclear? | **New case > Reconcile multiple sources** | A source-cited clarification card, mandatory structural checks and separately labelled agent-proposed questions. |
 | Does this supported note preserve its doses and frequencies? | **New case > Import synthetic note** | A constrained patient explanation checked against an independent source ledger and the same strict gate. |
-| Can the gate stop a changed dose? | **Catch a tenfold dose change** | A separate deliberate mutation exercise with refusal, correction and verification receipts. |
+| Can the gate stop a changed dose? | **Safety walkthrough > Run stress sample** | A separate deliberate mutation exercise with refusal, correction and verification receipts after you submit the sample. |
 
 ## Read the result correctly
 
@@ -82,7 +82,7 @@ The original preparation execution IDs remain bound to their receipts. Cloning e
 
 To execute the differentiator yourself, create a **new** case:
 
-1. Open the operations console and start a synthetic case using **Catch a tenfold dose change**. Keep the deliberate mutation enabled.
+1. Open **Safety walkthrough > Run stress sample**, then submit the synthetic stress packet. Keep the deliberate mutation enabled.
 2. The command returns a job immediately. Its captured source and outbox commit together, then a separate worker executes the real Strands Graph through SQS.
 3. Open the case drawer. Compare source **Warfarin 2.5 mg QHS** with the verified explanation. The drill changes the first draft to **25 mg** before the gate checks it.
 4. Inspect Safety, Agents and Receipt: the gate refuses the changed draft, hands control back to the verifier and validates the rebuilt artifact.
@@ -114,7 +114,7 @@ The [first actual Bedrock measurement at 97d5616](https://github.com/upgradedev/
 
 ## Complex discharge packets: clarify across sources
 
-**New case > Reconcile source packet** accepts two to four invented source documents, their supplied issue/effective dates, and an editable caregiver concern in the separate `medplain-reconciliation-v1` profile. Documents can be home lists, discharge orders, addenda, caregiver notes or lab reports. Each document is limited to 6,000 characters; the dossier, including its caregiver concern, is limited to 16,000 characters, 60 nonempty source lines and twelve recognized medication statements. The caregiver concern is limited to 1,000 characters. The selected English or Greek language controls bounded question clauses; original source quotations remain unchanged.
+**New case > Reconcile multiple sources** accepts two to four invented source documents, their supplied issue/effective dates, and an editable caregiver concern in the separate `medplain-reconciliation-v1` profile. Documents can be home lists, discharge orders, addenda, caregiver notes or lab reports. Each document is limited to 6,000 characters; the dossier, including its caregiver concern, is limited to 16,000 characters, 60 nonempty source lines and twelve recognized medication statements. The caregiver concern is limited to 1,000 characters. The selected English or Greek language controls bounded question clauses; original source quotations remain unchanged.
 
 Six examples cover conflicting dose/stop instructions, an explicitly documented intentional change, ordered taper phases, conditional hold/restart wording, product/form confusion, and pending-result follow-up ownership. Source revisions create a new linked case; they do not overwrite the previous case or its evidence.
 
