@@ -1,0 +1,16 @@
+{
+  "status": "root_requested_after_independent_source_review",
+  "independent_review_sha256": "06e0d7f229fdd438b5861dffd879e3a1c351b21f2418404f404f8b03b1574d40",
+  "mode": "capture",
+  "application_source": "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571",
+  "reading_seconds": 0,
+  "code_sha256": {
+    "recorder": "501c4369518abead9d22fc3cd5eb3903e030a41719844bec42d98601ec0f1fbd",
+    "checker": "55da3842e275d79e83a5b05ba5776d2bb7832a8f8a1f2fe8474a2d9014b361d8",
+    "validator": "02be3808acd717979da107520709bcf30c335c30f01dc2b3f4bf13a644223438",
+    "workflow": "b43d9b7b7dca35be23fe282cb1cbc4f5ea8874552b444a03ca50acf886ecb361",
+    "media_helpers": "14592d9d41dfe43977c8718862d8daf62982924949f2a4f1779b8674b65e75cc",
+    "original_careflow_journey": "e3967214323324ca756008f589ed53f1e7736dea46b28c6c57b73e02a11b251e",
+    "original_capture": "7e75fb8d35ad281d983442f5cc988c298e0ea48dcd04a8606eeffa2d86292fce"
+  }
+}
