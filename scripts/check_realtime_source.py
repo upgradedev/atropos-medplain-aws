@@ -41,6 +41,18 @@ def main():
         else:
             raise AssertionError("Unsafe recording source accepted: " + name)
     assert recording.MAX_SECONDS == 120 and recording.VIEW == {"width": 1280, "height": 720}
+    identity = {"application_source": recording.FROZEN, "recorder_sha256": "b" * 64}
+    composition.recording_identity(identity, identity, recording.FROZEN, "b" * 64)
+    for name, proof, review in [("recording_source_differs_from_request", {**identity, "application_source": "a" * 40}, identity),
+                                ("review_source_differs_from_request", identity, {**identity, "application_source": "a" * 40}),
+                                ("recorded_recorder_source_differs_from_review", {**identity, "recorder_sha256": "c" * 64}, identity),
+                                ("reviewed_recorder_source_differs_from_request", identity, {**identity, "recorder_sha256": "c" * 64})]:
+        try:
+            composition.recording_identity(proof, review, recording.FROZEN, "b" * 64)
+        except ValueError:
+            controls.append(name)
+        else:
+            raise AssertionError(name)
     artifacts = root / "artifacts"
     artifacts.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="schedule-control-", dir=artifacts) as directory:

@@ -23,6 +23,15 @@ def require(value, reason):
     media.require(value, reason)
 
 
+def recording_identity(proof, review, expected_source, expected_recorder_sha):
+    require(re.fullmatch(r"[0-9a-f]{40}", expected_source or "") and media.HASH.fullmatch(expected_recorder_sha or ""),
+            "Requested source and reviewed recorder hash are required")
+    require(proof["application_source"] == review["application_source"] == expected_source,
+            "Recording, independent review and requested application source must agree")
+    require(proof["recorder_sha256"] == review["recorder_sha256"] == expected_recorder_sha,
+            "Recording must use the exact independently reviewed recorder source")
+
+
 def chronology(proof):
     require(proof["status"] == "completed_actual_ui_fixture_journey_pending_video_privacy_and_pixel_review", "Actual complete recording required")
     require(proof["journey"]["all_mutations_via_actual_ui"] and proof["journey"]["provider_calls"] == 0,
@@ -184,7 +193,7 @@ def check_media(video, captions, proof, output):
     return verdict
 
 
-def render(inputs, manifest_sha, recordings, proof_sha, review_path, review_sha, ui_offset, output):
+def render(inputs, manifest_sha, recordings, proof_sha, review_path, review_sha, ui_offset, output, expected_source, expected_recorder_sha):
     require(not output.exists(), "Preserve previous continuous films and failures")
     plan, aligned = final.load_plan(inputs, manifest_sha, allow_capture_slots=True)
     proof_path = media.local_file(recordings, "recording-proof.json", {".json"})
@@ -193,7 +202,7 @@ def render(inputs, manifest_sha, recordings, proof_sha, review_path, review_sha,
     require(review["status"] == "approved_for_realtime_composition" and review["recording_proof_sha256"] == proof_sha
             and review["privacy_reviewed"] is True and review["ui_pixels_reviewed"] is True and review["reviewer"].strip(),
             "Actual native-video privacy/pixel review required")
-    require(re.fullmatch(r"[0-9a-f]{40}", proof["application_source"]), "Exact recorded application source required")
+    recording_identity(proof, review, expected_source, expected_recorder_sha)
     start, end, windows = chronology(proof)
     require(audio.finite_number(ui_offset) and 0 <= ui_offset <= 45, "Reviewed finite UI start required")
     voice_end = max(aligned["character_end_times_seconds"])
@@ -255,6 +264,7 @@ def render(inputs, manifest_sha, recordings, proof_sha, review_path, review_sha,
     render_proof = {"status": "rendered_continuous_ui_pending_quality_and_owner_review", "runtime_commit": proof["application_source"],
                     "context_inputs_runtime_commit": final.RUNTIME,
                     "recorded_application_source": proof["application_source"], "manifest_sha256": manifest_sha,
+                    "requested_application_source": expected_source, "reviewed_recorder_sha256": expected_recorder_sha,
                     "recording_proof_sha256": proof_sha, "recording_review_sha256": review_sha, "native_origins": origins,
                     "ui_clock_start": start, "ui_clock_end": end, "actual_page_windows": windows, "ui_film_offset": ui_offset,
                     "no_time_compression": True, "actual_complete_ui_seconds": end - start, "source_audio_sha256": media.digest(original),
@@ -281,7 +291,10 @@ if __name__ == "__main__":
     parser.add_argument("--review", type=Path, required=True)
     parser.add_argument("--review-sha256", required=True)
     parser.add_argument("--ui-start-seconds", type=float, required=True)
+    parser.add_argument("--expected-source", required=True)
+    parser.add_argument("--expected-recorder-sha256", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     render(args.inputs.resolve(), args.manifest_sha256, args.recordings.resolve(), args.recording_proof_sha256,
-           args.review.resolve(), args.review_sha256, args.ui_start_seconds, args.output.resolve())
+           args.review.resolve(), args.review_sha256, args.ui_start_seconds, args.output.resolve(),
+           args.expected_source, args.expected_recorder_sha256)

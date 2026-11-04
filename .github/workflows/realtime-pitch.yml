@@ -117,7 +117,7 @@ jobs:
       - name: Compose the whole reviewed UI clock at real speed with unchanged speech
         if: steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'compose'
         run: |
-          python -B scripts/realtime_pitch.py --inputs artifacts/realtime-inputs --manifest-sha256 "$SOURCE_MANIFEST_SHA" --recordings artifacts/realtime-recording/realtime-ui --recording-proof-sha256 "$NATIVE_PROOF_SHA" --review video/realtime-recording-review.json --review-sha256 "$RECORDING_REVIEW_SHA" --ui-start-seconds "$UI_START_SECONDS" --output artifacts/realtime-pitch
+          python -B scripts/realtime_pitch.py --inputs artifacts/realtime-inputs --manifest-sha256 "$SOURCE_MANIFEST_SHA" --recordings artifacts/realtime-recording/realtime-ui --recording-proof-sha256 "$NATIVE_PROOF_SHA" --review video/realtime-recording-review.json --review-sha256 "$RECORDING_REVIEW_SHA" --ui-start-seconds "$UI_START_SECONDS" --expected-source "$APPLICATION_SOURCE" --expected-recorder-sha256 "$REVIEWED_RECORDER_SHA" --output artifacts/realtime-pitch
       - name: Preserve real-time film, raw quality diagnostics and partials for owner review
         if: always() && steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'compose'
         uses: actions/upload-artifact@v4

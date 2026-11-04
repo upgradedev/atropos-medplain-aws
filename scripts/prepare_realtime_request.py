@@ -43,11 +43,14 @@ def validate(root, request):
         review = json.loads(review_path.read_bytes())
         media.require(review["status"] == "approved_for_realtime_composition" and review["privacy_reviewed"] is True
                       and review["ui_pixels_reviewed"] is True and review["recording_proof_sha256"] == request["native_proof_sha256"], "Actual native privacy/pixel review is not approved")
+        media.require(review["application_source"] == request["application_source"]
+                      and review["recorder_sha256"] == request["code_sha256"]["recorder"], "Review must bind requested application and reviewed recorder source")
         media.require(type(request["ui_start_seconds"]) in {int, float} and 0 <= request["ui_start_seconds"] <= 45, "Reviewed UI start required")
         pins.update(NATIVE_RUN_ID=str(request["native_run_id"]), NATIVE_ARTIFACT_NAME=request["native_artifact_name"],
                     NATIVE_PROOF_SHA=request["native_proof_sha256"], RECORDING_REVIEW_SHA=request["recording_review_sha256"],
                     SOURCE_TAG=request["source_tag"], SOURCE_ARCHIVE_SHA=request["source_archive_sha256"],
-                    SOURCE_MANIFEST_SHA=request["source_manifest_sha256"], UI_START_SECONDS=str(request["ui_start_seconds"]))
+                    SOURCE_MANIFEST_SHA=request["source_manifest_sha256"], UI_START_SECONDS=str(request["ui_start_seconds"]),
+                    REVIEWED_RECORDER_SHA=request["code_sha256"]["recorder"])
     return pins
 
 
