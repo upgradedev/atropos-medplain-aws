@@ -30,6 +30,15 @@ HOOKS = {
     'expect(feedback.get_by_text("Reviewer recorded follow-up", exact=False)).to_be_visible()': ("follow_up", "patient"),
     'wait_attempt(patient, feedback, expect, count=2)': ("recheck", "patient"),
 }
+FOCUS = {
+    "preview": ("test", "careflow-preview-notice"), "card": ("test", "careflow-next-action"),
+    "assigned": ("button", "Accept responsibility"), "accepted": ("label", "Source-bound clarification note"),
+    "reply": ("button", "Prepare clarified source revision"), "revision": ("test", "start-reconciliation"),
+    "linked": ("button", "Confirm resolution and close"), "closed": ("text", "Resolution recorded"),
+    "evidence": ("text", "Matching reviewed passages"), "release": ("button", "Enable synthetic patient responses"),
+    "response": ("label", "Your synthetic response"), "assessment": ("test", "teachback-next-step"),
+    "follow_up": ("text", "Reviewer recorded follow-up"), "recheck": ("test", "teachback-next-step"),
+}
 
 
 def instrument(source):
@@ -82,17 +91,38 @@ def capture(app, output):
         media.require(not urlparse(page.url).fragment, "Private response capability must be removed before capture")
         path = output / (name + ".png")
         media.require(not path.exists(), "Duplicate accepted screenshot milestone")
+        page.wait_for_load_state("networkidle")
+        kind, value = FOCUS[name]
+        locator = (page.get_by_test_id(value) if kind == "test" else page.get_by_role("button", name=value, exact=True)
+                   if kind == "button" else page.get_by_label(value, exact=True) if kind == "label"
+                   else page.get_by_text(value, exact=(name != "follow_up")))
+        media.require(locator.count() == 1, "Ambiguous capture focus; do not choose arbitrary UI pixels")
+        locator.scroll_into_view_if_needed()
+        bounds = locator.bounding_box()
+        media.require(bounds is not None, "Capture focus is not visible")
+        viewport = page.viewport_size
+        width, height = min(780, viewport["width"]), min(440, viewport["height"])
+        clip = {"x": max(0, min(viewport["width"] - width, bounds["x"] + bounds["width"] / 2 - width / 2)),
+                "y": max(0, min(viewport["height"] - height, bounds["y"] + bounds["height"] / 2 - height / 2)),
+                "width": width, "height": height}
+        focused = output / (name + "-focus.png")
         # Browser chrome/URLs are not captured. Hide capability links while preserving layout.
         style = page.add_style_tag(content='a[href*="#teachback="] { visibility: hidden !important; }')
         try:
             page.screenshot(path=str(path), full_page=False)
+            # Crop the retained viewport pixels, avoiding document/viewport scroll-coordinate ambiguity.
+            from PIL import Image
+            with Image.open(path) as original:
+                left, top = round(clip["x"]), round(clip["y"])
+                original.crop((left, top, left + width, top + height)).save(focused)
         finally:
             style.evaluate("node => node.remove()")
-        rows.append({"slot": name, "image": name + ".png", "sha256": media.digest(path),
+        rows.append({"slot": name, "image": focused.name, "sha256": media.digest(focused),
                      "kind": "current_fixture", "source_commit": RUNTIME,
                      "provenance_label": "Current 3cbe1dc | actual offline fixture API + Strands SDK, no new Bedrock execution",
                      "evidence_reference": "capture-proof.json / original asserted careflow browser journey",
-                     "viewport": page.viewport_size})
+                     "viewport": viewport, "original_viewport_image": path.name,
+                     "original_viewport_sha256": media.digest(path), "original_pixel_clip": clip})
 
     namespace = {"__name__": "final_capture_journey", "__file__": str(source_path), "record_final_frame": record}
     exec(compile(tree, str(source_path), "exec"), namespace)

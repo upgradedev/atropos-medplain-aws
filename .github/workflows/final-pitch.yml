@@ -59,7 +59,7 @@ jobs:
           npm run build
           cd ..
           python scripts/stage_console.py
-          python -m pip install --disable-pip-version-check --no-cache-dir -c constraints-runtime.txt . playwright
+          python -m pip install --disable-pip-version-check --no-cache-dir -c constraints-runtime.txt . playwright Pillow==13.0.0
           python -m playwright install --with-deps chromium
       - name: Execute and capture the asserted careflow fixture journey
         if: steps.request.outputs.render == 'true'
