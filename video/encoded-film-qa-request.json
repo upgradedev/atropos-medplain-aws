@@ -1,13 +1,13 @@
 {
-  "status": "BLOCKED_requires_completed_composition_and_root_admission",
+  "status": "root_requested_existing_encoded_film_qa",
   "application_source": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
-  "qa_source_sha256": null,
-  "compose_run_id": null,
-  "compose_head": null,
-  "artifact_id": null,
-  "artifact_name": null,
-  "archive_sha256": null,
-  "movie_sha256": null,
-  "render_proof_sha256": null,
-  "media_gate_sha256": null
+  "qa_source_sha256": "3a1cfa44d0edd2e1b1b8bdd0f4de2301e60b97a71d65b5fd87a12d3abde169d3",
+  "compose_run_id": 41827298195,
+  "compose_head": "d2f78512329d08df6ccf239c939098555c0cd0db",
+  "artifact_id": 13321525962,
+  "artifact_name": "medplain-realtime-composition-d2f78512329d08df6ccf239c939098555c0cd0db",
+  "archive_sha256": "83e7727b4953641217865cf4a8e9a75b0f7b553cb4bc88308f1c726938ee4c70",
+  "movie_sha256": "4f82400885a0d568daf0039269116dc6134a09939147de3fec4072c0fe256419",
+  "render_proof_sha256": "8bea4f0bb7fba66b6a9302db25a3f7f5d43fdb931ed9143c84593d4e27b2e514",
+  "media_gate_sha256": "c1fcb7d243927b107f6df174f2909fd07a803cf8419e1bd80c9eec2f8ec875e5"
 }
