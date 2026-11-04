@@ -178,7 +178,9 @@ def journey(rec, browser, url, expected_source, expect):
     rec.click(revision.get_by_role("button", name="Add original source", exact=True), "Add actual source addendum field")
     rec.fill(revision.get_by_label("Source 3 identifier", exact=True), "clarified-owner", "Name the new addendum")
     rec.select(revision.get_by_label("Source 3 kind", exact=True), "addendum", "Classify new source as addendum")
-    rec.fill(revision.get_by_label("Source 3 issued time UTC", exact=True), "2026-10-30T12:00:00", "Record original addendum issue time")
+    issued = revision.get_by_label("Source 3 issued time UTC", exact=True)
+    rec.fill(issued, "2026-10-30T12:00", "Record original addendum issue time")
+    expect(issued).to_have_value("2026-10-30T12:00")
     rec.fill(revision.get_by_label("Source 3 original text", exact=True), ADDENDUM, "Record synthetic source clarification")
     rec.mark("new_source_addendum", page)
     rec.confirm(revision.get_by_label("Confirm invented reconciliation sources", exact=True), "Confirm revised sources are invented")
@@ -186,6 +188,7 @@ def journey(rec, browser, url, expected_source, expect):
     child_id, child_source = revised.json()["case"]["id"], revised.request.post_data_json["dossier"]
     assert revised.request.post_data_json["parent_case_id"] == parent_id
     assert child_source["documents"][:2] == dossier["documents"] and child_source["documents"][2]["text"] == ADDENDUM
+    assert child_source["documents"][2]["issued_at"] == "2026-10-30T12:00:00Z"
     rec.mark("child_verification_wait", page, read=False)
     child = wait_case(client, child_id)
     child_proof = audit_detail(child, child_source, "fixture", expected_source)
