@@ -12,6 +12,7 @@ import time
 from urllib.parse import parse_qs, urljoin, urlparse
 
 import demo_video as media
+import pitch_video as audio
 
 VIEW = {"width": 1280, "height": 720}
 FROZEN = "3cbe1dc18ca4e148ca4ee1d80a6305f4fbee7571"
@@ -19,14 +20,70 @@ MAX_SECONDS = 120
 NOTE = "Synthetic discharge-team review: the named follow-up contact is recorded in a separate source addendum. Keep treatment decisions with the care team."
 ADDENDUM = "Pending test: potassium; owner: discharge team; follow-up: within 2 days.\nThe discharge team will contact the synthetic patient about the pending result. No medication change is recorded in this addendum."
 RECHECK = "I would ask the discharge team to confirm who will contact us about the pending potassium result. I would not decide a medication change from this card."
+PHASES = ("overview", "source_submit", "card", "assigned", "accepted", "reply", "child_revision", "child_submit", "closure",
+          "release", "response1", "assessment1", "reviewer_follow_up", "recheck", "rag", "gate", "complete")
+
+
+def load_schedule(path, expected_sha, alignment_path, alignment_sha, application_source):
+    media.require(path is not None and alignment_path is not None and media.HASH.fullmatch(expected_sha or "")
+                  and media.HASH.fullmatch(alignment_sha or ""), "Actual schedule and original alignment files/hashes are required")
+    media.require(media.digest(path) == expected_sha and media.digest(alignment_path) == alignment_sha, "Reviewed schedule/alignment changed")
+    schedule = json.loads(path.read_bytes())
+    value = json.loads(alignment_path.read_bytes())
+    original = value.get("alignment", value)
+    text = "".join(original["characters"])
+    aligned = audio.alignment_data(value, text)
+    media.require(schedule["schema"] == "medplain-realtime-reading-schedule-v1" and schedule["status"] == "root_reviewed_reading_schedule"
+                  and schedule["application_source"] == application_source and schedule["narration_alignment_sha256"] == alignment_sha,
+                  "Actual source-bound reading schedule required")
+    media.require(abs(schedule["ui_film_offset_seconds"] - 16.904) < 0.002
+                  and abs(schedule["complete_after_seconds"] - 94.132) < 0.002, "Approved continuous narrative window changed")
+    phases = schedule["phases"]
+    media.require(tuple(row["id"] for row in phases) == PHASES, "The whole declared UI sequence must be paced")
+    previous = -1
+    for row in phases:
+        target = row["at_seconds"]
+        media.require(audio.finite_number(target) and previous < target <= schedule["complete_after_seconds"], "Invalid or unordered real reading deadline")
+        if row.get("voice_char") is not None:
+            index = row["voice_char"]
+            media.require(type(index) is int and 0 <= index < len(text)
+                          and abs(aligned["character_start_times_seconds"][index] - schedule["ui_film_offset_seconds"] - target) < 0.002,
+                          "Declared voice anchor is not an actual original character timestamp")
+        else:
+            media.require(isinstance(row.get("reading_reason"), str) and row["reading_reason"].strip(), "Operator reading time requires an explicit reason")
+        previous = target
+    media.require(abs(phases[-1]["at_seconds"] - schedule["complete_after_seconds"]) < 0.002, "Missing complete real-time ending")
+    return schedule
 
 
 class Recorder:
-    def __init__(self, output, reading_seconds):
-        self.output, self.reading = output, reading_seconds
+    def __init__(self, output, reading_seconds, schedule=None, schedule_sha=None):
+        self.output, self.reading, self.schedule, self.schedule_sha = output, reading_seconds, schedule, schedule_sha
         self.origin = time.monotonic()
         self.events, self.pages, self.contexts, self.secrets = [], [], [], []
         self.closed_rows = None
+        self.phase_index = 0
+        self.samples = []
+
+    def phase(self, name, page):
+        if not self.schedule:
+            return
+        row = self.schedule["phases"][self.phase_index]
+        media.require(row["id"] == name, "A scheduled actual action was skipped or reordered")
+        self.activate(page)
+        arrived = self.elapsed()
+        delay = max(0, row["at_seconds"] - arrived)
+        self.event("operator_reading_started", page, phase=name, until_seconds=row["at_seconds"],
+                   actual_arrival_seconds=arrived, lateness_seconds=max(0, arrived - row["at_seconds"]), planned_wait_seconds=delay)
+        if delay:
+            page.wait_for_timeout(delay * 1000)
+        self.event("operator_reading_finished", page, phase=name, actual_wait_seconds=self.elapsed() - arrived)
+        self.phase_index += 1
+
+    def read_region(self, locator, label):
+        self.activate(locator.page)
+        locator.scroll_into_view_if_needed()
+        self.event("scroll_target", locator.page, label=label)
 
     def elapsed(self):
         elapsed = time.monotonic() - self.origin
@@ -95,6 +152,15 @@ class Recorder:
             self.event("dismiss_success_notification", page, message=toast.locator(":scope > span").inner_text())
             self.click(toast.get_by_role("button", name="Dismiss notification", exact=True), "Dismiss completed action notification")
         media.require(success.count() == 0, "Notifications still obstruct the actual recording")
+        media.require(re.fullmatch(r"[a-z][a-z0-9_]{0,55}", name), "Unsafe milestone sample name")
+        directory = self.output / "milestones"
+        directory.mkdir(exist_ok=True)
+        sample = directory / (name + ".png")
+        media.require(not sample.exists(), "Preserve previous actual milestone pixels")
+        page.screenshot(path=str(sample), full_page=False)
+        self.samples.append({"milestone": name, "page": next(item["alias"] for item in self.pages if item["page"] is page),
+                             "seconds": self.elapsed(), "image": "milestones/" + sample.name, "sha256": media.digest(sample),
+                             "representation": "Actual native viewport screenshot at this recorded milestone; no DOM rewrite or fabricated result."})
         if read and self.reading:
             self.event("operator_reading_started", page, deliberate_seconds=self.reading)
             page.wait_for_timeout(self.reading * 1000)
@@ -113,7 +179,8 @@ class Recorder:
             path = Path(item["video"].path())
             media.require(path.resolve().is_relative_to((self.output / "native").resolve()), "Native video escaped recording directory")
             rows.append({key: value for key, value in item.items() if key not in {"page", "video"}}
-                        | {"native_video": "native/" + path.name, "sha256": media.digest(path), **brackets[item["context_index"]]})
+                        | {"native_video": "native/" + path.name, "sha256": media.digest(path), "ffprobe": media.probe(path),
+                           **brackets[item["context_index"]]})
         self.closed_rows = rows
         return rows
 
@@ -137,12 +204,14 @@ def journey(rec, browser, url, expected_source, expect):
     assert health["commit"] == expected_source and health["model_mode"] == "fixture"
     assert client.call("/api/ops/cases?limit=20")["total"] == 0
     rec.mark("overview", page)
+    rec.phase("overview", page)
     rec.click(page.get_by_test_id("careflow-entry").get_by_role("button", name="Preview coordinated follow-up", exact=True), "Preview coordinated follow-up")
     form = page.get_by_role("dialog", name="Reconcile synthetic source packet", exact=True)
     expect(form.get_by_test_id("careflow-preview-notice")).to_be_visible()
     expect(form.get_by_label("Complex synthetic example", exact=True)).to_have_value("pending-result-gap")
     expect(form.get_by_test_id("start-reconciliation")).to_be_disabled()
     rec.mark("source_preview_no_job", page)
+    rec.phase("source_submit", page)
     rec.confirm(form.get_by_label("Confirm invented reconciliation sources", exact=True), "Confirm invented original source packet")
     response = post_by_ui(page, "/api/ops/cases/reconcile", lambda: rec.click(form.get_by_test_id("start-reconciliation"), "Submit original source verification"), 202)
     parent_id, dossier = response.json()["case"]["id"], response.request.post_data_json["dossier"]
@@ -151,6 +220,7 @@ def journey(rec, browser, url, expected_source, expect):
     parent_proof = audit_detail(parent, dossier, "fixture", expected_source)
     drawer = page.get_by_role("dialog", name="Case details", exact=True)
     expect(drawer.locator(".drawer-meta .badge")).to_have_text("Review required", timeout=30_000)
+    rec.phase("card", page)
     rec.click(drawer.get_by_role("tab", name="Clarification", exact=True), "Read verified clarification card")
     expect(drawer.get_by_test_id("regimen-withheld")).to_be_visible()
     rec.mark("verified_source_card", page)
@@ -160,16 +230,20 @@ def journey(rec, browser, url, expected_source, expect):
     flow = client.call(flow_path)
     task = next(row for row in flow["tasks"] if row["code"] == "confirm_pending_owner")
     rec.click(panel.get_by_test_id("careflow-task-" + task["id"]), "Select pending-result owner question")
+    rec.phase("assigned", page)
     rec.select(panel.get_by_label("Act as synthetic staff", exact=True), "demo-pharmacist", "Select synthetic pharmacist actor")
     rec.select(panel.get_by_label("Assign synthetic staff", exact=True), "demo-pharmacist", "Assign synthetic pharmacist")
     post_by_ui(page, "/careflow/assign", lambda: rec.click(panel.get_by_role("button", name="Assign follow-up", exact=True), "Assign follow-up"), 200)
     rec.mark("assigned", page)
     rec.select(panel.get_by_label("Workflow demo role", exact=True), "reviewer", "Choose reviewer demo role")
+    rec.phase("accepted", page)
     post_by_ui(page, "/careflow/accept", lambda: rec.click(panel.get_by_role("button", name="Accept responsibility", exact=True), "Explicitly accept responsibility"), 200)
     rec.mark("accepted", page)
+    rec.phase("reply", page)
     rec.fill(panel.get_by_label("Source-bound clarification note", exact=True), NOTE, "Record source-bound clarification note")
     post_by_ui(page, "/careflow/answer", lambda: rec.click(panel.get_by_role("button", name="Record clarification note", exact=True), "Submit source-bound reply"), 200)
     rec.mark("source_bound_reply", page)
+    rec.phase("child_revision", page)
     rec.select(panel.get_by_label("Workflow demo role", exact=True), "operator", "Choose operator to record new source")
     rec.click(panel.get_by_role("button", name="Prepare clarified source revision", exact=True), "Prepare separate child source revision")
     revision = page.get_by_role("dialog", name="Revise sources and reverify", exact=True)
@@ -183,6 +257,7 @@ def journey(rec, browser, url, expected_source, expect):
     expect(issued).to_have_value("2026-10-30T12:00")
     rec.fill(revision.get_by_label("Source 3 original text", exact=True), ADDENDUM, "Record synthetic source clarification")
     rec.mark("new_source_addendum", page)
+    rec.phase("child_submit", page)
     rec.confirm(revision.get_by_label("Confirm invented reconciliation sources", exact=True), "Confirm revised sources are invented")
     revised = post_by_ui(page, "/api/ops/cases/reconcile", lambda: rec.click(revision.get_by_test_id("start-reconciliation"), "Submit independent child verification"), 202)
     child_id, child_source = revised.json()["case"]["id"], revised.request.post_data_json["dossier"]
@@ -202,6 +277,7 @@ def journey(rec, browser, url, expected_source, expect):
     rec.select(panel.get_by_label("Workflow demo role", exact=True), "reviewer", "Choose reviewer to inspect verified child")
     rec.click(panel.get_by_test_id("careflow-task-" + task["id"]), "Select original answered question")
     rec.select(panel.get_by_label("Separately verified source revision", exact=True), child_id, "Select the verified direct child")
+    rec.phase("closure", page)
     post_by_ui(page, "/careflow/link-revision", lambda: rec.click(panel.get_by_role("button", name="Link verified revision", exact=True), "Link exact verified source revision"), 200)
     rec.confirm(panel.get_by_label("I reviewed this verified revision", exact=False), "Confirm synthetic revision review")
     post_by_ui(page, "/careflow/close", lambda: rec.click(panel.get_by_role("button", name="Confirm resolution and close", exact=True), "Record explicit demo closure"), 200)
@@ -214,6 +290,7 @@ def journey(rec, browser, url, expected_source, expect):
     panel = drawer.get_by_test_id("careflow-panel")
     rec.click(panel.get_by_role("button", name="Go to artifact release review", exact=True), "Review exact child artifact release")
     rec.fill(drawer.get_by_label("Review comment", exact=True), "Release the synthetic source-bound clarification card only. Medication regimen remains withheld and open issues remain open.", "Record exact-artifact review")
+    rec.phase("release", page)
     post_by_ui(page, f"/cases/{child_id}/review", lambda: rec.click(drawer.get_by_test_id("release-case"), "Release verified child card"), 200)
     panel = drawer.get_by_test_id("careflow-panel")
     review = panel.get_by_test_id("teachback-review")
@@ -243,23 +320,29 @@ def journey(rec, browser, url, expected_source, expect):
     rec.mark("released_patient_view", patient)
     rec.click(patient.get_by_role("link", name="Questions and response access", exact=True), "Open patient response section")
     feedback = patient.get_by_test_id("patient-teachback")
+    rec.phase("response1", patient)
     rec.fill(feedback.get_by_label("Your synthetic response", exact=True), "Yes, I understand.", "Write first invented own-word response")
     rec.confirm(feedback.get_by_label("This is wholly invented", exact=False), "Confirm response is synthetic")
     post_by_ui(patient, "/responses", lambda: rec.click(feedback.get_by_role("button", name="Submit synthetic response", exact=True), "Submit actual first response"), 202)
     first = feedback.get_by_role("list", name="Teach-back attempt history", exact=True).locator(":scope > li").filter(has=patient.get_by_text("Response 1", exact=True))
     expect(first.locator(".careflow-status")).to_have_text("Assessed", timeout=30_000)
     expect(first.get_by_text("Provisional assessment, reviewer required", exact=True)).to_be_visible()
-    rec.mark("first_provisional_assessment", patient)
     rec.activate(page)
     rec.click(review.get_by_role("button", name="Refresh patient responses", exact=True), "Read actual response in reviewer view")
     flow = client.call(f"/api/ops/cases/{child_id}/careflow")
     assert len(flow["teachback"]["attempts"]) == 1 and flow["teachback"]["attempts"][0]["status"] == "assessed"
+    private_first = review.get_by_role("list", name="Teach-back attempt history", exact=True).locator(":scope > li").filter(has=page.get_by_text("Response 1", exact=True))
+    rec.read_region(private_first.locator(".careflow-facts"), "Read the actual provisional covered/missing/misunderstood partition")
+    rec.phase("assessment1", page)
+    rec.mark("first_provisional_assessment", page)
+    rec.phase("reviewer_follow_up", page)
     rec.select(review.get_by_label("Response awaiting reviewer", exact=True), flow["teachback"]["attempts"][0]["id"], "Select actual first response")
     rec.select(review.get_by_label("Review decision", exact=True), "follow_up", "Reviewer requests re-explanation")
     rec.fill(review.get_by_label("Private reviewer comment", exact=True), "The acknowledgement did not demonstrate understanding. Re-explain only the approved source and request another synthetic response.", "Record reviewer follow-up")
     post_by_ui(page, f"/teachback/{flow['teachback']['attempts'][0]['id']}/review", lambda: rec.click(review.get_by_role("button", name="Record teach-back review", exact=True), "Record real reviewer follow-up"), 200)
     rec.mark("reviewer_follow_up", page)
     rec.activate(patient)
+    rec.phase("recheck", patient)
     rec.click(feedback.get_by_role("button", name="Refresh response history", exact=True), "Read recorded follow-up in patient view")
     expect(feedback.get_by_text("Reviewer recorded follow-up", exact=False)).to_be_visible()
     rec.fill(feedback.get_by_label("Your synthetic response", exact=True), RECHECK, "Write distinct invented recheck")
@@ -269,13 +352,24 @@ def journey(rec, browser, url, expected_source, expect):
     expect(second.locator(".careflow-status")).to_have_text("Assessed", timeout=30_000)
     expect(second.locator(":scope > blockquote")).to_have_text(RECHECK)
     expect(second.get_by_text("Provisional assessment, reviewer required", exact=True)).to_be_visible()
+    rec.read_region(second.locator(".careflow-feedback > strong"), "Read the actual second response and provisional assessment")
     rec.mark("second_response_and_provisional_assessment", patient)
     rec.activate(page)
+    rec.phase("rag", page)
     evidence = panel.get_by_test_id("careflow-evidence")
     rec.fill(evidence.get_by_label("Evidence question", exact=True), "pending test responsibility accepted transfer", "Ask a general educational workflow question")
     rec.click(evidence.get_by_role("button", name="Search reviewed evidence", exact=True), "Retrieve actual versioned educational passage")
     expect(evidence.get_by_role("link", name="Clarification responsibility workflow", exact=True)).to_be_visible()
+    rec.read_region(evidence.locator('.careflow-evidence > article:has(a[href="https://www.ahrq.gov/patient-safety/settings/hospital/match/chapter-3.html"])'), "Read the actual AHRQ publisher, title and quotation")
     rec.mark("actual_targeted_educational_retrieval", page)
+    if rec.schedule:
+        rec.phase("gate", page)
+        rec.click(drawer.get_by_role("tab", name="Safety", exact=True), "Inspect the actual child verification receipt")
+        expect(drawer.locator(".receipt-card.verified")).to_have_count(1)
+        rec.read_region(drawer.locator(".receipt-card.verified"), "Read the actual verified receipt; no regimen is authorized")
+        rec.mark("actual_strict_gate_receipt", page, read=False)
+        rec.phase("complete", page)
+        assert rec.phase_index == len(PHASES)
     final = client.call(f"/api/ops/cases/{child_id}/careflow")
     assert len(final["teachback"]["attempts"]) == 2
     assert all(row["assessment"]["requires_reviewer"] is True for row in final["teachback"]["attempts"])
@@ -287,7 +381,7 @@ def journey(rec, browser, url, expected_source, expect):
             "patient_header_privacy": patient_headers}
 
 
-def run(app, expected, output, reading_seconds):
+def run(app, expected, output, reading_seconds, schedule=None, schedule_sha=None):
     media.require(not output.exists() and re.fullmatch(r"[0-9a-f]{40}", expected), "New source-bound recording directory required")
     media.require(0 <= reading_seconds <= 4, "Reading pauses are bounded and remain real captured time")
     identity = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=app, text=True).strip()
@@ -307,7 +401,8 @@ def run(app, expected, output, reading_seconds):
             wait_for_server("http://127.0.0.1:8779")
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch()
-                recorder = Recorder(output, reading_seconds)
+                media.require(not schedule or reading_seconds == 0, "Do not stack fixed pauses on the reviewed reading schedule")
+                recorder = Recorder(output, reading_seconds, schedule, schedule_sha)
                 try:
                     result = journey(recorder, browser, "http://127.0.0.1:8779", expected, expect)
                     elapsed = recorder.elapsed()
@@ -315,6 +410,8 @@ def run(app, expected, output, reading_seconds):
                     proof = {"schema": "medplain-realtime-ui-v1", "status": "completed_actual_ui_fixture_journey_pending_video_privacy_and_pixel_review",
                              "application_source": expected, "recorder_sha256": media.digest(Path(__file__)), "wall_seconds": elapsed,
                              "reading_pause_seconds_per_milestone": reading_seconds, "page_videos": pages, "events": recorder.events,
+                             "reading_schedule_sha256": schedule_sha, "reading_schedule": schedule,
+                             "actual_milestone_samples": recorder.samples,
                              "journey": result, "timeline_policy": "One monotonic real-time UI journey. Preserve all waits and actual page switches. No speed changes or hidden gaps.",
                              "clock_sync_claim": "Monotonic creation and context-close brackets only; measure native video origin independently before composition. No subframe synchronization claimed.",
                              "raw_recording_private_until_review": True, "public_upload_authorized": False}
@@ -341,5 +438,10 @@ if __name__ == "__main__":
     parser.add_argument("--expected-source", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--reading-seconds", type=float, default=0)
+    parser.add_argument("--schedule", type=Path)
+    parser.add_argument("--schedule-sha256")
+    parser.add_argument("--alignment", type=Path)
+    parser.add_argument("--alignment-sha256")
     args = parser.parse_args()
-    print(json.dumps(run(args.app.resolve(), args.expected_source, args.output.resolve(), args.reading_seconds)))
+    selected = load_schedule(args.schedule, args.schedule_sha256, args.alignment, args.alignment_sha256, args.expected_source) if args.schedule else None
+    print(json.dumps(run(args.app.resolve(), args.expected_source, args.output.resolve(), args.reading_seconds, selected, args.schedule_sha256)))

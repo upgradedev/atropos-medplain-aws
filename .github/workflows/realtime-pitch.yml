@@ -9,6 +9,8 @@ on:
       - scripts/check_realtime_source.py
       - scripts/prepare_realtime_request.py
       - video/realtime-render-request.json
+      - video/realtime-reading-schedule.json
+      - video/realtime-narration-alignment.json
       - .github/workflows/realtime-pitch.yml
   workflow_dispatch:
 
@@ -56,6 +58,10 @@ jobs:
           python scripts/stage_console.py
           python -m pip install --disable-pip-version-check --no-cache-dir -c constraints-runtime.txt . playwright
           python -m playwright install --with-deps chromium
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
       - name: Observe public demo without submitting any job
         if: steps.request.outputs.capture == 'true'
         run: |
@@ -75,7 +81,12 @@ jobs:
           PY
       - name: Record actual UI-created parent and child through response recheck
         if: steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'capture'
-        run: python -B scripts/realtime_careflow.py --app real-app-source --expected-source "$APPLICATION_SOURCE" --reading-seconds "$READING_SECONDS" --output artifacts/realtime-ui
+        run: |
+          if [ -n "${READING_SCHEDULE_SHA:-}" ]; then
+            python -B scripts/realtime_careflow.py --app real-app-source --expected-source "$APPLICATION_SOURCE" --reading-seconds 0 --schedule video/realtime-reading-schedule.json --schedule-sha256 "$READING_SCHEDULE_SHA" --alignment video/realtime-narration-alignment.json --alignment-sha256 "$NARRATION_ALIGNMENT_SHA" --output artifacts/realtime-ui
+          else
+            python -B scripts/realtime_careflow.py --app real-app-source --expected-source "$APPLICATION_SOURCE" --reading-seconds "$READING_SECONDS" --output artifacts/realtime-ui
+          fi
       - name: Retain native evidence privately for independent video and privacy review
         if: always() && steps.request.outputs.capture == 'true' && env.REALTIME_MODE == 'capture'
         uses: actions/upload-artifact@v4

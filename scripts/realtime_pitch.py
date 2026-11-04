@@ -123,8 +123,21 @@ class RealtimeCanvas(graphics.FinalCanvas):
             rendered = native.resize((1460, 821), self.Image.Resampling.LANCZOS)
             image.paste(rendered, (230, 100))
             self.Draw.Draw(image).rectangle((229, 99, 1691, 922), outline=(*design.MINT, 100), width=2)
+            for event in self.proof["events"]:
+                age = wall - event["seconds"]
+                if event["kind"] == "click_target" and event["page"] == alias and 0 <= age < 0.7:
+                    target = event["target"]
+                    require(0 <= target["x"] <= 1280 and 0 <= target["y"] <= 720, "Recorded click target is outside its actual native viewport")
+                    x, y = 230 + target["x"] * 1460 / 1280, 100 + target["y"] * 821 / 720
+                    pulse = self.Image.new("RGBA", image.size)
+                    radius = 12 + 22 * age / 0.7
+                    self.Draw.Draw(pulse).ellipse((x - radius, y - radius, x + radius, y + radius),
+                                                  outline=(*design.MINT, round(255 * (1 - age / 0.7))), width=4)
+                    self.Draw.Draw(pulse).ellipse((x - 5, y - 5, x + 5, y + 5), fill=(*design.WHITE, 240))
+                    image.alpha_composite(pulse)
             label = ("ACTUAL OFFLINE FIXTURE + STRANDS SDK | SOURCE " + self.proof["application_source"][:7]
                      + " | REAL TIME 1x | " + alias.upper() + " | " + f"{local:05.1f}s")
+            self.text(image, "Circle = actual automation click target", (1295, 30), 16, design.MUTED, width=550)
             latest = next((event for event in reversed(self.proof["events"]) if event["seconds"] <= wall
                            and event["kind"] in {"milestone", "operator_reading_started", "operator_reading_finished", "click_target", "fill", "select", "check"}), None)
             if latest:
@@ -250,6 +263,7 @@ def render(inputs, manifest_sha, recordings, proof_sha, review_path, review_sha,
                     "continuous_audio_seconds": seconds, "expected_frames": frames, "visual_rounding_seconds": frames / FPS - seconds,
                     "video_sha256": media.digest(video), "captions_sha256": media.digest(captions), "qa_samples": samples,
                     "representation": "Actual chronological UI automation with genuine page switches and visible real waits, surrounded by labelled CGI/historical context. Native temporal resampling repeats frames without optical interpolation. No provider efficacy or clinical outcome claimed.",
+                    "cursor_annotation": "Pulses use actual logged click-target coordinates, active page and monotonic time only; no invented or interpolated cursor movement.",
                     "publication": False}
     path = output / "render-proof.json"
     path.write_bytes(media.encoded(render_proof))

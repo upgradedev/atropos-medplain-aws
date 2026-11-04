@@ -23,6 +23,15 @@ def validate(root, request):
     for name, relative in FILES.items():
         media.require(media.digest(root / relative) == request["code_sha256"][name], "Reviewed recording source changed: " + relative)
     pins = {"REALTIME_MODE": request["mode"], "APPLICATION_SOURCE": request["application_source"], "READING_SECONDS": str(request["reading_seconds"])}
+    if request.get("reading_schedule_sha256"):
+        media.require(request["mode"] == "capture" and request["reading_seconds"] == 0, "Reviewed schedule must not stack fixed pauses")
+        from realtime_careflow import load_schedule
+        schedule_path = root / "video/realtime-reading-schedule.json"
+        alignment_path = root / "video/realtime-narration-alignment.json"
+        media.require(media.HASH.fullmatch(request["reading_schedule_sha256"]) and media.HASH.fullmatch(request["narration_alignment_sha256"]), "Actual schedule/alignment hashes required")
+        load_schedule(schedule_path, request["reading_schedule_sha256"], alignment_path,
+                      request["narration_alignment_sha256"], request["application_source"])
+        pins.update(READING_SCHEDULE_SHA=request["reading_schedule_sha256"], NARRATION_ALIGNMENT_SHA=request["narration_alignment_sha256"])
     if request["mode"] == "compose":
         media.require(type(request["native_run_id"]) is int and request["native_run_id"] > 0
                       and re.fullmatch(r"medplain-realtime-private-evidence-[0-9a-f]{40}", request["native_artifact_name"]), "Exact actual recording artifact required")

@@ -3,6 +3,7 @@ import ast
 from copy import deepcopy
 import json
 from pathlib import Path
+import tempfile
 
 import demo_video as media
 from prepare_realtime_request import FILES, validate
@@ -40,6 +41,41 @@ def main():
         else:
             raise AssertionError("Unsafe recording source accepted: " + name)
     assert recording.MAX_SECONDS == 120 and recording.VIEW == {"width": 1280, "height": 720}
+    artifacts = root / "artifacts"
+    artifacts.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="schedule-control-", dir=artifacts) as directory:
+        here = Path(directory)
+        text = "Original evidence remains tied to its named source. " * 35
+        aligned = {"characters": list(text), "character_start_times_seconds": [i * 0.08 for i in range(len(text))],
+                   "character_end_times_seconds": [i * 0.08 + 0.04 for i in range(len(text))]}
+        alignment_file = here / "alignment.json"
+        alignment_file.write_bytes(media.encoded({"alignment": aligned}))
+        alignment_sha = media.digest(alignment_file)
+        times = [2, 10, 13.247, 21.455, 25.530, 29.965, 37.093, 40, 42.469, 50.979, 57.434, 62.971, 68.010, 75, 80.305, 90.324, 94.132]
+        schedule = {"schema": "medplain-realtime-reading-schedule-v1", "status": "root_reviewed_reading_schedule",
+                    "application_source": recording.FROZEN, "narration_alignment_sha256": alignment_sha,
+                    "ui_film_offset_seconds": 16.904, "complete_after_seconds": 94.132,
+                    "phases": [{"id": name, "at_seconds": value, "reading_reason": "Constructed unit control only; no actual recording or approval"}
+                               for name, value in zip(recording.PHASES, times)]}
+        path = here / "schedule.json"
+        def load(value):
+            path.write_bytes(media.encoded(value))
+            return recording.load_schedule(path, media.digest(path), alignment_file, alignment_sha, recording.FROZEN)
+        assert len(load(schedule)["phases"]) == len(recording.PHASES)
+        for name, mutate in [("schedule_wrong_application", lambda value: value.update(application_source="b" * 40)),
+                             ("schedule_unreviewed", lambda value: value.update(status="draft")),
+                             ("schedule_audio_padding_window", lambda value: value.update(complete_after_seconds=130)),
+                             ("schedule_phase_reordering", lambda value: value["phases"].reverse()),
+                             ("schedule_estimated_voice_anchor", lambda value: value["phases"][2].update(voice_char=0)),
+                             ("schedule_changed_alignment", lambda value: value.update(narration_alignment_sha256="0" * 64))]:
+            bad = deepcopy(schedule)
+            mutate(bad)
+            try:
+                load(bad)
+            except ValueError:
+                controls.append(name)
+            else:
+                raise AssertionError(name)
     constructed = {"status": "completed_actual_ui_fixture_journey_pending_video_privacy_and_pixel_review",
                    "journey": {"all_mutations_via_actual_ui": True, "provider_calls": 0}, "wall_seconds": 100.0,
                    "events": [{"kind": "active_page", "page": "console", "seconds": 0.1},
