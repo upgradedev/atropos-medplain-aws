@@ -7,6 +7,7 @@ from pathlib import Path
 import demo_video as media
 from prepare_realtime_request import FILES, validate
 import realtime_careflow as recording
+import realtime_pitch as composition
 
 
 def source_contract(text):
@@ -39,6 +40,37 @@ def main():
         else:
             raise AssertionError("Unsafe recording source accepted: " + name)
     assert recording.MAX_SECONDS == 120 and recording.VIEW == {"width": 1280, "height": 720}
+    constructed = {"status": "completed_actual_ui_fixture_journey_pending_video_privacy_and_pixel_review",
+                   "journey": {"all_mutations_via_actual_ui": True, "provider_calls": 0}, "wall_seconds": 100.0,
+                   "events": [{"kind": "active_page", "page": "console", "seconds": 0.1},
+                              {"kind": "active_page", "page": "patient", "seconds": 40.0},
+                              {"kind": "active_page", "page": "console", "seconds": 60.0},
+                              {"kind": "milestone", "page": "console", "seconds": 99.9}]}
+    start, end, windows = composition.chronology(constructed)
+    assert start == 0.1 and end == 99.9 and len(windows) == 3
+    assert abs(sum(row["end"] - row["start"] for row in windows) - 99.8) < 1e-6
+    origin = composition.native_origin({"created_before_seconds": 0.0, "created_after_seconds": 0.1,
+                                        "closed_before_seconds": 100.0, "closed_after_seconds": 100.1}, 100.0, 0.04)
+    assert origin["uncertainty_seconds"] <= 0.5
+    for name, change in [("recording_clock_reversal", lambda value: value["events"][2].update(seconds=39.0)),
+                         ("recording_hidden_api_creation", lambda value: value["journey"].update(all_mutations_via_actual_ui=False)),
+                         ("recording_paid_model_substitution", lambda value: value["journey"].update(provider_calls=1)),
+                         ("recording_actual_budget_exceeded", lambda value: value.update(wall_seconds=121))]:
+        bad = deepcopy(constructed)
+        change(bad)
+        try:
+            composition.chronology(bad)
+        except ValueError:
+            controls.append(name)
+        else:
+            raise AssertionError(name)
+    try:
+        composition.native_origin({"created_before_seconds": 0, "created_after_seconds": 0.1,
+                                   "closed_before_seconds": 100, "closed_after_seconds": 100.1}, 80, 0.04)
+    except ValueError:
+        controls.append("native_origin_unsubstantiated_by_actual_duration")
+    else:
+        raise AssertionError("Unmeasured native synchronization accepted")
     original = root / "scripts/careflow_browser_smoke.py"
     original_capture = root / "scripts/final_pitch_capture.py"
     assert original.is_file() and original_capture.is_file()
