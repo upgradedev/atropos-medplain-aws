@@ -263,7 +263,9 @@ export default function ReconciliationForm({
         <details data-testid="reconciliation-steps">
           <summary>What will happen when I submit?</summary>
           <ol>
-            <li>Inspect the original documents and caregiver concerns below.</li>
+            <li>
+              Inspect the original documents and caregiver concerns below.
+            </li>
             <li>
               Confirm the sources are invented, then choose Reconcile source
               packet to start one verification run.

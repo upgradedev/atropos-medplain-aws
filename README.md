@@ -16,7 +16,7 @@ The **pending-result example** has a potassium result still pending, follow-up w
 2. To run a new verification, use the **operator** demo role, confirm the sources are invented and choose **Reconcile source packet**. This submits a budgeted job to the configured Strands/Bedrock workflow.
 3. Once a clarification card verifies, open its **Clarifications** workspace. With the **reviewer** role, assign the question, explicitly select the assigned demo actor, accept the task and record the source-bound reply.
 4. Switch to **operator** to record and submit a separate child source revision. After that child verifies, return to **reviewer**, select the actor, link the exact child and confirm demo closure. Review and release the child itself.
-5. Open the child's separate **private response link**. Submit a synthetic own-word answer, inspect the provisional assessment, then return as reviewer for follow-up. The next patient answer stays a separate attempt.
+5. As reviewer, choose **Enable synthetic patient responses**, then open the child's separate **private response link**. Submit a synthetic own-word answer, inspect the provisional assessment, then return as reviewer for follow-up. The next patient answer stays a separate attempt.
 
 The console role enables actions; the selected demo actor identifies whose acceptance, answer or review is recorded. These are selectable synthetic roles, not hospital authentication.
 

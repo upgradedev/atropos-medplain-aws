@@ -128,9 +128,9 @@ export default function Overview({
           <Icon name="arrow" />
         </button>
         <p className="control-reason" data-testid="careflow-preview-boundary">
-          Opening the preview creates no case and starts no model job. You choose
-          whether to confirm the invented sources and submit a verification.
-          Prepared examples stay labelled offline.
+          Opening the preview creates no case and starts no model job. You
+          choose whether to confirm the invented sources and submit a
+          verification. Prepared examples stay labelled offline.
         </p>
         <details data-testid="careflow-input-action-outcome">
           <summary>See the input, action and outcome</summary>
@@ -140,8 +140,8 @@ export default function Overview({
               caregiver's unanswered question.
             </li>
             <li>
-              <strong>Verify a clarification card:</strong> Strands agents connect
-              source passages; the safety gate checks their fidelity.
+              <strong>Verify a clarification card:</strong> Strands agents
+              connect source passages; the safety gate checks their fidelity.
             </li>
             <li>
               <strong>Follow the next step:</strong> assign a question, record
