@@ -103,13 +103,14 @@ class RealtimeCanvas(graphics.FinalCanvas):
             # Keep contextual CGI/historical scenes. Old UI screenshots are never substituted for real-time footage.
             shot = next((row for row in self.plan["shots"] if seconds < row["end_seconds"]), self.plan["shots"][-1])
             if shot["kind"] != "ui":
-                return super().frame(self.plan["shots"], seconds, cues)
-            image = self.background.copy()
-            illustration = {**shot, "kind": "process", "nodes": ["Source evidence", "Accepted question", "Human review"],
-                            "title": "A source-bound next step", "subtitle": "The full UI journey retains its real actions and waits.",
-                            "process_note": "Illustration. No extra patient fact or successful clinical outcome is supplied."}
-            self.graph(image, illustration, design.motion_state("process", seconds - shot["start_seconds"], shot["end_seconds"] - shot["start_seconds"]), seconds - shot["start_seconds"])
-            label = "CGI process illustration | synthetic prototype"
+                image, label = self.scene(shot, seconds), shot["honesty_label"]
+            else:
+                image = self.background.copy()
+                illustration = {**shot, "kind": "process", "nodes": ["Source evidence", "Accepted question", "Human review"],
+                                "title": "A source-bound next step", "subtitle": "The full UI journey retains its real actions and waits.",
+                                "process_note": "Illustration. No extra patient fact or successful clinical outcome is supplied."}
+                self.graph(image, illustration, design.motion_state("process", seconds - shot["start_seconds"], shot["end_seconds"] - shot["start_seconds"]), seconds - shot["start_seconds"])
+                label = "CGI process illustration | synthetic prototype"
         else:
             wall = self.start + local
             window = next((row for row in self.windows if row["start"] <= wall < row["end"]), self.windows[-1])
