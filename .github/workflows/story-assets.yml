@@ -2,6 +2,13 @@ name: MedPlain editorial images
 
 on:
   workflow_dispatch:
+  push:
+    branches: ['codex/medplain-visual-story-20261105']
+    paths:
+      - '.github/workflows/story-assets.yml'
+      - 'scripts/render_story_assets.py'
+      - 'docs/assets/story/*.svg'
+      - 'docs/assets/story/cover-source.png'
 
 permissions:
   contents: read
