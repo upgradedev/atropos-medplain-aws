@@ -1,0 +1,52 @@
+name: MedPlain editorial images
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/medplain-visual-story-20261105']
+    paths:
+      - '.github/workflows/story-assets.yml'
+      - 'scripts/render_story_assets.py'
+      - 'docs/assets/story/*.svg'
+      - 'docs/assets/story/cover-source.png'
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify the anonymous application without inference
+        run: |
+          python - <<'PY'
+          import urllib.request
+          base = 'https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws'
+          for path in ('/', '/api/health'):
+              with urllib.request.urlopen(base + path, timeout=30) as response:
+                  assert response.status == 200
+          print('Anonymous application and health HTTP 200; no jobs submitted.')
+          PY
+      - name: Check source and frozen clinical paths
+        run: |
+          python scripts/check_source.py
+          python scripts/check_careflow_isolation.py
+      - name: Install CI-only image tools
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir Pillow==13.0.0 playwright==1.51.0
+          python -m playwright install --with-deps chromium
+      - name: Render original documentation assets
+        run: python scripts/render_story_assets.py --output artifacts/story-assets
+      - name: Retain the exact rendered assets and source bindings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medplain-editorial-images-${{ github.sha }}
+          path: artifacts/story-assets/
+          if-no-files-found: error
+          retention-days: 30

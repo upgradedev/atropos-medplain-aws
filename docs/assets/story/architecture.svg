@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1300" viewBox="0 0 1600 1300" role="img" aria-labelledby="title desc">
+<title id="title">A transactional outbox connects the console to governed Strands execution</title>
+<desc id="desc">Architecture illustration of the existing Atropos MedPlain source db0a25ad: an anonymous React console uses FastAPI on an AWS Lambda Function URL. DynamoDB commits the case and outbox atomically. A DynamoDB Streams relay Lambda sends selectors to SQS. A fenced worker Lambda executes the Strands Graph with Amazon Bedrock. Actual Agents: DischargeEvidenceIndexerAgent, CrossDocumentClarificationPlannerAgent, ClarificationCardPublisherAgent. Configured models are Nova Micro, Nova Pro, Nova Micro respectively. CareflowTeachbackAssessmentAgent uses the same bounded delivery path and configured Nova Pro. Verified artifacts and receipts require human release. Repeated delivery does not imply exactly-once inference.</desc>
+<defs><linearGradient id="wash" x2="1" y2="1"><stop stop-color="#17352f" stop-opacity=".65"/><stop offset="1" stop-color="#10151d" stop-opacity="0"/></linearGradient><marker id="arrow-mint" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M1 1 L11 6 L1 11" fill="none" stroke="#7ce4c5" stroke-width="2"/></marker><marker id="arrow-amber" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M1 1 L11 6 L1 11" fill="none" stroke="#f1c27b" stroke-width="2"/></marker></defs>
+<g font-family="Arial, Helvetica, sans-serif"><rect width="1600" height="1300" fill="#10151d"/><rect width="1600" height="210" fill="url(#wash)"/>
+<path d="M64 45 L83 38 L102 45 V62 Q102 76 83 86 Q64 76 64 62 Z" fill="none" stroke="#7ce4c5" stroke-width="3"/><path d="M74 59 L81 66 L93 52" fill="none" stroke="#7ce4c5" stroke-width="3"/>
+<text x="122" y="68" font-size="26" fill="#7ce4c5" font-weight="700" text-anchor="start">ATROPOS MEDPLAIN</text>
+<text x="1536" y="67" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="end">ARCHITECTURE ILLUSTRATION</text>
+<text x="64" y="133" font-size="47" fill="#e9eef5" font-weight="700" text-anchor="start">One transaction. A governed agent workflow.</text>
+<text x="64" y="181" font-size="27" fill="#94a3b7" font-weight="400" text-anchor="start">Source identity survives the queue, verification and human release.</text>
+<rect x="64" y="220" width="320" height="230" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
+<text x="86" y="261" font-size="24" fill="#7ce4c5" font-weight="700" text-anchor="start">REACT + TYPESCRIPT</text>
+<text x="86" y="307" font-size="28" fill="#e9eef5" font-weight="700" text-anchor="start">Anonymous console</text>
+<text x="86" y="353" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Original sources</text>
+<text x="86" y="392" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Review + patient views</text>
+<rect x="448" y="220" width="320" height="230" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
+<text x="470" y="261" font-size="24" fill="#7ce4c5" font-weight="700" text-anchor="start">FUNCTION URL</text>
+<text x="470" y="307" font-size="28" fill="#e9eef5" font-weight="700" text-anchor="start">FastAPI on Lambda</text>
+<text x="470" y="353" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Validate each request</text>
+<text x="470" y="392" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">No cloud keys in browser</text>
+<rect x="832" y="220" width="320" height="230" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
+<text x="854" y="261" font-size="24" fill="#7ce4c5" font-weight="700" text-anchor="start">CASE + OUTBOX</text>
+<text x="854" y="307" font-size="28" fill="#e9eef5" font-weight="700" text-anchor="start">DynamoDB</text>
+<text x="854" y="353" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Case + source + outbox</text>
+<text x="854" y="392" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Commit together</text>
+<rect x="1216" y="220" width="320" height="230" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
+<text x="1238" y="261" font-size="24" fill="#7ce4c5" font-weight="700" text-anchor="start">LAMBDA</text>
+<text x="1238" y="307" font-size="28" fill="#e9eef5" font-weight="700" text-anchor="start">Streams relay</text>
+<text x="1238" y="353" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Read committed outbox</text>
+<text x="1238" y="392" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Send selectors to SQS</text>
+<path d="M390 335 H436" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<path d="M774 335 H820" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<path d="M1158 335 H1204" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<path d="M1376 456 V548" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<rect x="1216" y="560" width="320" height="190" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
+<text x="1240" y="605" font-size="24" fill="#7ce4c5" font-weight="700" text-anchor="start">SQS JOB QUEUE</text>
+<text x="1240" y="651" font-size="24" fill="#e9eef5" font-weight="700" text-anchor="start">Case / attempt selectors</text>
+<text x="1240" y="698" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">At-least-once delivery</text>
+<path d="M1210 655 H1164" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<path d="M1376 756 V798" fill="none" stroke="#f1c27b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-amber)"/>
+<rect x="1216" y="810" width="320" height="144" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
+<text x="1240" y="851" font-size="24" fill="#f1c27b" font-weight="700" text-anchor="start">DEAD-LETTER QUEUE</text>
+<text x="1240" y="899" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Failed deliveries retained</text>
+<rect x="64" y="560" width="1088" height="394" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
+<text x="96" y="604" font-size="25" fill="#7ce4c5" font-weight="700" text-anchor="start">WORKER LAMBDA · STRANDS GRAPH + AMAZON BEDROCK</text>
+<text x="96" y="646" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Configured models below are not evidence of a successful inference.</text>
+<rect x="96" y="674" width="312" height="154" rx="16" fill="#202a37" stroke="#2b3645" stroke-width="2"/>
+<text x="114" y="710" font-size="27" fill="#e9eef5" font-weight="700" text-anchor="start">Index evidence</text>
+<text x="114" y="744" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">DischargeEvidence</text>
+<text x="114" y="773" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">IndexerAgent</text>
+<text x="114" y="808" font-size="24" fill="#7ce4c5" font-weight="400" text-anchor="start">Nova Micro</text>
+<rect x="448" y="674" width="312" height="154" rx="16" fill="#202a37" stroke="#2b3645" stroke-width="2"/>
+<text x="466" y="710" font-size="27" fill="#e9eef5" font-weight="700" text-anchor="start">Plan clarifications</text>
+<text x="466" y="744" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">CrossDocument</text>
+<text x="466" y="771" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">ClarificationPlanner</text>
+<text x="466" y="808" font-size="24" fill="#7ce4c5" font-weight="400" text-anchor="start">Agent · Nova Pro</text>
+<rect x="800" y="674" width="312" height="154" rx="16" fill="#202a37" stroke="#2b3645" stroke-width="2"/>
+<text x="818" y="710" font-size="27" fill="#e9eef5" font-weight="700" text-anchor="start">Bind the card</text>
+<text x="818" y="744" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">ClarificationCard</text>
+<text x="818" y="773" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">PublisherAgent</text>
+<text x="818" y="808" font-size="24" fill="#7ce4c5" font-weight="400" text-anchor="start">Nova Micro</text>
+<path d="M414 752 H436" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<path d="M766 752 H788" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<rect x="96" y="850" width="1024" height="70" rx="16" fill="#202a37" stroke="#7ce4c5" stroke-width="2"/>
+<text x="118" y="893" font-size="25" fill="#e9eef5" font-weight="700" text-anchor="start">Lifecycle gate: source coverage, quotations and artifact identity</text>
+<text x="96" y="941" font-size="24" fill="#f1c27b" font-weight="400" text-anchor="start">On failure: bounded correction, then withhold if verification cannot finish.</text>
+<path d="M992 554 V464" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<text x="1007" y="511" font-size="24" fill="#7ce4c5" font-weight="400" text-anchor="start">Result + receipt</text>
+<rect x="64" y="1020" width="448" height="118" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
+<text x="88" y="1064" font-size="25" fill="#e9eef5" font-weight="700" text-anchor="start">Artifact + verification receipt</text>
+<text x="88" y="1106" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Stored with exact source identity</text>
+<rect x="576" y="1020" width="448" height="118" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
+<text x="600" y="1064" font-size="25" fill="#e9eef5" font-weight="700" text-anchor="start">Human review and release</text>
+<text x="600" y="1106" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Applies to the exact verified artifact</text>
+<rect x="1088" y="1020" width="448" height="118" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
+<text x="1112" y="1064" font-size="25" fill="#e9eef5" font-weight="700" text-anchor="start">Read-only patient card</text>
+<text x="1112" y="1106" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Separate capability for responses</text>
+<path d="M518 1079 H564" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<path d="M1030 1079 H1076" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<path d="M288 960 V1008" fill="none" stroke="#7ce4c5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-mint)"/>
+<text x="64" y="1184" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Patient responses use the same outbox and worker for provisional teach-back assessment.</text>
+<text x="64" y="1223" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Conditional claims fence stale work. Repeated delivery does not mean exactly-once inference.</text>
+<text x="64" y="1271" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Architecture illustration · Source db0a25ad · No new clinical measurement or production-readiness claim</text>
+</g></svg>

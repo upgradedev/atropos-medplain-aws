@@ -1,0 +1,38 @@
+{
+  "schema": "medplain.editorial-assets-render.v1",
+  "source_commit": "635c8ba154e08364966e3a98cf21b84ca376a22e",
+  "ci_run_id": "41964807275",
+  "sources": {
+    "cover-source.png": "a7a923e56e8eb377a8e6f2afa21fdec925c2a8835a3aea94db452f19897009c5",
+    "workflow.svg": "3d2c1ffefa381fcecfc8efa29f815f42b0b2ebe333b9e6c6709e9bfea3652c3c",
+    "architecture.svg": "0432cf1ab49ded05489f4d794c7a7725aa0d8ee360dc9ec995af8d94f6cde5cd"
+  },
+  "outputs": {
+    "cover.jpg": {
+      "sha256": "b991807ee50a01782d00c3bd8dbad07082034dc1455b005cead929b439bcd3c1",
+      "bytes": 222875,
+      "size": [
+        1200,
+        675
+      ]
+    },
+    "workflow.png": {
+      "sha256": "6db8fb4096484a2fac6eb61a880aff23d754acce854e86ec1716810e880adf2b",
+      "bytes": 313712,
+      "size": [
+        1600,
+        1160
+      ]
+    },
+    "architecture.png": {
+      "sha256": "df4b4336226b75d764d78d7b7c9d39904ff48e4c298a0f33be88e036afb6f258",
+      "bytes": 349380,
+      "size": [
+        1600,
+        1300
+      ]
+    }
+  },
+  "kind": "Original CGI cover and explanatory diagrams, not clinical or model evidence",
+  "application_or_model_calls": 0
+}

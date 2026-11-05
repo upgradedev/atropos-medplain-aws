@@ -1,0 +1,145 @@
+{
+  "schema": "medplain.story_assets.v1",
+  "source_commit": "db0a25ad4865a36d2f8196be26e2f365abded2b4",
+  "authored_on_parent": "b3c2b350d40c4a1e81547eb0d34ebcacba8cddc3",
+  "scope": "Owner-authorized visual documentation only; existing application, model configuration, clinical gate, baseline, measurements and video are unchanged.",
+  "diagrams": [
+    {
+      "file": "workflow.svg",
+      "sha256": "3d2c1ffefa381fcecfc8efa29f815f42b0b2ebe333b9e6c6709e9bfea3652c3c",
+      "bytes": 9120,
+      "width": 1600,
+      "height": 1160,
+      "caption": "Workflow illustration: original evidence, Strands and the strict gate, explicit synthetic responsibility, a separately verified child, patient words and provisional reviewer follow-up. No measured clinical outcome is shown.",
+      "provenance": "Original code-native SVG authored for MedPlain; no external image, script, font or copied project artwork",
+      "representation": "Explanatory source architecture, not an application screenshot, invocation trace or measurement",
+      "minimum_visible_font_px": 24,
+      "local_render_performed": false,
+      "PNG_derivative": "Exact CI-rendered PNG is bound in render-manifest.json; independently reviewed as explanatory artwork."
+    },
+    {
+      "file": "architecture.svg",
+      "sha256": "0432cf1ab49ded05489f4d794c7a7725aa0d8ee360dc9ec995af8d94f6cde5cd",
+      "bytes": 11630,
+      "width": 1600,
+      "height": 1300,
+      "caption": "Architecture illustration of the db0 source: FastAPI Lambda, DynamoDB transactional outbox, Streams relay, SQS, Strands worker with configured Bedrock models and human release. Configured models are not inference evidence.",
+      "provenance": "Original code-native SVG authored for MedPlain; no external image, script, font or copied project artwork",
+      "representation": "Explanatory source architecture, not an application screenshot, invocation trace or measurement",
+      "minimum_visible_font_px": 24,
+      "local_render_performed": false,
+      "PNG_derivative": "Exact CI-rendered PNG is bound in render-manifest.json; independently reviewed as explanatory artwork."
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "review-workspace.png",
+      "sha256": "64fb310196708ff7bfeb0aae668d8c4b23644643941b09848f03aba9f1024feb",
+      "bytes": 165778,
+      "dimensions": [
+        1280,
+        720
+      ],
+      "caption": "Recorded source-bound clarification note in the actual db0 console. Offline fixture execution; synthetic staff roles. A separate verified source revision is still required.",
+      "alt_text": "Recorded source-bound clarification note in the actual db0 console. Offline fixture execution; synthetic staff roles. A separate verified source revision is still required.",
+      "source_run": "https://github.com/upgradedev/atropos-medplain-aws/actions/runs/41821289683",
+      "complete_artifact_sha256": "878dd1653638752b1cfcbe208822c781d8b00d5bdc7eb9f0017ff8425c37833c",
+      "archive_member": "realtime-ui/milestones/source_bound_reply.png",
+      "recording_proof_sha256": "485d924caedfdca809ea3f47915d102a3e6080cf216af3db92236c9be1aedad2",
+      "milestone": "source_bound_reply",
+      "recorded_seconds": 30.672137012000007,
+      "pixel_transformation": "none; exact retained full viewport PNG",
+      "evidence_scope": "Actual API and Strands SDK, offline fixture models; no new Bedrock or patient-benefit claim",
+      "visually_inspected": true,
+      "visible_private_capability_observed": false
+    },
+    {
+      "file": "response-review.png",
+      "sha256": "1b2b5b6f7e3f175833204addd4003d46a29a442c33c6d214f5bc109b776470fc",
+      "bytes": 128561,
+      "dimensions": [
+        1280,
+        720
+      ],
+      "caption": "A synthetic patient response and its provisional assessment in the actual db0 console. Offline fixture execution; reviewer review is required and understanding is not certified.",
+      "alt_text": "A synthetic patient response and its provisional assessment in the actual db0 console. Offline fixture execution; reviewer review is required and understanding is not certified.",
+      "source_run": "https://github.com/upgradedev/atropos-medplain-aws/actions/runs/41821289683",
+      "complete_artifact_sha256": "878dd1653638752b1cfcbe208822c781d8b00d5bdc7eb9f0017ff8425c37833c",
+      "archive_member": "realtime-ui/milestones/first_provisional_assessment.png",
+      "recording_proof_sha256": "485d924caedfdca809ea3f47915d102a3e6080cf216af3db92236c9be1aedad2",
+      "milestone": "first_provisional_assessment",
+      "recorded_seconds": 63.144587677000004,
+      "pixel_transformation": "none; exact retained full viewport PNG",
+      "evidence_scope": "Actual API and Strands SDK, offline fixture models; no new Bedrock or patient-benefit claim",
+      "visually_inspected": true,
+      "visible_private_capability_observed": false
+    }
+  ],
+  "source_bindings": [
+    {
+      "path": "src/medplain/reconciliation_engine.py",
+      "sha256": "17ba035db954864097cfaf1daec3fb10398723818bdd9066420595e74a4d85cf",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/src/medplain/reconciliation_engine.py"
+    },
+    {
+      "path": "src/medplain/reconciliation.py",
+      "sha256": "df8bdb1d4667368c39adbb0d069c2cadd46f68e55ffef733ea1cd31d7755dca0",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/src/medplain/reconciliation.py"
+    },
+    {
+      "path": "src/medplain/ops_store.py",
+      "sha256": "a8a7bc3a43f0a61882ca56222911738344f2020a45771ab020c1e050c9ab4ca7",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/src/medplain/ops_store.py"
+    },
+    {
+      "path": "src/medplain/ops_relay.py",
+      "sha256": "1438b8e97dcf2d192e1ed845eebd5d75c598d7172896929965802c06ab13f1f7",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/src/medplain/ops_relay.py"
+    },
+    {
+      "path": "src/medplain/careflow_relay.py",
+      "sha256": "5ae0fffe479abc6d8afac7f8052615b1d3e8d4d59d9b2d0b8c2b89291b003d56",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/src/medplain/careflow_relay.py"
+    },
+    {
+      "path": "src/medplain/careflow_worker.py",
+      "sha256": "68ef3f6f7d17d334289a5d560be563928c82cb8f0866c5619e48677e5f44d3af",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/src/medplain/careflow_worker.py"
+    },
+    {
+      "path": "src/medplain/careflow_domain.py",
+      "sha256": "a38b0ec8470abf068b5985a1309cd2afcf61e28eb2475cf66fd8ed4cb2e3132b",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/src/medplain/careflow_domain.py"
+    },
+    {
+      "path": "src/medplain/careflow_teachback.py",
+      "sha256": "1e7476d159645c87791e2569e48924a11bb22cd4bce21735ea7bb9617c5923ea",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/src/medplain/careflow_teachback.py"
+    },
+    {
+      "path": "scripts/ops_infra.py",
+      "sha256": "cf564bf16524c1ba2cfdd7136da2ed9595fe939be647e82d5d0ee44d55dc4a55",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/scripts/ops_infra.py"
+    },
+    {
+      "path": "scripts/deploy_careflow.py",
+      "sha256": "2e04c046dbb7abb4f8976800275156caf699d263b23e26233a0f02e5d8645d61",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/scripts/deploy_careflow.py"
+    },
+    {
+      "path": "web/src/styles.css",
+      "sha256": "7d7dc2f4eb3ccb25c50bce765f422387206dda322330a29a0522aeeaf787c2e7",
+      "source_url": "https://github.com/upgradedev/atropos-medplain-aws/blob/db0a25ad4865a36d2f8196be26e2f365abded2b4/web/src/styles.css"
+    }
+  ],
+  "limits": [
+    "Diagrams illustrate source contracts, not a new clinical outcome or production readiness.",
+    "Screenshots show synthetic offline fixture execution, not a new Bedrock success.",
+    "Visible roles simulate staff responsibility, not authenticated hospital staff.",
+    "Provisional assessment does not certify understanding or authorize treatment."
+  ],
+  "external_provider_cloud_browser_render_calls": 0,
+  "render_manifest": "render-manifest.json",
+  "render_run": "https://github.com/upgradedev/atropos-medplain-aws/actions/runs/41964807275",
+  "independent_visual_review_sha256": "f4af0af194d50f00d4a58b8d54b95486e1c4a95d66fb8c6554e77d20f6e56ecb"
+}

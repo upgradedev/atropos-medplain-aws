@@ -1,0 +1,13 @@
+{
+  "schema": "medplain.original-cover.v1",
+  "tool": "Built-in image_gen",
+  "generated_on": "2026-11-05",
+  "source_file": "cover-source.png",
+  "source_sha256": "a7a923e56e8eb377a8e6f2afa21fdec925c2a8835a3aea94db452f19897009c5",
+  "source_size": [1672, 941],
+  "published_derivative": "cover.jpg",
+  "derivative_purpose": "CI-sized JPEG at 1200 by 675 for the article cover and README; original retained",
+  "representation": "Original AI-generated fictional CGI illustration. Not real patient footage, an application screenshot or clinical evidence.",
+  "prompt": "Use case: illustration-story. Asset type: original widescreen 16:9 editorial cover for Atropos MedPlain, an AWS Strands software prototype that helps caregivers follow unresolved discharge questions to a named and accepted next step. Create a polished cinematic 3D editorial diorama with a warm human center: a fictional older adult man and his fictional adult daughter sitting together at a kitchen table after returning home from hospital, quietly reviewing a single discharge sheet next to a mobile phone. It should feel thoughtful, approachable and dignified, never alarmist. A visual trail of subtle mint-green light connects the paper and phone to three small abstract source/evidence nodes, suggesting an accountable handoff, not autonomous medical treatment. Clear composition with generous breathing room, natural tactile materials, softly lit domestic environment, warm amber daylight balanced by the established MedPlain palette of deep navy #0b131b and mint #82dcc5. Attractive high-end CGI illustration with stylized human characters and believable home space. Main subjects centered within the safe middle 75 percent so the image crops cleanly to 1200x675. Crisp silhouette, refined depth, restrained details, no visual clutter. No text anywhere, no words, no numbers, no fake medical labels, no logos, no doctor, no robot, no HUD, no floating paper stack, no medical instructions, no watermark. This is a fictional contextual illustration, not real patient footage or proof of app results. Landscape 16:9.",
+  "application_model_or_clinical_calls": 0
+}
