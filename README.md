@@ -1,136 +1,102 @@
 # Atropos MedPlain
 
-**Atropos MedPlain uses source-cited Strands agents to turn an unresolved discharge instruction into a clarification with an explicitly accepted next step.**
+**Source-cited Strands agents turn an unresolved discharge instruction into a clarification with an explicitly accepted next step.**
 
-For a discharge reviewer and a caregiver asking: **a test is still pending, so who will contact the family?** The prototype keeps the original evidence, records demo task acceptance and reviews the patient's own-word response. It does not create a reconciled prescription.
+For discharge reviewers and caregivers facing a practical question: **a test is still pending, so who will contact the family?**
 
-**[Open the anonymous AWS console](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/console/overview)** · [Watch the 2:29 continuous UI walkthrough](https://upgradedev.github.io/atropos-medplain-aws/experience-review/) · [Read the article](https://upgradedev.github.io/atropos-medplain-aws/experience-review/article.html)
+**[Try the anonymous AWS app](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/console/overview)** · **[Watch the public demo, 2:29](https://youtu.be/e6iwWIGLHds)** · **[Read the AWS Builder article](https://builder.aws.com/project/3LXiuTVtq2dN9E1fWT41b05gBqN/atropos-medplain-discharge-questions-with-a-named-next-step)**
 
-![An invented pending potassium result with no named owner becomes a source-cited question, explicit demo task acceptance, a verified source revision and a reviewed patient response. Workflow illustration, not patient evidence.](docs/assets/readme/hero.svg)
+![Fictional caregiver and older parent at home with discharge documents. Original CGI illustration, not patient footage.](docs/assets/story/cover.jpg)
 
-## Start with one discharge question
+*Illustrated scenario. Every person and clinical record in the demonstration is invented.*
 
-The **pending-result example** has a potassium result still pending, follow-up within two days and no named person to call the family. The useful outcome is an inspectable question and a recorded next step. Clinical resolution and patient understanding remain unmeasured.
+## From a pending result to an accepted next step
 
-1. Open **Overview > Preview coordinated follow-up**. Read the original documents and caregiver concern. Opening the preview creates no case and starts no model job.
-2. To run a new verification, use the **operator** demo role, confirm the sources are invented and choose **Reconcile source packet**. This submits a budgeted job to the configured Strands/Bedrock workflow.
-3. Once a clarification card verifies, open its **Clarifications** workspace. With the **reviewer** role, assign the question, explicitly select the assigned demo actor, accept the task and record the source-bound reply.
-4. Switch to **operator** to record and submit a separate child source revision. After that child verifies, return to **reviewer**, select the actor, link the exact child and confirm demo closure. Review and release the child itself.
-5. As reviewer, choose **Enable synthetic patient responses**, then open the child's separate **private response link**. Submit a synthetic own-word answer, inspect the provisional assessment, then return as reviewer for follow-up. The next patient answer stays a separate attempt.
+The sample discharge sheet records a pending potassium result and follow-up within two days, but no named contact. MedPlain keeps the original passages visible, connects them to a question and tracks who accepts the follow-up. The result is a clarification workflow, not a reconciled prescription.
 
-The console role enables actions; the selected demo actor identifies whose acceptance, answer or review is recorded. These are selectable synthetic roles, not hospital authentication.
+![Workflow illustration: original sources, Strands clarification and strict gate, explicit task acceptance, a separately verified child source, released patient response and provisional review with recheck.](docs/assets/story/workflow.png)
 
-![Five-stage source-to-recheck workflow with input, agent clarification, accepted task, separate verified revision and provisional patient response review.](docs/assets/readme/process.svg)
+*Workflow illustration. Verification, staff acceptance, source revision and patient review are separate actions.*
 
-## Choose the right starting point
+### 1. Trace the question to the source
 
-| Your question | Where to start | What you get |
+Open **Overview > Preview coordinated follow-up**. Inspect the invented documents and caregiver concern. Preview creates no case and starts no model job. To start a verification, use the **operator** demo role, confirm the sources are invented and choose **Reconcile source packet**.
+
+### 2. Make responsibility explicit
+
+Once the card verifies, open **Clarifications**. With the **reviewer** role, assign the question, select the assigned synthetic actor, explicitly accept responsibility and record a source-bound reply. An **operator** can prepare a separate child source revision; after it verifies, the reviewer links that exact child and confirms demo closure. The original evidence stays intact.
+
+![Actual db0 console showing a recorded synthetic clarification note, explicit-acceptance context and the separate verified-revision requirement. Offline fixture execution.](docs/assets/story/review-workspace.png)
+
+*Actual application capture at source <code>db0a25ad</code>, using offline fixture models and synthetic staff roles. The recorded note cannot replace the source; a separate verified revision is still required.*
+
+### 3. Read the patient's words, then recheck
+
+Review and release the **child itself**, then choose **Enable synthetic patient responses**. Its ordinary patient link stays read-only. A separate private response link permits an invented own-word answer. The reviewer inspects a provisional assessment, requests follow-up and retains the next answer as a separate attempt.
+
+![Actual db0 reviewer view showing the synthetic response Yes, I understand, its provisional assessment, source quotations and reviewer-required warning. Offline fixture execution.](docs/assets/story/response-review.png)
+
+*Actual application capture with offline fixture models. The assessment requires reviewer review and does not certify understanding or authorize treatment.*
+
+The **role** controls available actions; the **selected actor** identifies whose acceptance, reply or review is recorded. These are synthetic demo selections, not hospital authentication. Watch the complete sequence on [YouTube](https://youtu.be/e6iwWIGLHds), or use the [source-labelled player, timed guide and captions](https://upgradedev.github.io/atropos-medplain-aws/experience-review/).
+
+## Choose your starting point
+
+| What you want to inspect | Start here | Result |
 |---|---|---|
-| What does the console contain? | The initial prepared collection | Twelve labelled synthetic examples. Loading them starts no inference; their available records came from offline SDK fixtures. |
-| Who owns this pending result? | **Preview coordinated follow-up** | An editable preview first, with no case or model job until submission. Submitting starts a new cross-document clarification job. |
-| Do these documents disagree or leave something unclear? | **New case > Reconcile multiple sources** | A source-cited clarification card, mandatory structural checks and separately labelled agent-proposed questions. |
-| Does this supported note preserve its doses and frequencies? | **New case > Import synthetic note** | A constrained patient explanation checked against an independent source ledger and the same strict gate. |
-| Can the gate stop a changed dose? | **Safety walkthrough > Run stress sample** | A separate deliberate mutation exercise with refusal, correction and verification receipts after you submit the sample. |
+| Explore the console without starting inference | Initial prepared collection | Twelve labelled synthetic examples, prepared with offline SDK fixtures |
+| Follow an unresolved result through ownership and review | **Preview coordinated follow-up** | An editable preview first; only confirmation and submission start a new verification |
+| Compare conflicting documents or a caregiver concern | **New case > Reconcile multiple sources** | A source-cited clarification card with separate structural checks and agent-proposed questions |
+| Verify a supported note's doses and frequencies | **New case > Import synthetic note** | A constrained explanation checked against an independent source ledger |
+| Watch the gate reject a deliberate dose change | **Safety walkthrough > Run stress sample** | A submitted mutation drill with refusal, correction and verification receipts |
 
-## Read the result correctly
+## What Strands contributes
 
-| Artifact | What it tells you | What still needs a person |
-|---|---|---|
-| Clarification card | Which original passages support a question | Decide whether the proposal is relevant and who should act |
-| Accepted task and reply | Which selected demo actor accepted and what they recorded | Verify a separate source revision; a reply cannot replace a prescription |
-| Verified child and release | Which exact new source/artifact was reviewed | Confirm the workflow action; demo closure does not prove clinical resolution |
-| Patient response assessment | What a bounded model proposes is missing or misunderstood | Review the proposal and follow up; it does not certify comprehension |
+Strands is load-bearing: its Agent loops execute the tools, structured outputs bind node results, lifecycle hooks enforce publication and the Graph routes correction. Removing Strands breaks the anonymous execution path.
 
-The clinical gate protects supported source facts. Valid citations do not prove useful interpretation. Educational retrieval cannot fill in a missing patient dose, result or owner.
+| Agent | Its bounded job |
+|---|---|
+| <code>DischargeEvidenceIndexerAgent</code> | Establish complete coverage of the original statements |
+| <code>CrossDocumentClarificationPlannerAgent</code> | Connect passages and caregiver wording to supported clarification questions |
+| <code>ClarificationCardPublisherAgent</code> | Bind the immutable card to the exact source and invocation |
+| <code>CareflowTeachbackAssessmentAgent</code> | Propose which released source points a submitted response appears to cover, miss or misunderstand |
 
-[Ownership and patient responses](#clarification-ownership-and-patient-rechecks) · [Safety drill](#try-the-safety-boundary) · [New-note intake](#import-a-new-synthetic-discharge-note) · [Complex cases and evaluation](#complex-discharge-packets-clarify-across-sources) · [Architecture](#what-runs) · [Scope](#safety-and-scope) · [Build](#run-and-verify) · [Reuse](#pre-existing-open-source-patterns)
+The deterministic safety gate checks supported source facts independently. It does not decide which conflicting medicine instruction is clinically correct. A valid citation makes a proposal inspectable; it does not prove relevance or clinical benefit.
+
+## Architecture
+
+![Architecture illustration of the deployed anonymous React console, API Lambda, DynamoDB transactional outbox, Streams relay, SQS and DLQ, Strands worker with Bedrock, and exact-artifact human review before the patient view.](docs/assets/story/architecture.png)
+
+*Deployed command-path illustration. The API commits source and outbox together; a separate worker runs Strands. Review binds the exact artifact before patient release.*
+
+The durable path is **API Lambda → DynamoDB outbox → Streams relay Lambda → SQS → Strands worker Lambda**. Conditional claims and version fencing protect accepted publication. Delivery can repeat, and a crashed worker can repeat inference; this is not an exactly-once model-execution guarantee. [Agent contracts and delivery details](#what-runs) remain available below.
+
+## What the evidence shows
+
+The latest completed paired Bedrock comparison is the [historical <code>43d6244</code> run](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-reconciliation-43d6244), on thirty previously inspected, engineering-annotated synthetic dossiers.
+
+| Measure | Strands / Bedrock, historical <code>43d6244</code> | Full unchanged deterministic baseline |
+|---|---:|---:|
+| Verified cards | 25/30 | 30/30 |
+| Context TP / FP / FN | 9 / 2 / 6 | 4 / 2 / 11 |
+| Context precision | 81.8% | 66.7% |
+
+The agents found more annotated relationships and delivered fewer cards. **All five refusals remain in the denominator.** The goals of 30/30 cards and at least 12 true positives remain open. These are context-question metrics, not patient outcomes.
+
+The [later H12 diagnostic](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-converse-diagnostic-efe6c3e) stopped after one verified card and one refusal. Eleven diagnostics and all thirty comparison cases were unexecuted; the cycle is closed. The current careflow release has no completed live Bedrock efficacy comparison. Clinical benefit and patient comprehension remain unmeasured.
 
 <details>
-<summary>Measurement and publication status, including the retained failures</summary>
+<summary>Application, recording and publication provenance</summary>
 
-The Builder article is saved as a draft for owner review. The new film follows one chronological application journey, including actual source submission, agent trace, assignment and explicit acceptance, a separately verified revision, release, patient responses and reviewer recheck. It preserves 94 seconds of continuous UI at real speed, with genuine page switches and visible waits. The recorded application is source `db0a25ad`, using the actual API and Strands SDK with offline fixture models. This demonstrates the implemented workflow, not new Bedrock efficacy or clinical benefit. The player includes timed viewing guidance, captions and the article. Owner listening/creative approval, Public YouTube hosting and final challenge confirmation remain pending.
+The application is deployed at source <code>db0a25ad4865a36d2f8196be26e2f365abded2b4</code>, version <code>0.2.0</code>, with API profile <code>medplain-careflow-v3</code>. Inspect its [live source identity](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/api/health) and [careflow scope](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/api/ops/careflow/profile). The [current source CI](https://github.com/upgradedev/atropos-medplain-aws/actions/runs/41816152279) exercises the real API and SDK with offline fixture models, including the complete careflow and first-use browser journeys. It does not establish a new provider result.
 
-The [previous 3cbe screenshot pitch](https://upgradedev.github.io/atropos-medplain-aws/final-review/) remains available as a separately identified historical presentation.
+The public film retains 94 seconds of one chronological application journey at real speed, including genuine page switches and visible waits. Its recorded UI uses offline fixture models, with the original ElevenLabs narration and labelled fictional CGI/history. [Source-bound media proof and captions](https://upgradedev.github.io/atropos-medplain-aws/experience-review/media-manifest.json) identify the exact recording. The [Public YouTube video](https://youtu.be/e6iwWIGLHds) and [Published Builder project](https://builder.aws.com/project/3LXiuTVtq2dN9E1fWT41b05gBqN/atropos-medplain-discharge-questions-with-a-named-next-step) are available. Publication and signed-in YouTube playback were observed; anonymous YouTube playback has not been independently verified.
 
-The latest completed thirty-case comparison remains historical `43d6244`: **25/30 verified cards, TP9 / FP2 / FN6 and 81.8% precision**, versus baseline 30/30 and 66.7%. H10 later produced three cards with two strict passes; H11 refused its first job before a planner output. Their full comparisons were blocked. The [H12 diagnostic at `efe6c3e`](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-converse-diagnostic-efe6c3e) delivered one verified card and then refused the second case after a provider ToolUse error. Eleven diagnostics and all thirty comparison cases remain unexecuted. Neither the 30/30 nor 12 TP target is claimed.
+The [matching article reading copy](https://upgradedev.github.io/atropos-medplain-aws/experience-review/article.html), [previous 3cbe screenshot pitch](https://upgradedev.github.io/atropos-medplain-aws/final-review/), [earlier walkthrough](https://github.com/upgradedev/atropos-medplain-aws/releases/download/medplain-demo-video-20261102/medplain-demo.mp4) and its [captions and proof](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-demo-video-20261102) remain preserved. H10 produced three cards with two strict passes; H11 refused its first job before a planner output. Their full comparisons were blocked. No new metrics are inferred from the careflow recording.
 
-The [previous-release walkthrough](https://github.com/upgradedev/atropos-medplain-aws/releases/download/medplain-demo-video-20261102/medplain-demo.mp4) and every failed or partial measurement remain preserved.
+[Story image provenance](docs/assets/story/story-assets.json) records the original illustrations and retained captures. Earlier [hero](docs/assets/readme/hero.svg) and [process](docs/assets/readme/process.svg) diagrams remain available.
 
 </details>
-
-## Clarification ownership and patient rechecks
-
-The careflow release is **deployed at the anonymous AWS URL**, with package version `0.2.0`, API profile `medplain-careflow-v3` and runtime source `db0a25ad4865a36d2f8196be26e2f365abded2b4`. [PR44](https://github.com/upgradedev/atropos-medplain-aws/pull/44) adds clearer task and outcome guidance to the careflow implementation from [PR41](https://github.com/upgradedev/atropos-medplain-aws/pull/41). Inspect the [live source identity](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/api/health) and [careflow scope](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/api/ops/careflow/profile). H12 is closed and no comparison is scheduled. The original baseline, clinical gates, scoring corpus, references, model settings and all 50 original runtime dependency versions remain protected.
-
-The [release CI](https://github.com/upgradedev/atropos-medplain-aws/actions/runs/41676457697) exercises the complete SDK workflow with an offline fixture model, including accepted ownership, a verified child revision, two patient responses, reviewer follow-up, 375px layouts, API failures and drafts retained across deliberately delayed real HTTP reads. Public root, health, profile and compiled asset hashes were checked against the deployed package. The live browser preview was checked at375CSS pixels without submitting a model job. Current-source Bedrock end-to-end behavior, patient understanding and clinical benefit remain unmeasured; fixture results are not substituted for them.
-
-Start at **Overview > Preview coordinated follow-up**. This loads the invented pending-result example without inference. Confirming and submitting the packet starts a new budgeted verification. Once its card is verified, open **Clarifications**, assign a question and explicitly accept it as the selected demo actor. An operator/admin can submit a clarified child source; the reviewer links that verified child, confirms the workflow closure, then opens the child for its own artifact release and patient response access.
-
-In a completed reconciliation case, the **Clarifications** tab supports assignment, explicit acceptance by the selected demo actor, a private source-bound answer and linkage to a separately verified source revision. Closing a clarification requires the linked revision and an explicit reviewer confirmation. Answer text alone cannot become a prescription or replace a source. Demo actors are selectable roles, not authenticated hospital staff.
-
-The evidence panel retrieves relevant sections from a separate, versioned educational workflow snapshot. It shows exact excerpts, publisher links, snapshot hashes, applicability and lexical matching scores. A retrieved reference cannot supply a missing patient dose, start date or owner. These engineering-reviewed educational snapshots are not a clinically approved patient-care corpus; lexical matching does not prove semantic support.
-
-After release, a reviewer can issue a separate **response link**. The ordinary patient link remains read-only. The response capability permits bounded synthetic teach-back submissions and the corresponding public history, without exposing private clinician answers. A submitted answer is queued through the transactional outbox and the existing shared daily allowance. A bounded Strands assessment proposes missing or misunderstood source passages, using exact released quotations for follow-up. Assessment remains provisional and requires reviewer review. It neither certifies comprehension nor closes a clarification. Each recheck remains a separate retained attempt.
-
-For source-only CI, the API uses the existing explicit memory/fixture mode. The separate `scripts/deploy_careflow.py` operator selects `medplain.careflow_worker.handler` and `medplain.careflow_relay.handler`; they dispatch original case jobs through the unchanged legacy handlers. It adds only `dynamodb:ConditionCheckItem` for the API's exact operations table and transactional writes, so source revision and actor versions can be checked atomically. See [AWS transaction permissions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis-iam.html). The operator requires exact prior source/package bindings and preserves the complete live environment except the source SHA, including all three daily limits of 120 and the model settings. It submits no model job, resets no counter and retains a fenced execution journal. `MEDPLAIN_CAREFLOW_MODEL_MODE` defaults to the existing model mode; a fixture override is rejected by the production release operator. New clinical measurements require separate authorization and cannot reopen H12.
-
-The new isolation check, `python scripts/check_careflow_isolation.py`, pins the original clinical gates, full baseline, reference/corpus snapshots, original tests and measurement instruments to their exact parent bytes. New tests and browser journeys exercise the added workflow separately. The original comparison does not measure these V3 capabilities.
-
-## Try the safety boundary
-
-The first visit opens a collection of **12 prepared synthetic examples** across three desks. The collection includes released, review, rejection and failure scenarios so the table, queues, maps and charts can be explored immediately. Every prepared row is labelled. Available verified artifacts and receipts were prepared with the real Strands SDK and the **offline fixture model in CI**, not a new Bedrock invocation. The prepared failure has no patient artifact. Prepared review decisions and failures are exercises, not visitor actions or reported outages.
-
-The original preparation execution IDs remain bound to their receipts. Cloning examples into an anonymous session gives them new case IDs without relabelling the preparation as a live worker run. Prepared rows have no measured worker duration, submit no outbox messages and consume no inference allowance. Loading the collection again is idempotent. Settings also offers an empty-session path.
-
-To execute the differentiator yourself, create a **new** case:
-
-1. Open **Safety walkthrough > Run stress sample**, then submit the synthetic stress packet. Keep the deliberate mutation enabled.
-2. The command returns a job immediately. Its captured source and outbox commit together, then a separate worker executes the real Strands Graph through SQS.
-3. Open the case drawer. Compare source **Warfarin 2.5 mg QHS** with the verified explanation. The drill changes the first draft to **25 mg** before the gate checks it.
-4. Inspect Safety, Agents and Receipt: the gate refuses the changed draft, hands control back to the verifier and validates the rebuilt artifact.
-5. This corrected case enters the review queue. Choose the **reviewer demo role**, inspect the exact source and artifact, then release it. Open the resulting public patient view.
-
-The clean pneumonia packet can release automatically under the synthetic demo policy. Interaction flags or a correction require review. A reviewer cannot override a failed clinical gate. The three packets include mL, mcg, BID/TID/QHS, laboratory intervals and stopped medicines. Every record is invented.
-
-The **Safety walkthrough** guides this sequence. It is a product tour, separate from the organizer's required AWS workshop. The original [single-packet demonstration](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/demo) remains available at the same AWS host.
-
-## Import a new synthetic discharge note
-
-In **New case**, choose **Import synthetic note**, load the editable template and change its invented medicines, values or laboratory intervals. The supported `medplain-discharge-note-v1` format is displayed beside the editor. Confirm that the note is invented before submitting. A new import enters the same durable outbox, SQS and Strands workflow as the sample cases.
-
-The parser Agent reads the original numbered source lines and proposes a typed `SourceSelection`: cited line numbers and model-extracted medication/lab fields. Trusted code copies source quotes and follow-up/help text verbatim from those cited original lines, without supplying or repairing clinical fields. The resulting full `SourceExtraction` must exactly match an independent ledger that consumes every source line, including dose strings, units, frequency aliases and `Stop` / `Do not take` negation. The tool does not provide normalized answers. Unsupported or ambiguous input is refused before inference; wrong facts, missing records or incorrect citations are withheld at the SDK hook.
-
-The application retains the exact original note, raw-source SHA-256 and ledger hash. The normalized packet's FHIR identifier includes the raw-source hash, binding it through the existing receipt source digest. Worker persistence, reviewer release and public reads independently reconstruct that binding. Imported cases always require exact-artifact review. The original clinical publication gate remains unchanged.
-
-This is an English ASCII line profile with at most 8,000 characters, 25 lines, six medicines and six labs. It supports new invented names and values within that profile. It is not a general hospital-document parser or PHI detector. The confirmation does not detect or remove private data. Enter only invented information; accepted notes are stored in the anonymous session and sent to its configured model.
-
-## Simple-note comparison with a deterministic baseline
-
-**Settings** displays the source-bound evaluation report and offers its full JSON. CI uses real **Strands Evals `Case`, `Experiment` and deterministic evaluators** to compare the SDK workflow with the full deterministic normalizer, renderer and the same safety gate on the same independent synthetic corpus. The baseline can process every supported input and receives the same validation rules. Per-case outcomes, failures, corpus/ruler hashes and report hash remain available.
-
-The packaged report is labelled **offline fixture execution**, not Bedrock performance. It measures source extraction, supported field fidelity, refusal behavior, corrective trajectories and common-gate mutation rejection. Both arms use the same gate; its rejection results do not establish agent superiority. Accepted patient text is still constrained to the same deterministic renderer, so equal outputs are an expected result. No improvement in patient comprehension or clinical outcomes is claimed.
-
-The separate [evaluation workflow](.github/workflows/evals.yml) can run a bounded comparison against the deployed Bedrock path through its public API. It records actual worker timing separately from client wall time and preserves failed cases. Token use is not measured because a complete usage collector across all nodes is not installed. That manual run is separate from the offline report bundled in the application.
-
-The [first actual Bedrock measurement at 97d5616](https://github.com/upgradedev/atropos-medplain-aws/actions/runs/40940089854) completed zero of six valid imports, while the baseline completed all six. All four unsupported inputs were refused. Every failed import stopped at parser verification without a patient artifact. Those original negative results remain preserved. A workflow completing successfully means its measurement ran; read the report's `measurement_status` and per-case failures before interpreting capability. Subsequent reports identify their own exact source and harness commits.
-
-## Complex discharge packets: clarify across sources
-
-**New case > Reconcile multiple sources** accepts two to four invented source documents, their supplied issue/effective dates, and an editable caregiver concern in the separate `medplain-reconciliation-v1` profile. Documents can be home lists, discharge orders, addenda, caregiver notes or lab reports. Each document is limited to 6,000 characters; the dossier, including its caregiver concern, is limited to 16,000 characters, 60 nonempty source lines and twelve recognized medication statements. The caregiver concern is limited to 1,000 characters. The selected English or Greek language controls bounded question clauses; original source quotations remain unchanged.
-
-Six examples cover conflicting dose/stop instructions, an explicitly documented intentional change, ordered taper phases, conditional hold/restart wording, product/form confusion, and pending-result follow-up ownership. Source revisions create a new linked case; they do not overwrite the previous case or its evidence.
-
-The useful model task is selecting relevant passages across documents and linking unfamiliar caregiver wording to focused clarification questions. `DischargeEvidenceIndexerAgent` establishes exact source coverage. `CrossDocumentClarificationPlannerAgent` selects cited context and question codes using fresh constraint/reference tools. `ClarificationCardPublisherAgent` references a fresh immutable card. The code independently retains every source statement, recognizes bounded literal clinical atoms, checks structural discrepancies and verifies the entire card before release. It does not infer which document authorizes a medication change from recency alone.
-
-The complex artifact is deliberately a **clarification card**. It contains attributed original quotations, mandatory rule-detected issues, separately labelled agent-proposed context questions and teach-back prompts. Its `patient_regimen` is always null. Original clinical quotations remain untranslated; English or Greek question clauses are deterministic. Unknown wording remains visible for review. Citation integrity does not establish that a model understood a clinical sentence correctly, and an agent proposal is not a verified clinical error. A reviewer can release this exact clarification card, not an inferred prescription. The original simple-note profile still provides its separately gated patient explanation.
-
-Selected warfarin/apixaban with ibuprofen/naproxen appearances produce label-backed review prompts, with the source passages and specific DailyMed references. These are possible exposures to clarify, not proof of concurrent use, a contraindication or an instruction to stop medication. The reference tool uses pinned primary material and eight ingredient-name lookups actually retrieved from NLM. It does not silently substitute products, collapse release forms or clear unknown combinations. The [RxNav interaction service was discontinued](https://lhncbc-portal.lhcaws-prod-pub.nlm.nih.gov/RxNav/information/FAQs.html); RxNorm terminology is not comprehensive interaction data.
-
-The workflow follows [AHRQ MATCH medication reconciliation](https://www.ahrq.gov/patient-safety/settings/hospital/match/chapter-3.html), [RED pending-result follow-up](https://www.ahrq.gov/patient-safety/settings/hospital/red/toolkit/redtool3.html) and [teach-back guidance](https://www.ahrq.gov/health-literacy/improve/precautions/tool5.html). These sources support the workflow design; they do not validate this prototype. Pinned sources, retrieval dates, scope and reference hashes are inspectable in the interface. No universal interaction recall, zero-hallucination or fixed reading-grade claim is made.
-
-The separate **Complex Discharge Evals** corpus has thirty engineering-annotated synthetic dossiers, scored independently against fixed annotations. Both the actual SDK workflow and the complete rule baseline receive the same documents, supported parsers, literal clinical rules, question set and reference snapshots. The baseline also supplies conservative lexical/context planning. Corpus labels and expected answers are not sent to the model. Unknown narrative remains quoted uncertain evidence in both arms. This comparison tests the two implementations; it does not establish that the task requires an LLM.
-
-Independent scores separate source/atom fidelity, proper withholding, structural issues, selected-label review coverage and context-question precision/recall. Fixture mode deliberately replays the rule planner and cannot demonstrate model advantage. Actual Bedrock results, including failures and unexecuted rows, appear separately in Settings after publication for the exact deployed source. Missing results remain explicitly unmeasured.
 
 <details>
 <summary>Retained historical measurements and failed hypotheses, with every original denominator</summary>
@@ -364,6 +330,155 @@ Independent audits verify the saved acknowledgements, terminal responses, source
 
 </details>
 
+## Run and verify
+
+The demo needs only a browser. Dependency installation, package builds and Chromium execution run in GitHub Actions, rather than on the constrained authoring workstation. See the [CI workflow](.github/workflows/ci.yml) and downloadable evidence on its green runs.
+
+For a separate Linux development environment with Python 3.12:
+
+```bash
+python -m pip install -e '.[test,eval]'
+python scripts/build_prepared_demo.py --output src/medplain/data/prepared_demo.json --source-commit "$(git rev-parse HEAD)"
+python scripts/evaluate_medplain.py --mode fixture --source-commit "$(git rev-parse HEAD)" --output src/medplain/data/evaluation_report.json
+cd web && npm ci && npm run build && cd ..
+python scripts/stage_console.py
+MEDPLAIN_MODEL_MODE=fixture uvicorn medplain.api:app --host 127.0.0.1 --port 8000
+```
+
+Local fixture mode uses explicit in-memory operations storage and background dispatch. A configured DynamoDB outage never falls back to memory. Fixture mode replaces the inference adapter with a bounded deterministic model that emits genuine SDK tool-use events. It still runs real Strands Agents, tools, structured output, hooks and Graph edges. It is explicitly labeled offline in the UI and requires no AWS credentials.
+
+```bash
+python scripts/check_source.py
+ruff check src tests scripts
+python scripts/offline_tests.py -q --cov=medplain --cov-report=term-missing
+```
+
+The offline test runner refuses network socket connections. The suite mutates independent dose, unit, frequency, stop-order, narrative, FHIR, lab-range, receipt and session fixtures, then exercises the actual anonymous API and SDK correction cycle. Tests prove the gate rejects deliberately broken inputs; success is not inferred from file existence.
+
+CI prepares the offline SDK collection once, validates its clinical evidence and binds the same JSON bytes into the wheel and Lambda package. The API never generates substitute model evidence when that bundle is unavailable. CI installs Chromium and runs all samples at desktop, including receipt download and verification, plus the stress journey at 375px. Console checks also exercise the prepared first visit, explicit empty-session escape, provenance, and dropdown contrast and keyboard behavior. The workflow can be dispatched with `judge_url` to require HTTP 200, the deployed commit, live Bedrock execution, a refused/corrected stress drill, receipt tamper rejection and the deployed mobile journey. A source CI run without that URL does not establish live readiness.
+
+For Bedrock mode, set `MEDPLAIN_MODEL_MODE=bedrock`, `MEDPLAIN_BEDROCK_MODEL_ID=amazon.nova-micro-v1:0` and `AWS_REGION=us-east-1`, with an AWS identity allowed to invoke that model. The runtime does not accept credentials through the browser.
+
+## Pre-existing open-source patterns
+
+| Source | Reused pattern and boundary |
+|---|---|
+| [Strands Agents Python SDK](https://github.com/strands-agents/sdk-python), Apache-2.0 | Public `Agent`, `@tool`, Graph, lifecycle hook, structured-output and custom-model interfaces. The SDK is a pinned runtime dependency. |
+| [Strands Evals](https://github.com/strands-agents/evals/tree/v1.7.0) | Pinned optional evaluation dependency. Public `Case`, `Experiment` and custom evaluator interfaces; corpus, literal annotations, deterministic clinical/trajectory scorers and full baseline written for this project. |
+| [Lachesis](https://github.com/upgradedev/lachesis-guard), MIT | Conceptual inspiration: deterministic decisions at an SDK lifecycle seam and request/session-bound state. Inspected read-only. No Lachesis code, benchmark, model, fixtures or product was copied. |
+| FastAPI, Pydantic and Mangum | Standard open-source web, schema and Lambda adapter dependencies, declared in `pyproject.toml`. |
+| React, TypeScript, Vite, Tailwind, TanStack Table and Leaflet | Public component, build, styling, table and map APIs; dependencies declared in `web/package.json`. |
+| [Natural Earth country geometry](https://github.com/nvkelso/natural-earth-vector/blob/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_110m_admin_0_countries.geojson), [public domain](https://www.naturalearthdata.com/about/terms-of-use/) | Bundled 1:110m outlines for Greece and twelve surrounding countries. Only country names/codes and source geometry are retained, with coordinates rounded to five decimal places. Full source URL, commit, SHA-256 and transformation are recorded in `web/src/data/greece-region.geojson.json`. These generalized outlines are not street maps or precise facility locations. |
+| AWS transactional outbox guidance | Architectural pattern for committed job events, idempotent consumption and durable queue handoff; implementation written for this project. |
+
+An owner-provided private operations console was inspected read-only for generic navigation and master-detail behavior. No private code, assets, domain data or configuration was copied. The clinical contracts, source profile, templates, safety gate, receipt chain, stress injector, fixtures, operations domain, UI and orchestration wiring were written for this project. Every packet is invented. No customer code or patient records are included. Project code is [MIT licensed](LICENSE).
+
+## Implementation reference
+
+Expand a section for the exact input, gate, workflow or infrastructure boundary.
+
+<details>
+<summary>Clarification ownership and patient rechecks</summary>
+
+## Clarification ownership and patient rechecks
+
+The careflow release is **deployed at the anonymous AWS URL**, with package version `0.2.0`, API profile `medplain-careflow-v3` and runtime source `db0a25ad4865a36d2f8196be26e2f365abded2b4`. [PR44](https://github.com/upgradedev/atropos-medplain-aws/pull/44) adds clearer task and outcome guidance to the careflow implementation from [PR41](https://github.com/upgradedev/atropos-medplain-aws/pull/41). Inspect the [live source identity](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/api/health) and [careflow scope](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/api/ops/careflow/profile). H12 is closed and no comparison is scheduled. The original baseline, clinical gates, scoring corpus, references, model settings and all 50 original runtime dependency versions remain protected.
+
+The [original careflow CI](https://github.com/upgradedev/atropos-medplain-aws/actions/runs/41676457697) exercises the complete SDK workflow with an offline fixture model, including accepted ownership, a verified child revision, two patient responses, reviewer follow-up, 375px layouts, API failures and drafts retained across deliberately delayed real HTTP reads. Public root, health, profile and compiled asset hashes were checked against the deployed package. The live browser preview was checked at375CSS pixels without submitting a model job. Current-source Bedrock end-to-end behavior, patient understanding and clinical benefit remain unmeasured; fixture results are not substituted for them.
+
+Start at **Overview > Preview coordinated follow-up**. This loads the invented pending-result example without inference. Confirming and submitting the packet starts a new budgeted verification. Once its card is verified, open **Clarifications**, assign a question and explicitly accept it as the selected demo actor. An operator/admin can submit a clarified child source; the reviewer links that verified child, confirms the workflow closure, then opens the child for its own artifact release and patient response access.
+
+In a completed reconciliation case, the **Clarifications** tab supports assignment, explicit acceptance by the selected demo actor, a private source-bound answer and linkage to a separately verified source revision. Closing a clarification requires the linked revision and an explicit reviewer confirmation. Answer text alone cannot become a prescription or replace a source. Demo actors are selectable roles, not authenticated hospital staff.
+
+The evidence panel retrieves relevant sections from a separate, versioned educational workflow snapshot. It shows exact excerpts, publisher links, snapshot hashes, applicability and lexical matching scores. A retrieved reference cannot supply a missing patient dose, start date or owner. These engineering-reviewed educational snapshots are not a clinically approved patient-care corpus; lexical matching does not prove semantic support.
+
+After release, a reviewer can issue a separate **response link**. The ordinary patient link remains read-only. The response capability permits bounded synthetic teach-back submissions and the corresponding public history, without exposing private clinician answers. A submitted answer is queued through the transactional outbox and the existing shared daily allowance. A bounded Strands assessment proposes missing or misunderstood source passages, using exact released quotations for follow-up. Assessment remains provisional and requires reviewer review. It neither certifies comprehension nor closes a clarification. Each recheck remains a separate retained attempt.
+
+For source-only CI, the API uses the existing explicit memory/fixture mode. The separate `scripts/deploy_careflow.py` operator selects `medplain.careflow_worker.handler` and `medplain.careflow_relay.handler`; they dispatch original case jobs through the unchanged legacy handlers. It adds only `dynamodb:ConditionCheckItem` for the API's exact operations table and transactional writes, so source revision and actor versions can be checked atomically. See [AWS transaction permissions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis-iam.html). The operator requires exact prior source/package bindings and preserves the complete live environment except the source SHA, including all three daily limits of 120 and the model settings. It submits no model job, resets no counter and retains a fenced execution journal. `MEDPLAIN_CAREFLOW_MODEL_MODE` defaults to the existing model mode; a fixture override is rejected by the production release operator. New clinical measurements require separate authorization and cannot reopen H12.
+
+The new isolation check, `python scripts/check_careflow_isolation.py`, pins the original clinical gates, full baseline, reference/corpus snapshots, original tests and measurement instruments to their exact parent bytes. New tests and browser journeys exercise the added workflow separately. The original comparison does not measure these V3 capabilities.
+
+</details>
+
+<details>
+<summary>Try the safety boundary</summary>
+
+## Try the safety boundary
+
+The first visit opens a collection of **12 prepared synthetic examples** across three desks. The collection includes released, review, rejection and failure scenarios so the table, queues, maps and charts can be explored immediately. Every prepared row is labelled. Available verified artifacts and receipts were prepared with the real Strands SDK and the **offline fixture model in CI**, not a new Bedrock invocation. The prepared failure has no patient artifact. Prepared review decisions and failures are exercises, not visitor actions or reported outages.
+
+The original preparation execution IDs remain bound to their receipts. Cloning examples into an anonymous session gives them new case IDs without relabelling the preparation as a live worker run. Prepared rows have no measured worker duration, submit no outbox messages and consume no inference allowance. Loading the collection again is idempotent. Settings also offers an empty-session path.
+
+To execute the differentiator yourself, create a **new** case:
+
+1. Open **Safety walkthrough > Run stress sample**, then submit the synthetic stress packet. Keep the deliberate mutation enabled.
+2. The command returns a job immediately. Its captured source and outbox commit together, then a separate worker executes the real Strands Graph through SQS.
+3. Open the case drawer. Compare source **Warfarin 2.5 mg QHS** with the verified explanation. The drill changes the first draft to **25 mg** before the gate checks it.
+4. Inspect Safety, Agents and Receipt: the gate refuses the changed draft, hands control back to the verifier and validates the rebuilt artifact.
+5. This corrected case enters the review queue. Choose the **reviewer demo role**, inspect the exact source and artifact, then release it. Open the resulting public patient view.
+
+The clean pneumonia packet can release automatically under the synthetic demo policy. Interaction flags or a correction require review. A reviewer cannot override a failed clinical gate. The three packets include mL, mcg, BID/TID/QHS, laboratory intervals and stopped medicines. Every record is invented.
+
+The **Safety walkthrough** guides this sequence. It is a product tour, separate from the organizer's required AWS workshop. The original [single-packet demonstration](https://gioep6m26pm3cwvxjp4z4erpmu0zihbk.lambda-url.us-east-1.on.aws/demo) remains available at the same AWS host.
+
+</details>
+
+<details>
+<summary>Import a new synthetic discharge note</summary>
+
+## Import a new synthetic discharge note
+
+In **New case**, choose **Import synthetic note**, load the editable template and change its invented medicines, values or laboratory intervals. The supported `medplain-discharge-note-v1` format is displayed beside the editor. Confirm that the note is invented before submitting. A new import enters the same durable outbox, SQS and Strands workflow as the sample cases.
+
+The parser Agent reads the original numbered source lines and proposes a typed `SourceSelection`: cited line numbers and model-extracted medication/lab fields. Trusted code copies source quotes and follow-up/help text verbatim from those cited original lines, without supplying or repairing clinical fields. The resulting full `SourceExtraction` must exactly match an independent ledger that consumes every source line, including dose strings, units, frequency aliases and `Stop` / `Do not take` negation. The tool does not provide normalized answers. Unsupported or ambiguous input is refused before inference; wrong facts, missing records or incorrect citations are withheld at the SDK hook.
+
+The application retains the exact original note, raw-source SHA-256 and ledger hash. The normalized packet's FHIR identifier includes the raw-source hash, binding it through the existing receipt source digest. Worker persistence, reviewer release and public reads independently reconstruct that binding. Imported cases always require exact-artifact review. The original clinical publication gate remains unchanged.
+
+This is an English ASCII line profile with at most 8,000 characters, 25 lines, six medicines and six labs. It supports new invented names and values within that profile. It is not a general hospital-document parser or PHI detector. The confirmation does not detect or remove private data. Enter only invented information; accepted notes are stored in the anonymous session and sent to its configured model.
+
+</details>
+
+<details>
+<summary>Simple-note comparison with a deterministic baseline</summary>
+
+## Simple-note comparison with a deterministic baseline
+
+**Settings** displays the source-bound evaluation report and offers its full JSON. CI uses real **Strands Evals `Case`, `Experiment` and deterministic evaluators** to compare the SDK workflow with the full deterministic normalizer, renderer and the same safety gate on the same independent synthetic corpus. The baseline can process every supported input and receives the same validation rules. Per-case outcomes, failures, corpus/ruler hashes and report hash remain available.
+
+The packaged report is labelled **offline fixture execution**, not Bedrock performance. It measures source extraction, supported field fidelity, refusal behavior, corrective trajectories and common-gate mutation rejection. Both arms use the same gate; its rejection results do not establish agent superiority. Accepted patient text is still constrained to the same deterministic renderer, so equal outputs are an expected result. No improvement in patient comprehension or clinical outcomes is claimed.
+
+The separate [evaluation workflow](.github/workflows/evals.yml) can run a bounded comparison against the deployed Bedrock path through its public API. It records actual worker timing separately from client wall time and preserves failed cases. Token use is not measured because a complete usage collector across all nodes is not installed. That manual run is separate from the offline report bundled in the application.
+
+The [first actual Bedrock measurement at 97d5616](https://github.com/upgradedev/atropos-medplain-aws/actions/runs/40940089854) completed zero of six valid imports, while the baseline completed all six. All four unsupported inputs were refused. Every failed import stopped at parser verification without a patient artifact. Those original negative results remain preserved. A workflow completing successfully means its measurement ran; read the report's `measurement_status` and per-case failures before interpreting capability. Subsequent reports identify their own exact source and harness commits.
+
+</details>
+
+<details>
+<summary>Complex discharge packets: clarify across sources</summary>
+
+## Complex discharge packets: clarify across sources
+
+**New case > Reconcile multiple sources** accepts two to four invented source documents, their supplied issue/effective dates, and an editable caregiver concern in the separate `medplain-reconciliation-v1` profile. Documents can be home lists, discharge orders, addenda, caregiver notes or lab reports. Each document is limited to 6,000 characters; the dossier, including its caregiver concern, is limited to 16,000 characters, 60 nonempty source lines and twelve recognized medication statements. The caregiver concern is limited to 1,000 characters. The selected English or Greek language controls bounded question clauses; original source quotations remain unchanged.
+
+Six examples cover conflicting dose/stop instructions, an explicitly documented intentional change, ordered taper phases, conditional hold/restart wording, product/form confusion, and pending-result follow-up ownership. Source revisions create a new linked case; they do not overwrite the previous case or its evidence.
+
+The useful model task is selecting relevant passages across documents and linking unfamiliar caregiver wording to focused clarification questions. `DischargeEvidenceIndexerAgent` establishes exact source coverage. `CrossDocumentClarificationPlannerAgent` selects cited context and question codes using fresh constraint/reference tools. `ClarificationCardPublisherAgent` references a fresh immutable card. The code independently retains every source statement, recognizes bounded literal clinical atoms, checks structural discrepancies and verifies the entire card before release. It does not infer which document authorizes a medication change from recency alone.
+
+The complex artifact is deliberately a **clarification card**. It contains attributed original quotations, mandatory rule-detected issues, separately labelled agent-proposed context questions and teach-back prompts. Its `patient_regimen` is always null. Original clinical quotations remain untranslated; English or Greek question clauses are deterministic. Unknown wording remains visible for review. Citation integrity does not establish that a model understood a clinical sentence correctly, and an agent proposal is not a verified clinical error. A reviewer can release this exact clarification card, not an inferred prescription. The original simple-note profile still provides its separately gated patient explanation.
+
+Selected warfarin/apixaban with ibuprofen/naproxen appearances produce label-backed review prompts, with the source passages and specific DailyMed references. These are possible exposures to clarify, not proof of concurrent use, a contraindication or an instruction to stop medication. The reference tool uses pinned primary material and eight ingredient-name lookups actually retrieved from NLM. It does not silently substitute products, collapse release forms or clear unknown combinations. The [RxNav interaction service was discontinued](https://lhncbc-portal.lhcaws-prod-pub.nlm.nih.gov/RxNav/information/FAQs.html); RxNorm terminology is not comprehensive interaction data.
+
+The workflow follows [AHRQ MATCH medication reconciliation](https://www.ahrq.gov/patient-safety/settings/hospital/match/chapter-3.html), [RED pending-result follow-up](https://www.ahrq.gov/patient-safety/settings/hospital/red/toolkit/redtool3.html) and [teach-back guidance](https://www.ahrq.gov/health-literacy/improve/precautions/tool5.html). These sources support the workflow design; they do not validate this prototype. Pinned sources, retrieval dates, scope and reference hashes are inspectable in the interface. No universal interaction recall, zero-hallucination or fixed reading-grade claim is made.
+
+The separate **Complex Discharge Evals** corpus has thirty engineering-annotated synthetic dossiers, scored independently against fixed annotations. Both the actual SDK workflow and the complete rule baseline receive the same documents, supported parsers, literal clinical rules, question set and reference snapshots. The baseline also supplies conservative lexical/context planning. Corpus labels and expected answers are not sent to the model. Unknown narrative remains quoted uncertain evidence in both arms. This comparison tests the two implementations; it does not establish that the task requires an LLM.
+
+Independent scores separate source/atom fidelity, proper withholding, structural issues, selected-label review coverage and context-question precision/recall. Fixture mode deliberately replays the rule planner and cannot demonstrate model advantage. Actual Bedrock results, including failures and unexecuted rows, appear separately in Settings after publication for the exact deployed source. Missing results remain explicitly unmeasured.
+
+</details>
+
+<details>
+<summary>Operations console</summary>
+
 ## Operations console
 
 React, TypeScript, Tailwind and TanStack Table provide a responsive shell with a collapsible sidebar, counter badges, workspace switcher, `/` search and a user menu. Overview, Cases, Queues, Maps and Settings use the same server-scoped synthetic session. Cases support server filtering, sorting and pagination, with a tabbed detail drawer. Action results use toasts; unavailable APIs, empty cohorts and loading requests have explicit states. Disabled actions state their reason.
@@ -373,6 +488,11 @@ Overview charts show persisted case states and desk workload, including the expl
 Maps has two views: an interactive agent workflow with recorded trace drill-down, and a geographic map of **synthetic discharge desks** at city-center coordinates. These are demonstration facilities, not patient addresses or real hospital sites. The geographic view bundles generalized Natural Earth country outlines and uses Leaflet for pan, zoom, current-session counts and marker-to-case drill-down. It makes no external tile requests and needs no map API key. The browser never requests the visitor's location.
 
 An opaque anonymous capability scopes the session. Operator, reviewer, auditor and admin are explicitly labelled **synthetic demo lenses**, selectable by the same visitor. The server enforces the selected role and case ownership, but this is not authenticated hospital staff authorization. Sessions and public release capabilities expire after 24 hours. The prepared collection reuses the included source profiles; new invented notes use the bounded intake profile above. Native dropdowns explicitly follow the selected dark or light color scheme, with opaque option backgrounds and readable text.
+
+</details>
+
+<details>
+<summary>What runs</summary>
 
 ## What runs
 
@@ -450,6 +570,11 @@ The command path uses a transactional outbox rather than an uncoordinated databa
 
 A worker independently rechecks saved source, full artifact and receipt integrity before persistence. Review and public reads repeat that validation. A review binds the current record version, source hash and artifact hash. It cannot approve a different candidate or bypass a refused gate.
 
+</details>
+
+<details>
+<summary>Safety and scope</summary>
+
 ## Safety and scope
 
 This is a synthetic engineering demonstration, not a medical device or clinical advice. Source fidelity does not establish that a source prescription is appropriate. Do not use these invented medicine plans for your own care.
@@ -462,34 +587,10 @@ The interaction matrix covers only the named demonstration pairs. An absent flag
 
 Receipts bind a canonical source hash, candidate artifact hash, verdict, discrepancies, session, sequence and previous hash. The artifact digest covers the structured explanation and rendered text. The chain is **unsigned**. It detects edited or reordered entries; it does not establish authenticity, medical correctness, or completeness without an externally retained final hash. There is no blockchain, clinical certification or external timestamp authority.
 
-## Run and verify
+</details>
 
-The demo needs only a browser. Dependency installation, package builds and Chromium execution run in GitHub Actions, rather than on the constrained authoring workstation. See the [CI workflow](.github/workflows/ci.yml) and downloadable evidence on its green runs.
-
-For a separate Linux development environment with Python 3.12:
-
-```bash
-python -m pip install -e '.[test,eval]'
-python scripts/build_prepared_demo.py --output src/medplain/data/prepared_demo.json --source-commit "$(git rev-parse HEAD)"
-python scripts/evaluate_medplain.py --mode fixture --source-commit "$(git rev-parse HEAD)" --output src/medplain/data/evaluation_report.json
-cd web && npm ci && npm run build && cd ..
-python scripts/stage_console.py
-MEDPLAIN_MODEL_MODE=fixture uvicorn medplain.api:app --host 127.0.0.1 --port 8000
-```
-
-Local fixture mode uses explicit in-memory operations storage and background dispatch. A configured DynamoDB outage never falls back to memory. Fixture mode replaces the inference adapter with a bounded deterministic model that emits genuine SDK tool-use events. It still runs real Strands Agents, tools, structured output, hooks and Graph edges. It is explicitly labeled offline in the UI and requires no AWS credentials.
-
-```bash
-python scripts/check_source.py
-ruff check src tests scripts
-python scripts/offline_tests.py -q --cov=medplain --cov-report=term-missing
-```
-
-The offline test runner refuses network socket connections. The suite mutates independent dose, unit, frequency, stop-order, narrative, FHIR, lab-range, receipt and session fixtures, then exercises the actual anonymous API and SDK correction cycle. Tests prove the gate rejects deliberately broken inputs; success is not inferred from file existence.
-
-CI prepares the offline SDK collection once, validates its clinical evidence and binds the same JSON bytes into the wheel and Lambda package. The API never generates substitute model evidence when that bundle is unavailable. CI installs Chromium and runs all samples at desktop, including receipt download and verification, plus the stress journey at 375px. Console checks also exercise the prepared first visit, explicit empty-session escape, provenance, and dropdown contrast and keyboard behavior. The workflow can be dispatched with `judge_url` to require HTTP 200, the deployed commit, live Bedrock execution, a refused/corrected stress drill, receipt tamper rejection and the deployed mobile journey. A source CI run without that URL does not establish live readiness.
-
-For Bedrock mode, set `MEDPLAIN_MODEL_MODE=bedrock`, `MEDPLAIN_BEDROCK_MODEL_ID=amazon.nova-micro-v1:0` and `AWS_REGION=us-east-1`, with an AWS identity allowed to invoke that model. The runtime does not accept credentials through the browser.
+<details>
+<summary>AWS deployment</summary>
 
 ## AWS deployment
 
@@ -522,16 +623,4 @@ python scripts/live_smoke.py 'YOUR_PUBLIC_AWS_URL' --expected-commit 'FULL_SOURC
 python scripts/ops_live_smoke.py 'YOUR_PUBLIC_AWS_URL' --expected-commit 'FULL_SOURCE_COMMIT'
 ```
 
-## Pre-existing open-source patterns
-
-| Source | Reused pattern and boundary |
-|---|---|
-| [Strands Agents Python SDK](https://github.com/strands-agents/sdk-python), Apache-2.0 | Public `Agent`, `@tool`, Graph, lifecycle hook, structured-output and custom-model interfaces. The SDK is a pinned runtime dependency. |
-| [Strands Evals](https://github.com/strands-agents/evals/tree/v1.7.0) | Pinned optional evaluation dependency. Public `Case`, `Experiment` and custom evaluator interfaces; corpus, literal annotations, deterministic clinical/trajectory scorers and full baseline written for this project. |
-| [Lachesis](https://github.com/upgradedev/lachesis-guard), MIT | Conceptual inspiration: deterministic decisions at an SDK lifecycle seam and request/session-bound state. Inspected read-only. No Lachesis code, benchmark, model, fixtures or product was copied. |
-| FastAPI, Pydantic and Mangum | Standard open-source web, schema and Lambda adapter dependencies, declared in `pyproject.toml`. |
-| React, TypeScript, Vite, Tailwind, TanStack Table and Leaflet | Public component, build, styling, table and map APIs; dependencies declared in `web/package.json`. |
-| [Natural Earth country geometry](https://github.com/nvkelso/natural-earth-vector/blob/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_110m_admin_0_countries.geojson), [public domain](https://www.naturalearthdata.com/about/terms-of-use/) | Bundled 1:110m outlines for Greece and twelve surrounding countries. Only country names/codes and source geometry are retained, with coordinates rounded to five decimal places. Full source URL, commit, SHA-256 and transformation are recorded in `web/src/data/greece-region.geojson.json`. These generalized outlines are not street maps or precise facility locations. |
-| AWS transactional outbox guidance | Architectural pattern for committed job events, idempotent consumption and durable queue handoff; implementation written for this project. |
-
-An owner-provided private operations console was inspected read-only for generic navigation and master-detail behavior. No private code, assets, domain data or configuration was copied. The clinical contracts, source profile, templates, safety gate, receipt chain, stress injector, fixtures, operations domain, UI and orchestration wiring were written for this project. Every packet is invented. No customer code or patient records are included. Project code is [MIT licensed](LICENSE).
+</details>
