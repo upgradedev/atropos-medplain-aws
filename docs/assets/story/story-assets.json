@@ -19,8 +19,8 @@
     },
     {
       "file": "architecture.svg",
-      "sha256": "1d294cc0991140c3f00b1b058f98706b7f65bea5b324b49509e67fddbb16891c",
-      "bytes": 11637,
+      "sha256": "0432cf1ab49ded05489f4d794c7a7725aa0d8ee360dc9ec995af8d94f6cde5cd",
+      "bytes": 11630,
       "width": 1600,
       "height": 1300,
       "caption": "Architecture illustration of the db0 source: FastAPI Lambda, DynamoDB transactional outbox, Streams relay, SQS, Strands worker with configured Bedrock models and human release. Configured models are not inference evidence.",

@@ -19,7 +19,7 @@
 <text x="470" y="353" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Validate each request</text>
 <text x="470" y="392" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">No cloud keys in browser</text>
 <rect x="832" y="220" width="320" height="230" rx="24" fill="#171e28" stroke="#2b3645" stroke-width="2"/>
-<text x="854" y="261" font-size="24" fill="#7ce4c5" font-weight="700" text-anchor="start">TRANSACTIONAL OUTBOX</text>
+<text x="854" y="261" font-size="24" fill="#7ce4c5" font-weight="700" text-anchor="start">CASE + OUTBOX</text>
 <text x="854" y="307" font-size="28" fill="#e9eef5" font-weight="700" text-anchor="start">DynamoDB</text>
 <text x="854" y="353" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Case + source + outbox</text>
 <text x="854" y="392" font-size="24" fill="#94a3b7" font-weight="400" text-anchor="start">Commit together</text>
