@@ -15,7 +15,7 @@
       "representation": "Explanatory source architecture, not an application screenshot, invocation trace or measurement",
       "minimum_visible_font_px": 24,
       "local_render_performed": false,
-      "PNG_derivative": "Root converts this exact SVG in CI; actual PNG/pixel review is pending"
+      "PNG_derivative": "Exact CI-rendered PNG is bound in render-manifest.json; independently reviewed as explanatory artwork."
     },
     {
       "file": "architecture.svg",
@@ -28,7 +28,7 @@
       "representation": "Explanatory source architecture, not an application screenshot, invocation trace or measurement",
       "minimum_visible_font_px": 24,
       "local_render_performed": false,
-      "PNG_derivative": "Root converts this exact SVG in CI; actual PNG/pixel review is pending"
+      "PNG_derivative": "Exact CI-rendered PNG is bound in render-manifest.json; independently reviewed as explanatory artwork."
     }
   ],
   "screenshots": [
@@ -138,5 +138,8 @@
     "Visible roles simulate staff responsibility, not authenticated hospital staff.",
     "Provisional assessment does not certify understanding or authorize treatment."
   ],
-  "external_provider_cloud_browser_render_calls": 0
+  "external_provider_cloud_browser_render_calls": 0,
+  "render_manifest": "render-manifest.json",
+  "render_run": "https://github.com/upgradedev/atropos-medplain-aws/actions/runs/41964807275",
+  "independent_visual_review_sha256": "f4af0af194d50f00d4a58b8d54b95486e1c4a95d66fb8c6554e77d20f6e56ecb"
 }

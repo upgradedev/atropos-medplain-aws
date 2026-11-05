@@ -8,7 +8,7 @@ For discharge reviewers and caregivers facing a practical question: **a test is 
 
 ![Fictional caregiver and older parent at home with discharge documents. Original CGI illustration, not patient footage.](docs/assets/story/cover.jpg)
 
-*Illustrated scenario. Every person and clinical record in the demonstration is invented.*
+*Original AI-generated CGI illustration. Every person and clinical record in the demonstration is invented.*
 
 ## From a pending result to an accepted next step
 
@@ -92,9 +92,9 @@ The application is deployed at source <code>db0a25ad4865a36d2f8196be26e2f365abde
 
 The public film retains 94 seconds of one chronological application journey at real speed, including genuine page switches and visible waits. Its recorded UI uses offline fixture models, with the original ElevenLabs narration and labelled fictional CGI/history. [Source-bound media proof and captions](https://upgradedev.github.io/atropos-medplain-aws/experience-review/media-manifest.json) identify the exact recording. The [Public YouTube video](https://youtu.be/e6iwWIGLHds) and [Published Builder project](https://builder.aws.com/project/3LXiuTVtq2dN9E1fWT41b05gBqN/atropos-medplain-discharge-questions-with-a-named-next-step) are available. Publication and signed-in YouTube playback were observed; anonymous YouTube playback has not been independently verified.
 
-The [matching article reading copy](https://upgradedev.github.io/atropos-medplain-aws/experience-review/article.html), [previous 3cbe screenshot pitch](https://upgradedev.github.io/atropos-medplain-aws/final-review/), [earlier walkthrough](https://github.com/upgradedev/atropos-medplain-aws/releases/download/medplain-demo-video-20261102/medplain-demo.mp4) and its [captions and proof](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-demo-video-20261102) remain preserved. H10 produced three cards with two strict passes; H11 refused its first job before a planner output. Their full comparisons were blocked. No new metrics are inferred from the careflow recording.
+The [preserved article reading copy](https://upgradedev.github.io/atropos-medplain-aws/experience-review/article.html), [previous 3cbe screenshot pitch](https://upgradedev.github.io/atropos-medplain-aws/final-review/), [earlier walkthrough](https://github.com/upgradedev/atropos-medplain-aws/releases/download/medplain-demo-video-20261102/medplain-demo.mp4) and its [captions and proof](https://github.com/upgradedev/atropos-medplain-aws/releases/tag/medplain-demo-video-20261102) remain preserved. H10 produced three cards with two strict passes; H11 refused its first job before a planner output. Their full comparisons were blocked. No new metrics are inferred from the careflow recording.
 
-[Story image provenance](docs/assets/story/story-assets.json) records the original illustrations and retained captures. Earlier [hero](docs/assets/readme/hero.svg) and [process](docs/assets/readme/process.svg) diagrams remain available.
+[Story image provenance](docs/assets/story/story-assets.json), the [original cover prompt](docs/assets/story/cover-provenance.json) and the [CI render manifest](docs/assets/story/render-manifest.json) identify the illustrations and retained captures. Earlier [hero](docs/assets/readme/hero.svg) and [process](docs/assets/readme/process.svg) diagrams remain available.
 
 </details>
 
