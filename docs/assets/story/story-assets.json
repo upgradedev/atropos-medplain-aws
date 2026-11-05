@@ -6,8 +6,8 @@
   "diagrams": [
     {
       "file": "workflow.svg",
-      "sha256": "836e1d3059fb5c3f36a98c41973925dde54ebb5bbd41fb9f59918670735c595f",
-      "bytes": 9187,
+      "sha256": "3d2c1ffefa381fcecfc8efa29f815f42b0b2ebe333b9e6c6709e9bfea3652c3c",
+      "bytes": 9120,
       "width": 1600,
       "height": 1160,
       "caption": "Workflow illustration: original evidence, Strands and the strict gate, explicit synthetic responsibility, a separately verified child, patient words and provisional reviewer follow-up. No measured clinical outcome is shown.",
@@ -19,8 +19,8 @@
     },
     {
       "file": "architecture.svg",
-      "sha256": "07c126a3629dccb309b7f70e8ba25d21bbf177fbe78729bedbc1101178170678",
-      "bytes": 11721,
+      "sha256": "1d294cc0991140c3f00b1b058f98706b7f65bea5b324b49509e67fddbb16891c",
+      "bytes": 11637,
       "width": 1600,
       "height": 1300,
       "caption": "Architecture illustration of the db0 source: FastAPI Lambda, DynamoDB transactional outbox, Streams relay, SQS, Strands worker with configured Bedrock models and human release. Configured models are not inference evidence.",
